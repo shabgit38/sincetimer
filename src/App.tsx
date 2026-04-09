@@ -44,6 +44,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/add" element={<AddEntry />} />
+          <Route path="/edit/:id" element={<AddEntry />} />
         </Routes>
       </main>
     </div>

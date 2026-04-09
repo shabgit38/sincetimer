@@ -81,6 +81,11 @@ export async function getAllEntries(): Promise<EntryRecord[]> {
   );
 }
 
+export async function getEntryById(id: number): Promise<EntryRecord | undefined> {
+  const db = await getDb();
+  return db.get('entries', id);
+}
+
 export async function updateEntry(id: number, updates: Partial<EntryRecord>): Promise<void> {
   const db = await getDb();
   const existing = await db.get('entries', id);
