@@ -126,6 +126,12 @@ export async function getHistoryForEntry(entryId: number): Promise<HistoryRecord
   );
 }
 
+export async function insertHistory(history: HistoryRecord): Promise<number> {
+  const db = await getDb();
+  const id = await db.add('history', history);
+  return id as number;
+}
+
 export async function pruneOldHistory(months: number): Promise<void> {
   const db = await getDb();
   const cutoff = new Date();
@@ -144,4 +150,11 @@ export async function pruneOldHistory(months: number): Promise<void> {
 
   await tx.objectStore('settings').put({ key: 'history_months', value: months });
   await tx.done;
+}
+
+export async function getHistoryMonths(): Promise<number> {
+  const db = await getDb();
+  const record = await db.get('settings', 'history_months');
+  if (!record) return 6;
+  return record.value ?? 6;
 }

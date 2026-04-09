@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import AddEntry from './pages/AddEntry';
+import EntryDetail from './pages/EntryDetail';
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/add" element={<AddEntry />} />
           <Route path="/edit/:id" element={<AddEntry />} />
+          <Route path="/entry/:id" element={<EntryDetail />} />
         </Routes>
       </main>
     </div>

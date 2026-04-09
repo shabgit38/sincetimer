@@ -98,14 +98,13 @@ export default function AddEntry() {
       notes: notes.trim() ? notes.trim() : null,
       reminder_enabled: reminderEnabled,
       reminder_time: reminderEnabled ? reminderTime : null,
-      created_at: new Date().toISOString(),
     };
 
     try {
       if (isEditing && entryId !== null) {
         await updateEntry(entryId, payload);
       } else {
-        await insertEntry(payload);
+        await insertEntry({ ...payload, created_at: new Date().toISOString() });
       }
       await scheduleNotification();
       navigate("/");
