@@ -1,4 +1,5 @@
-import { IDBPDatabase, openDB } from 'idb';
+import { openDB } from 'idb';
+import type { IDBPDatabase } from 'idb';
 
 export type EntryCategory = 'purchase' | 'task' | 'event' | 'routine';
 
