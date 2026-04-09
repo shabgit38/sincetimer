@@ -1,0 +1,12 @@
+add to calender button click gives the error  :credentials.json not found. Download it from Google Cloud Console
+Read c:\Users\shaba\Downloads\sincetimer\backend\routes\calendar.py
+This is expected behavior — the app requires a credentials.json file from Google Cloud Console to authenticate with the Google Calendar API. Here's how to get it:
+
+Go to Google Cloud Console
+Create a project (or select an existing one)
+Enable the Google Calendar API: APIs & Services → Library → search "Google Calendar API" → Enable
+Create credentials: APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+Application type: Desktop app
+Give it any name
+Click Download JSON and save it as credentials.json inside c:\Users\shaba\Downloads\sincetimer\backend\
+Once the file is in place, clicking "Add to Calendar" will open a browser window asking you to authorize the app with your Google account. After that, a token.pickle is saved and you won't need to authorize again.
