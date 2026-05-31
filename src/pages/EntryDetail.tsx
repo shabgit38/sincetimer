@@ -1,4 +1,4 @@
-import { format, formatDistanceToNowStrict, parseISO } from "date-fns";
+import { addDays, format, formatDistanceToNowStrict, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -17,26 +17,36 @@ import type { Entry, HistoryItem } from "@/types/entry";
 export default function EntryDetail() {
   const navigate = useNavigate();
   const params = useParams();
-  const entryId = params.id ? Number(params.id) : null;
+  const entryId = params.id ?? null;
 
   const [entry, setEntry] = useState<Entry | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [historyMonths, setHistoryMonths] = useState(6);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [logDate, setLogDate] = useState("");
+  const [logError, setLogError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      if (!entryId || Number.isNaN(entryId)) return;
+      if (!entryId) return;
       setLoading(true);
-      const [entryRecord, historyRecords, months] = await Promise.all([
-        getEntryById(entryId),
-        getHistoryForEntry(entryId),
-        getHistoryMonths(),
-      ]);
-      setEntry((entryRecord as Entry | undefined) ?? null);
-      setHistory(historyRecords as HistoryItem[]);
-      setHistoryMonths(months);
-      setLoading(false);
+      setError(null);
+      try {
+        const [entryRecord, historyRecords, months] = await Promise.all([
+          getEntryById(entryId),
+          getHistoryForEntry(entryId),
+          getHistoryMonths(),
+        ]);
+        setEntry(entryRecord);
+        setHistory(historyRecords);
+        setHistoryMonths(months);
+      } catch (loadError) {
+        console.error(loadError);
+        setError("Unable to load entry.");
+      } finally {
+        setLoading(false);
+      }
     };
     void load();
   }, [entryId]);
@@ -47,23 +57,38 @@ export default function EntryDetail() {
   }, [entry]);
 
   const totalSpend = useMemo(() => {
-    if (!entry || entry.category !== "purchase" || entry.price === null) return null;
+    if (!entry || entry.type !== "purchase" || entry.price === null) return null;
     const count = 1 + history.length;
-    return entry.price * count;
+    return Number(entry.price) * count;
   }, [entry, history.length]);
 
   const handleLogAgain = async () => {
     if (!entry || !entryId) return;
+    setLogError(null);
+    if (!logDate) {
+      setLogError("Choose a log date first.");
+      return;
+    }
+
+    const loggedAt = new Date(logDate);
+    const nextDueDate = entry.repeat_interval_days
+      ? addDays(loggedAt, entry.repeat_interval_days).toISOString()
+      : entry.next_due_date;
+
     await insertHistory({
       entry_id: entryId,
-      logged_date: entry.entry_date,
+      logged_date: loggedAt.toISOString(),
       notes: "",
     });
-    await updateEntry(entryId, { entry_date: new Date().toISOString() });
+    await updateEntry(entryId, {
+      entry_date: loggedAt.toISOString(),
+      next_due_date: nextDueDate,
+    });
     const updated = await getEntryById(entryId);
     const historyRecords = await getHistoryForEntry(entryId);
-    setEntry((updated as Entry | undefined) ?? null);
-    setHistory(historyRecords as HistoryItem[]);
+    setEntry(updated);
+    setHistory(historyRecords);
+    setLogDate("");
   };
 
   const handleDelete = async () => {
@@ -76,20 +101,28 @@ export default function EntryDetail() {
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
+      <section className="rounded-xl border border-stone-200 bg-white p-8 shadow-sm">
         <p className="text-sm text-stone-500">Loading entry...</p>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="rounded-xl border border-rose-200 bg-rose-50 p-8 text-rose-700 shadow-sm">
+        <p className="text-sm">{error}</p>
       </section>
     );
   }
 
   if (!entry) {
     return (
-      <section className="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
+      <section className="rounded-xl border border-stone-200 bg-white p-8 shadow-sm">
         <h2 className="text-xl font-semibold">Entry not found</h2>
         <p className="mt-2 text-sm text-stone-500">This entry may have been deleted.</p>
-        <Button className="mt-4" asChild>
-          <Link to="/">Back to Dashboard</Link>
-        </Button>
+        <Link className="mt-4 inline-flex h-10 items-center rounded-lg bg-stone-900 px-4 text-sm font-medium text-white hover:bg-stone-700" to="/">
+          Back to Dashboard
+        </Link>
       </section>
     );
   }
@@ -99,7 +132,9 @@ export default function EntryDetail() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">{entry.title}</h2>
-          <p className="text-xs uppercase tracking-[0.2em] text-stone-400">{entry.category}</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
+            {entry.area} / {entry.type}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => navigate(`/edit/${entry.id}`)}>
@@ -112,25 +147,19 @@ export default function EntryDetail() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Last logged</p>
-          <p className="mt-2 text-lg font-semibold">
-            {format(parseISO(entry.entry_date), "PPP")}
-          </p>
+          <p className="mt-2 text-lg font-semibold">{format(parseISO(entry.entry_date), "PPP")}</p>
           <p className="mt-1 text-sm text-stone-500">
             {formatDistanceToNowStrict(parseISO(entry.entry_date), { addSuffix: true })}
           </p>
         </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Next due</p>
           <p className="mt-2 text-lg font-semibold">
             {entry.next_due_date ? format(parseISO(entry.next_due_date), "PPP") : "Not set"}
           </p>
-          <p
-            className={`mt-1 text-sm ${
-              timeSummary?.isOverdue ? "text-rose-600" : "text-stone-500"
-            }`}
-          >
+          <p className={`mt-1 text-sm ${timeSummary?.isOverdue ? "text-rose-600" : "text-stone-500"}`}>
             {entry.next_due_date && timeSummary
               ? timeSummary.isOverdue
                 ? `Overdue by ${Math.abs(timeSummary.nextDueIn ?? 0)} days`
@@ -140,17 +169,23 @@ export default function EntryDetail() {
               : "No due date"}
           </p>
         </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Time summary</p>
           <p className="mt-2 text-lg font-semibold">{timeSummary?.daysPassed ?? 0} days</p>
           <p className="mt-1 text-sm text-stone-500">
-            {timeSummary?.weeksPassed ?? 0} weeks · {timeSummary?.monthsPassed ?? 0} months
+            {timeSummary?.weeksPassed ?? 0} weeks / {timeSummary?.monthsPassed ?? 0} months
           </p>
         </div>
       </div>
 
-      {entry.category === "purchase" && entry.price !== null ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+      {entry.repeat_interval_days ? (
+        <div className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600 shadow-sm">
+          Repeats every <span className="font-semibold text-stone-900">{entry.repeat_interval_days}</span> days from the logged date.
+        </div>
+      ) : null}
+
+      {entry.type === "purchase" && entry.price !== null ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
           <p className="text-xs uppercase tracking-[0.2em] text-amber-500">Total spend</p>
           <p className="mt-2 text-2xl font-semibold">${totalSpend?.toFixed(2)}</p>
           <p className="mt-1 text-sm text-amber-700">
@@ -160,20 +195,30 @@ export default function EntryDetail() {
       ) : null}
 
       {entry.notes ? (
-        <div className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Notes</p>
-          <p className="mt-2 text-sm text-stone-600 whitespace-pre-line">{entry.notes}</p>
+          <p className="mt-2 whitespace-pre-line text-sm text-stone-600">{entry.notes}</p>
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-semibold">History</h3>
             <p className="text-sm text-stone-500">Keeping {historyMonths} months of logs.</p>
           </div>
-          <Button onClick={handleLogAgain}>Log Again</Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={logDate}
+              onChange={(event) => setLogDate(event.target.value)}
+              className="h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+              aria-label="Log date"
+            />
+            <Button onClick={handleLogAgain}>Log Again</Button>
+          </div>
         </div>
+        {logError ? <p className="mt-3 text-sm text-rose-600">{logError}</p> : null}
 
         <div className="mt-4 grid gap-3">
           {history.length === 0 ? (

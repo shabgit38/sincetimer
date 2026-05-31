@@ -1,27 +1,37 @@
 import { useEffect, useMemo, useState } from "react";
+import { addDays } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { getEntryById, insertEntry, updateEntry } from "@/lib/db";
-import type { Entry, EntryCategory } from "@/types/entry";
+import type { EntryArea, EntryType } from "@/types/entry";
 
-const categories: Array<{ label: string; value: EntryCategory }> = [
-  { label: "Purchase", value: "purchase" },
-  { label: "Task", value: "task" },
-  { label: "Event", value: "event" },
+const areas: Array<{ label: string; value: EntryArea }> = [
+  { label: "Home", value: "home" },
+  { label: "Work", value: "work" },
+  { label: "Personal", value: "personal" },
+  { label: "Health", value: "health" },
+];
+
+const types: Array<{ label: string; value: EntryType }> = [
+  { label: "Goal", value: "goal" },
   { label: "Routine", value: "routine" },
+  { label: "Task", value: "task" },
+  { label: "Purchase", value: "purchase" },
 ];
 
 export default function AddEntry() {
   const navigate = useNavigate();
   const params = useParams();
-  const entryId = params.id ? Number(params.id) : null;
-  const isEditing = Number.isFinite(entryId) && entryId !== null;
+  const entryId = params.id ?? null;
+  const isEditing = Boolean(entryId);
 
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState<EntryCategory>("purchase");
+  const [area, setArea] = useState<EntryArea>("home");
+  const [type, setType] = useState<EntryType>("routine");
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [nextDueDate, setNextDueDate] = useState<string>("");
+  const [repeatIntervalDays, setRepeatIntervalDays] = useState("");
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -29,17 +39,19 @@ export default function AddEntry() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isPurchase = category === "purchase";
+  const isPurchase = type === "purchase";
 
   useEffect(() => {
     const load = async () => {
       if (!isEditing || entryId === null) return;
-      const entry = (await getEntryById(entryId)) as Entry | undefined;
+      const entry = await getEntryById(entryId);
       if (!entry) return;
       setTitle(entry.title);
-      setCategory(entry.category);
+      setArea(entry.area);
+      setType(entry.type);
       setEntryDate(entry.entry_date.slice(0, 10));
       setNextDueDate(entry.next_due_date ? entry.next_due_date.slice(0, 10) : "");
+      setRepeatIntervalDays(entry.repeat_interval_days ? String(entry.repeat_interval_days) : "");
       setPrice(entry.price !== null ? String(entry.price) : "");
       setNotes(entry.notes ?? "");
       setReminderEnabled(entry.reminder_enabled);
@@ -88,12 +100,32 @@ export default function AddEntry() {
       priceValue = parsed;
     }
 
+    let intervalValue: number | null = null;
+    if (repeatIntervalDays.trim()) {
+      const parsed = Number(repeatIntervalDays);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        setError("Interval days must be a positive whole number.");
+        return;
+      }
+      intervalValue = parsed;
+    }
+
+    const entryDateIso = new Date(entryDate).toISOString();
+    const nextDueDateIso = intervalValue
+      ? addDays(new Date(entryDate), intervalValue).toISOString()
+      : nextDueDate
+        ? new Date(nextDueDate).toISOString()
+        : null;
+
     setSaving(true);
     const payload = {
       title: title.trim(),
-      category,
-      entry_date: new Date(entryDate).toISOString(),
-      next_due_date: nextDueDate ? new Date(nextDueDate).toISOString() : null,
+      area,
+      type,
+      category: type,
+      entry_date: entryDateIso,
+      next_due_date: nextDueDateIso,
+      repeat_interval_days: intervalValue,
       price: isPurchase ? priceValue : null,
       notes: notes.trim() ? notes.trim() : null,
       reminder_enabled: reminderEnabled,
@@ -104,7 +136,7 @@ export default function AddEntry() {
       if (isEditing && entryId !== null) {
         await updateEntry(entryId, payload);
       } else {
-        await insertEntry({ ...payload, created_at: new Date().toISOString() });
+        await insertEntry(payload);
       }
       await scheduleNotification();
       navigate("/");
@@ -123,7 +155,7 @@ export default function AddEntry() {
           <div>
             <h2 className="text-2xl font-semibold">{isEditing ? "Edit Entry" : "Add Entry"}</h2>
             <p className="text-sm text-stone-500">
-              Capture what happened and when it might happen next.
+              Capture what happened and the next action date.
             </p>
           </div>
           <Button variant="outline" type="button" onClick={() => navigate("/")}>
@@ -146,15 +178,35 @@ export default function AddEntry() {
           </div>
 
           <div className="grid gap-2">
-            <span className="text-sm font-medium text-stone-700">Category</span>
+            <span className="text-sm font-medium text-stone-700">Area</span>
             <div className="flex flex-wrap gap-2">
-              {categories.map((item) => (
+              {areas.map((item) => (
                 <button
                   key={item.value}
                   type="button"
-                  onClick={() => setCategory(item.value)}
+                  onClick={() => setArea(item.value)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    category === item.value
+                    area === item.value
+                      ? "border-stone-900 bg-stone-900 text-white"
+                      : "border-stone-300 text-stone-600 hover:border-stone-400"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <span className="text-sm font-medium text-stone-700">Type</span>
+            <div className="flex flex-wrap gap-2">
+              {types.map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setType(item.value)}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    type === item.value
                       ? "border-stone-900 bg-stone-900 text-white"
                       : "border-stone-300 text-stone-600 hover:border-stone-400"
                   }`}
@@ -187,9 +239,29 @@ export default function AddEntry() {
                 type="date"
                 value={nextDueDate}
                 onChange={(event) => setNextDueDate(event.target.value)}
+                disabled={Boolean(repeatIntervalDays.trim())}
                 className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
               />
             </div>
+          </div>
+
+          <div className="grid gap-2">
+            <label className="text-sm font-medium text-stone-700" htmlFor="repeatIntervalDays">
+              Due after days
+            </label>
+            <input
+              id="repeatIntervalDays"
+              type="number"
+              value={repeatIntervalDays}
+              onChange={(event) => setRepeatIntervalDays(event.target.value)}
+              className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+              placeholder="e.g. 7, 30, 90"
+              min="1"
+              step="1"
+            />
+            <p className="text-xs text-stone-500">
+              If set, next due date is calculated from the entry date and this interval.
+            </p>
           </div>
 
           {isPurchase ? (

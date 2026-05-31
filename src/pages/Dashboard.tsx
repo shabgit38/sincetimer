@@ -6,39 +6,57 @@ import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { computeTimeSummary } from "@/lib/timeUtils";
 import { getAllEntries } from "@/lib/db";
-import type { Entry } from "@/types/entry";
+import type { Entry, EntryArea, EntryType } from "@/types/entry";
 
-const categoryFilters: Array<{ label: string; value: "all" | Entry["category"] }> = [
+const areaFilters: Array<{ label: string; value: "all" | EntryArea }> = [
   { label: "All", value: "all" },
-  { label: "Purchase", value: "purchase" },
-  { label: "Task", value: "task" },
-  { label: "Event", value: "event" },
-  { label: "Routine", value: "routine" },
+  { label: "Home", value: "home" },
+  { label: "Work", value: "work" },
+  { label: "Personal", value: "personal" },
+  { label: "Health", value: "health" },
 ];
 
-type SortOption = "created" | "overdue" | "category";
+const typeFilters: Array<{ label: string; value: "all" | EntryType }> = [
+  { label: "All types", value: "all" },
+  { label: "Goals", value: "goal" },
+  { label: "Routines", value: "routine" },
+  { label: "Tasks", value: "task" },
+  { label: "Purchases", value: "purchase" },
+];
+
+type SortOption = "created" | "overdue" | "area";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [categoryFilter, setCategoryFilter] = useState<"all" | Entry["category"]>("all");
+  const [areaFilter, setAreaFilter] = useState<"all" | EntryArea>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | EntryType>("all");
   const [sortOption, setSortOption] = useState<SortOption>("created");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const data = await getAllEntries();
-      setEntries(data as Entry[]);
-      setLoading(false);
+      setError(null);
+      try {
+        const data = await getAllEntries();
+        setEntries(data);
+      } catch (loadError) {
+        console.error(loadError);
+        setError("Unable to load entries.");
+      } finally {
+        setLoading(false);
+      }
     };
     void load();
   }, []);
 
   const filteredEntries = useMemo(() => {
-    const base = categoryFilter === "all" ? entries : entries.filter((entry) => entry.category === categoryFilter);
-    if (sortOption === "category") {
-      return [...base].sort((a, b) => a.category.localeCompare(b.category));
+    const byArea = areaFilter === "all" ? entries : entries.filter((entry) => entry.area === areaFilter);
+    const base = typeFilter === "all" ? byArea : byArea.filter((entry) => entry.type === typeFilter);
+    if (sortOption === "area") {
+      return [...base].sort((a, b) => a.area.localeCompare(b.area));
     }
     if (sortOption === "overdue") {
       return [...base].sort((a, b) => {
@@ -52,51 +70,69 @@ export default function Dashboard() {
     return [...base].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [entries, categoryFilter, sortOption]);
+  }, [entries, areaFilter, typeFilter, sortOption]);
 
   return (
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">Dashboard</h2>
-          <p className="text-sm text-stone-500">Keep tabs on everything you log over time.</p>
+          <p className="text-sm text-stone-500">Track goals, routines, tasks, and purchases by area.</p>
         </div>
-        <Button asChild>
-          <Link to="/add">Add Entry</Link>
-        </Button>
+        <Link className="inline-flex h-10 items-center rounded-lg bg-stone-900 px-4 text-sm font-medium text-white hover:bg-stone-700" to="/add">
+          Add Entry
+        </Link>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="grid gap-4 rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap gap-2">
-          {categoryFilters.map((filter) => (
+          {areaFilters.map((filter) => (
             <Button
               key={filter.value}
-              variant={categoryFilter === filter.value ? "default" : "outline"}
+              variant={areaFilter === filter.value ? "default" : "outline"}
               size="sm"
-              onClick={() => setCategoryFilter(filter.value)}
+              onClick={() => setAreaFilter(filter.value)}
             >
               {filter.label}
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-stone-500" htmlFor="sort-select">
-            Sort
-          </label>
-          <select
-            id="sort-select"
-            value={sortOption}
-            onChange={(event) => setSortOption(event.target.value as SortOption)}
-            className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
-          >
-            <option value="created">Newest first</option>
-            <option value="overdue">Most overdue</option>
-            <option value="category">Category</option>
-          </select>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {typeFilters.map((filter) => (
+              <Button
+                key={filter.value}
+                variant={typeFilter === filter.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setTypeFilter(filter.value)}
+              >
+                {filter.label}
+              </Button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-stone-500" htmlFor="sort-select">
+              Sort
+            </label>
+            <select
+              id="sort-select"
+              value={sortOption}
+              onChange={(event) => setSortOption(event.target.value as SortOption)}
+              className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+            >
+              <option value="created">Newest first</option>
+              <option value="overdue">Most overdue</option>
+              <option value="area">Area</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {loading ? (
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+          {error}
+        </div>
+      ) : loading ? (
         <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-10 text-center text-sm text-stone-500">
           Loading entries...
         </div>
@@ -106,9 +142,9 @@ export default function Dashboard() {
           <p className="mt-2 text-sm text-stone-500">
             Add your first item to start tracking time since.
           </p>
-          <Button className="mt-4" asChild>
-            <Link to="/add">Add your first entry</Link>
-          </Button>
+          <Link className="mt-4 inline-flex h-10 items-center rounded-lg bg-stone-900 px-4 text-sm font-medium text-white hover:bg-stone-700" to="/add">
+            Add your first entry
+          </Link>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
@@ -138,10 +174,10 @@ export default function Dashboard() {
                     <div>
                       <h3 className="text-lg font-semibold text-stone-900">{entry.title}</h3>
                       <p className="mt-1 text-xs uppercase tracking-[0.2em] text-stone-400">
-                        {entry.category}
+                        {entry.area} / {entry.type}
                       </p>
                     </div>
-                    {entry.category === "purchase" && entry.price !== null && (
+                    {entry.type === "purchase" && entry.price !== null && (
                       <div className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-sm font-semibold text-stone-700">
                         ${entry.price.toFixed(2)}
                       </div>
