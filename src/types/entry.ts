@@ -1,13 +1,19 @@
-export type EntryArea = 'home' | 'work' | 'personal' | 'health';
-export type EntryType = 'goal' | 'routine' | 'task' | 'purchase';
-export type EntryCategory = EntryType;
+export type EntryArea = string;
+export type EntryCategory = string;
+
+export interface EntryOption {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface Entry {
   id: string;
   user_id: string;
   title: string;
   area: EntryArea;
-  type: EntryType;
   category: EntryCategory;
   entry_date: string;
   next_due_date: string | null;

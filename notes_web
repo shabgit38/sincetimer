@@ -1,4 +1,4 @@
-Good call — web is much simpler to run and debug. Here's the updated guide:
+Good call ï¿½ web is much simpler to run and debug. Here's the updated guide:
 
 ---
 
@@ -27,7 +27,7 @@ Good call — web is much simpler to run and debug. Here's the updated guide:
 
 ---
 
-## Phase 1 — Project Setup
+## Phase 1 ï¿½ Project Setup
 
 ```
 Prompt to Claude Code:
@@ -37,7 +37,7 @@ Prompt to Claude Code:
 
 ---
 
-## Phase 2 — Database Schema
+## Phase 2 ï¿½ Database Schema
 
 ```
 Prompt:
@@ -45,9 +45,9 @@ Prompt:
 
 > Create an IndexedDB module at `src/lib/db.ts` using the `idb` library. Define a database called `since-timer-db` with these object stores:
 >
-> **entries** store — keyPath: `id` (auto-increment):
+> **entries** store ï¿½ keyPath: `id` (auto-increment):
 > - `title` string
-> - `category` — `purchase | task | event | routine`
+> - `category` ï¿½ `purchase | task | event | routine`
 > - `entry_date` string (ISO)
 > - `next_due_date` string | null
 > - `price` number | null
@@ -56,19 +56,19 @@ Prompt:
 > - `reminder_time` string | null
 > - `created_at` string
 >
-> **history** store — keyPath: `id`, with index on `entry_id`:
+> **history** store ï¿½ keyPath: `id`, with index on `entry_id`:
 > - `entry_id` number
 > - `logged_date` string
 > - `notes` string
 >
-> **settings** store — keyPath: `key`:
+> **settings** store ï¿½ keyPath: `key`:
 > - `history_months` default 6
 >
 > Expose typed async CRUD functions: `insertEntry`, `getAllEntries`, `updateEntry`, `deleteEntry`, `getHistoryForEntry`, `pruneOldHistory(months)`.
 
 ---
 
-## Phase 3 — Data Model & Types
+## Phase 3 ï¿½ Data Model & Types
 
 ```
 Prompt:
@@ -78,7 +78,7 @@ Prompt:
 
 ---
 
-## Phase 4 — Dashboard Screen
+## Phase 4 ï¿½ Dashboard Screen
 
 ```
 Prompt:
@@ -94,7 +94,7 @@ Prompt:
 
 ---
 
-## Phase 5 — Add / Edit Entry Form
+## Phase 5 ï¿½ Add / Edit Entry Form
 
 ```
 Prompt:
@@ -107,13 +107,13 @@ Prompt:
 > - Next Due Date (optional date picker)
 > - Price (optional, shown only for Purchase)
 > - Notes (optional textarea)
-> - Reminder toggle — if on, show a time input
+> - Reminder toggle ï¿½ if on, show a time input
 >
 > On save: write to IndexedDB, request browser notification permission if reminder is enabled, schedule notification. Validate title and entry date are filled.
 
 ---
 
-## Phase 6 — Entry Detail & History
+## Phase 6 ï¿½ Entry Detail & History
 
 ```
 Prompt:
@@ -121,45 +121,45 @@ Prompt:
 
 > Build `src/pages/EntryDetail.tsx` at route `/entry/:id`. Display:
 > - Full entry info and live TimeSummary
-> - **Log Again** button — saves today as new history record, updates entry_date to today
+> - **Log Again** button ï¿½ saves today as new history record, updates entry_date to today
 > - History list respecting `history_months` setting
 > - Edit (routes to AddEntry pre-filled) and Delete buttons
 > - Running total spend for purchases logged multiple times
 
 ---
 
-## Phase 7 — Browser Notifications
+## Phase 7 ï¿½ Browser Notifications
 
 ```
 Prompt:
 ```
 
 > Create `src/lib/notifications.ts`:
-> - `requestPermission()` — prompts browser notification access
-> - `scheduleReminder(entry)` — uses `setTimeout` calculated from `next_due_date` + `reminder_time` to fire a `new Notification(...)` in the browser tab
-> - `cancelReminder(entryId)` — clears the timeout
-> - `rescheduleAll(entries)` — call on app load to restore reminders
+> - `requestPermission()` ï¿½ prompts browser notification access
+> - `scheduleReminder(entry)` ï¿½ uses `setTimeout` calculated from `next_due_date` + `reminder_time` to fire a `new Notification(...)` in the browser tab
+> - `cancelReminder(entryId)` ï¿½ clears the timeout
+> - `rescheduleAll(entries)` ï¿½ call on app load to restore reminders
 >
-> Note to Claude: browser notifications only fire while the tab is open — add a small banner warning users of this limitation.
+> Note to Claude: browser notifications only fire while the tab is open ï¿½ add a small banner warning users of this limitation.
 
 ---
 
-## Phase 8 — Settings Page
+## Phase 8 ï¿½ Settings Page
 
 ```
 Prompt:
 ```
 
 > Build `src/pages/Settings.tsx`:
-> - History retention selector: 1 / 3 / 6 / 12 months — saves to IndexedDB settings store, triggers `pruneOldHistory`
+> - History retention selector: 1 / 3 / 6 / 12 months ï¿½ saves to IndexedDB settings store, triggers `pruneOldHistory`
 > - Notification permission status + re-request button
-> - Export button — downloads all entries + history as a `.json` file
-> - Import button — reads a `.json` file and restores entries (useful as backup)
+> - Export button ï¿½ downloads all entries + history as a `.json` file
+> - Import button ï¿½ reads a `.json` file and restores entries (useful as backup)
 > - App version display
 
 ---
 
-## Phase 9 — Polish
+## Phase 9 ï¿½ Polish
 
 ```
 Prompt:
@@ -168,7 +168,7 @@ Prompt:
 > Add across the app:
 > 1. Overdue entries highlighted in amber/red on Dashboard
 > 2. Confirm dialog before delete
-> 3. Responsive layout — works on both desktop and mobile browser
+> 3. Responsive layout ï¿½ works on both desktop and mobile browser
 > 4. Dark mode toggle using Tailwind dark class
 > 5. Page title updates per route (browser tab title)
 > 6. Loading skeletons while IndexedDB reads
@@ -185,7 +185,7 @@ npm install
 
 # Every time you work
 npm run dev
-# Opens http://localhost:5173 in browser — that's your app
+# Opens http://localhost:5173 in browser ï¿½ that's your app
 ```
 
 ---
@@ -193,3 +193,15 @@ npm run dev
 ## Key Advantage Over Expo
 
 > Open terminal ? `npm run dev` ? app is live in your browser in under 10 seconds. No phone, no emulator, no QR codes. When ready to share, deploy to Vercel in one command: `npx vercel`.
+
+
+### Build the UI : like a calm, premium personal dashboard.
+
+Use shadcn/ui as the component foundation.
+Use Tailwind CSS and TypeScript.
+Prefer cards over tables.
+Use generous whitespace.
+Dark mode by default.
+Avoid bright colors and excessive animations.
+Take visual inspiration from Apple Health and Linear.
+The app should feel like an external memory for life maintenance, not a task manager.

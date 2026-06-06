@@ -2,7 +2,7 @@ Here's the complete Claude Code instruction guide:
 
 ---
 
-# Since Timer App — Claude Code Build Guide
+# Since Timer App ï¿½ Claude Code Build Guide
 
 ## Recommended Stack
 | Layer | Choice | Reason |
@@ -17,17 +17,20 @@ Here's the complete Claude Code instruction guide:
 
 ---
 
-## Phase 1 — Project Setup
+## Phase 1 ï¿½ Project Setup
 
 ```
 Prompt to Claude Code:
 ```
 
-> Create a new Expo project with TypeScript called `since-timer`. Install dependencies: `expo-sqlite`, `expo-notifications`, `expo-router`, `react-native-paper`, `date-fns`. Set up an Expo Router layout with two tabs: **Home** (entry list) and **Add Entry**. Configure app.json with notification permissions for iOS and Android.
+> Create a new Expo project with TypeScript called `since-timer`. 
+Install dependencies: `expo-sqlite`, `expo-notifications`, `expo-router`, `react-native-paper`, `date-fns`. 
+Set up an Expo Router layout with two tabs: **Home** (entry list) and **Add Entry**. 
+Configure app.json with notification permissions for iOS and Android.
 
 ---
 
-## Phase 2 — Database Schema
+## Phase 2 ï¿½ Database Schema
 
 ```
 Prompt:
@@ -38,7 +41,7 @@ Prompt:
 > **entries** table:
 > - `id` INTEGER PRIMARY KEY
 > - `title` TEXT NOT NULL
-> - `category` TEXT — values: `purchase | task | event | routine`
+> - `category` TEXT ï¿½ values: `purchase | task | event | routine`
 > - `entry_date` TEXT (ISO format)
 > - `next_due_date` TEXT (nullable)
 > - `price` REAL (nullable)
@@ -57,17 +60,21 @@ Prompt:
 
 ---
 
-## Phase 3 — Data Model & Types
+## Phase 3 ï¿½ Data Model & Types
 
 ```
 Prompt:
 ```
 
-> Create `types/entry.ts` with TypeScript interfaces matching the DB schema. Include a helper type `TimeSummary` with fields: `daysPassed: number`, `weeksPassed: number`, `monthsPassed: number`, `nextDueIn: number | null`, `isOverdue: boolean`. Create a utility `lib/timeUtils.ts` using `date-fns` that computes `TimeSummary` from an entry's `entry_date` and `next_due_date`.
+> Create `types/entry.ts` with TypeScript interfaces matching the DB schema. 
+Include a helper type `TimeSummary` with fields: `daysPassed: number`, `weeksPassed: number`, 
+`monthsPassed: number`, `nextDueIn: number | null`, `isOverdue: boolean`. 
+Create a utility `lib/timeUtils.ts` using `date-fns` that computes `TimeSummary` 
+from an entry's `entry_date` and `next_due_date`.
 
 ---
 
-## Phase 4 — Home Screen (Entry List)
+## Phase 4 ï¿½ Home Screen (Entry List)
 
 ```
 Prompt:
@@ -83,7 +90,7 @@ Prompt:
 
 ---
 
-## Phase 5 — Add / Edit Entry Screen
+## Phase 5 ï¿½ Add / Edit Entry Screen
 
 ```
 Prompt:
@@ -96,13 +103,13 @@ Prompt:
 > - Next Due Date (optional date picker)
 > - Price (optional numeric input, shown only for Purchase category)
 > - Notes (optional multiline)
-> - Reminder toggle — if enabled, show a time picker for the reminder time
+> - Reminder toggle ï¿½ if enabled, show a time picker for the reminder time
 >
 > On save: insert/update SQLite, schedule a local notification if reminder is on. Validate that title and entry date are filled.
 
 ---
 
-## Phase 6 — Entry Detail & History Screen
+## Phase 6 ï¿½ Entry Detail & History Screen
 
 ```
 Prompt:
@@ -111,49 +118,49 @@ Prompt:
 > Build `app/entry/[id].tsx`. Display:
 > - Full entry info and live `TimeSummary`
 > - A **Log Again** button (re-records the event as of today, adds previous date to history table)
-> - History list — past logged dates with notes, respecting the `history_months` setting
+> - History list ï¿½ past logged dates with notes, respecting the `history_months` setting
 > - Edit and Delete actions in the header
 > - For purchases: show total spend if logged multiple times
 
 ---
 
-## Phase 7 — Notifications
+## Phase 7 ï¿½ Notifications
 
 ```
 Prompt:
 ```
 
 > In `lib/notifications.ts`, implement:
-> - `requestPermissions()` — call on first launch
-> - `scheduleReminder(entry)` — schedules a local notification on `next_due_date` at user-chosen time; notification body: "Time to log: {title}"
-> - `cancelReminder(entryId)` — cancels existing notification for that entry
-> - `rescheduleAll(entries)` — used on app resume to refresh all active reminders
+> - `requestPermissions()` ï¿½ call on first launch
+> - `scheduleReminder(entry)` ï¿½ schedules a local notification on `next_due_date` at user-chosen time; notification body: "Time to log: {title}"
+> - `cancelReminder(entryId)` ï¿½ cancels existing notification for that entry
+> - `rescheduleAll(entries)` ï¿½ used on app resume to refresh all active reminders
 > Hook these into insert/update/delete flows.
 
 ---
 
-## Phase 8 — Settings Screen
+## Phase 8 ï¿½ Settings Screen
 
 ```
 Prompt:
 ```
 
 > Add a Settings tab at `app/(tabs)/settings.tsx` with:
-> - **History retention**: slider or dropdown — 1 / 3 / 6 / 12 months. On change, call `pruneOldHistory(months)` and save to `app_settings`.
+> - **History retention**: slider or dropdown ï¿½ 1 / 3 / 6 / 12 months. On change, call `pruneOldHistory(months)` and save to `app_settings`.
 > - **Notification permission status** with a re-request button
-> - **Export data** button — serialise all entries + history to a JSON file and share via `expo-sharing`
+> - **Export data** button ï¿½ serialise all entries + history to a JSON file and share via `expo-sharing`
 > - **About** section showing app version
 
 ---
 
-## Phase 9 — Polish & Edge Cases
+## Phase 9 ï¿½ Polish & Edge Cases
 
 ```
 Prompt:
 ```
 
 > Review the full app and add:
-> 1. Overdue highlight — entries past `next_due_date` shown in red/amber
+> 1. Overdue highlight ï¿½ entries past `next_due_date` shown in red/amber
 > 2. Sort options on Home: by date added, by most overdue, by category
 > 3. On cold app launch, call `rescheduleAll()` to restore any lost notifications
 > 4. Confirm dialog before deleting an entry
@@ -164,9 +171,9 @@ Prompt:
 
 ## Suggested Claude Code Session Flow
 
-1. Run phases 1–3 in one session (foundation)
-2. Run phases 4–5 next (core UI)
-3. Run phases 6–7 (detail + notifications)
-4. Run phases 8–9 last (settings + polish)
+1. Run phases 1ï¿½3 in one session (foundation)
+2. Run phases 4ï¿½5 next (core UI)
+3. Run phases 6ï¿½7 (detail + notifications)
+4. Run phases 8ï¿½9 last (settings + polish)
 
-> **Tip:** Start each session by showing Claude Code the current file tree and any errors — it will self-correct without re-doing work.
+> **Tip:** Start each session by showing Claude Code the current file tree and any errors ï¿½ it will self-correct without re-doing work.

@@ -14,6 +14,11 @@ import {
 } from "@/lib/db";
 import type { Entry, HistoryItem } from "@/types/entry";
 
+function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (!entry.repeat_interval_days) return entry.next_due_date;
+  return addDays(loggedAt, entry.repeat_interval_days).toISOString();
+}
+
 export default function EntryDetail() {
   const navigate = useNavigate();
   const params = useParams();
@@ -57,7 +62,7 @@ export default function EntryDetail() {
   }, [entry]);
 
   const totalSpend = useMemo(() => {
-    if (!entry || entry.type !== "purchase" || entry.price === null) return null;
+    if (!entry || entry.category !== "purchase" || entry.price === null) return null;
     const count = 1 + history.length;
     return Number(entry.price) * count;
   }, [entry, history.length]);
@@ -70,25 +75,31 @@ export default function EntryDetail() {
       return;
     }
 
-    const loggedAt = new Date(logDate);
-    const nextDueDate = entry.repeat_interval_days
-      ? addDays(loggedAt, entry.repeat_interval_days).toISOString()
-      : entry.next_due_date;
+    try {
+      const loggedAt = new Date(logDate);
+      const loggedAtIso = loggedAt.toISOString();
+      const nextDueDate = getNextDueDateForLog(entry, loggedAt);
 
-    await insertHistory({
-      entry_id: entryId,
-      logged_date: loggedAt.toISOString(),
-      notes: "",
-    });
-    await updateEntry(entryId, {
-      entry_date: loggedAt.toISOString(),
-      next_due_date: nextDueDate,
-    });
-    const updated = await getEntryById(entryId);
-    const historyRecords = await getHistoryForEntry(entryId);
-    setEntry(updated);
-    setHistory(historyRecords);
-    setLogDate("");
+      await insertHistory({
+        entry_id: entryId,
+        logged_date: loggedAtIso,
+        notes: "",
+      });
+      await updateEntry(entryId, {
+        entry_date: loggedAtIso,
+        next_due_date: nextDueDate,
+      });
+      const [updated, historyRecords] = await Promise.all([
+        getEntryById(entryId),
+        getHistoryForEntry(entryId),
+      ]);
+      setEntry(updated);
+      setHistory(historyRecords);
+      setLogDate("");
+    } catch (saveError) {
+      console.error(saveError);
+      setLogError("Unable to save this log. Please try again.");
+    }
   };
 
   const handleDelete = async () => {
@@ -133,7 +144,7 @@ export default function EntryDetail() {
         <div>
           <h2 className="text-2xl font-semibold">{entry.title}</h2>
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
-            {entry.area} / {entry.type}
+            {entry.area} / {entry.category}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -184,7 +195,7 @@ export default function EntryDetail() {
         </div>
       ) : null}
 
-      {entry.type === "purchase" && entry.price !== null ? (
+      {entry.category === "purchase" && entry.price !== null ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
           <p className="text-xs uppercase tracking-[0.2em] text-amber-500">Total spend</p>
           <p className="mt-2 text-2xl font-semibold">${totalSpend?.toFixed(2)}</p>

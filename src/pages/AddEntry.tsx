@@ -3,22 +3,15 @@ import { addDays } from "date-fns";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { getEntryById, insertEntry, updateEntry } from "@/lib/db";
-import type { EntryArea, EntryType } from "@/types/entry";
+import { getAreas, getCategories, getEntryById, insertEntry, updateEntry } from "@/lib/db";
+import type { EntryOption } from "@/types/entry";
 
-const areas: Array<{ label: string; value: EntryArea }> = [
-  { label: "Home", value: "home" },
-  { label: "Work", value: "work" },
-  { label: "Personal", value: "personal" },
-  { label: "Health", value: "health" },
-];
-
-const types: Array<{ label: string; value: EntryType }> = [
-  { label: "Goal", value: "goal" },
-  { label: "Routine", value: "routine" },
-  { label: "Task", value: "task" },
-  { label: "Purchase", value: "purchase" },
-];
+function formatOptionLabel(value: string) {
+  return value
+    .split(" ")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
 
 export default function AddEntry() {
   const navigate = useNavigate();
@@ -27,8 +20,10 @@ export default function AddEntry() {
   const isEditing = Boolean(entryId);
 
   const [title, setTitle] = useState("");
-  const [area, setArea] = useState<EntryArea>("home");
-  const [type, setType] = useState<EntryType>("routine");
+  const [area, setArea] = useState("");
+  const [category, setCategory] = useState("");
+  const [areas, setAreas] = useState<EntryOption[]>([]);
+  const [categories, setCategories] = useState<EntryOption[]>([]);
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [nextDueDate, setNextDueDate] = useState<string>("");
   const [repeatIntervalDays, setRepeatIntervalDays] = useState("");
@@ -39,28 +34,48 @@ export default function AddEntry() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isPurchase = type === "purchase";
+  const isPurchase = category === "purchase";
 
   useEffect(() => {
     const load = async () => {
-      if (!isEditing || entryId === null) return;
-      const entry = await getEntryById(entryId);
-      if (!entry) return;
-      setTitle(entry.title);
-      setArea(entry.area);
-      setType(entry.type);
-      setEntryDate(entry.entry_date.slice(0, 10));
-      setNextDueDate(entry.next_due_date ? entry.next_due_date.slice(0, 10) : "");
-      setRepeatIntervalDays(entry.repeat_interval_days ? String(entry.repeat_interval_days) : "");
-      setPrice(entry.price !== null ? String(entry.price) : "");
-      setNotes(entry.notes ?? "");
-      setReminderEnabled(entry.reminder_enabled);
-      setReminderTime(entry.reminder_time ?? "09:00");
+      try {
+        const [areaOptions, categoryOptions, entry] = await Promise.all([
+          getAreas(),
+          getCategories(),
+          isEditing && entryId !== null ? getEntryById(entryId) : Promise.resolve(null),
+        ]);
+
+        setAreas(areaOptions);
+        setCategories(categoryOptions);
+
+        if (entry) {
+          setTitle(entry.title);
+          setArea(entry.area);
+          setCategory(entry.category);
+          setEntryDate(entry.entry_date.slice(0, 10));
+          setNextDueDate(entry.next_due_date ? entry.next_due_date.slice(0, 10) : "");
+          setRepeatIntervalDays(entry.repeat_interval_days ? String(entry.repeat_interval_days) : "");
+          setPrice(entry.price !== null ? String(entry.price) : "");
+          setNotes(entry.notes ?? "");
+          setReminderEnabled(entry.reminder_enabled);
+          setReminderTime(entry.reminder_time ?? "09:00");
+          return;
+        }
+
+        setArea((current) => current || areaOptions[0]?.name || "");
+        setCategory((current) => current || categoryOptions[0]?.name || "");
+      } catch (loadError) {
+        console.error(loadError);
+        setError("Unable to load entry options.");
+      }
     };
     void load();
   }, [entryId, isEditing]);
 
-  const canSubmit = useMemo(() => title.trim().length > 0 && entryDate.length > 0, [title, entryDate]);
+  const canSubmit = useMemo(
+    () => title.trim().length > 0 && entryDate.length > 0 && area.length > 0 && category.length > 0,
+    [area, category, title, entryDate]
+  );
 
   const scheduleNotification = async () => {
     if (!reminderEnabled || !nextDueDate) return;
@@ -86,7 +101,7 @@ export default function AddEntry() {
     event.preventDefault();
     setError(null);
     if (!canSubmit) {
-      setError("Please fill in the title and entry date.");
+      setError("Please fill in the title, area, category, and entry date.");
       return;
     }
 
@@ -121,8 +136,7 @@ export default function AddEntry() {
     const payload = {
       title: title.trim(),
       area,
-      type,
-      category: type,
+      category,
       entry_date: entryDateIso,
       next_due_date: nextDueDateIso,
       repeat_interval_days: intervalValue,
@@ -182,36 +196,36 @@ export default function AddEntry() {
             <div className="flex flex-wrap gap-2">
               {areas.map((item) => (
                 <button
-                  key={item.value}
+                  key={item.id}
                   type="button"
-                  onClick={() => setArea(item.value)}
+                  onClick={() => setArea(item.name)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    area === item.value
+                    area === item.name
                       ? "border-stone-900 bg-stone-900 text-white"
                       : "border-stone-300 text-stone-600 hover:border-stone-400"
                   }`}
                 >
-                  {item.label}
+                  {formatOptionLabel(item.name)}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="grid gap-2">
-            <span className="text-sm font-medium text-stone-700">Type</span>
+            <span className="text-sm font-medium text-stone-700">Category</span>
             <div className="flex flex-wrap gap-2">
-              {types.map((item) => (
+              {categories.map((item) => (
                 <button
-                  key={item.value}
+                  key={item.id}
                   type="button"
-                  onClick={() => setType(item.value)}
+                  onClick={() => setCategory(item.name)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    type === item.value
+                    category === item.name
                       ? "border-stone-900 bg-stone-900 text-white"
                       : "border-stone-300 text-stone-600 hover:border-stone-400"
                   }`}
                 >
-                  {item.label}
+                  {formatOptionLabel(item.name)}
                 </button>
               ))}
             </div>

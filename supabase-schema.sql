@@ -4,9 +4,8 @@ create table if not exists public.entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
-  area text not null check (area in ('home', 'work', 'personal', 'health')),
-  type text not null check (type in ('goal', 'routine', 'task', 'purchase')),
-  category text not null check (category in ('goal', 'routine', 'task', 'purchase')),
+  area text not null,
+  category text not null,
   entry_date timestamptz not null,
   next_due_date timestamptz,
   repeat_interval_days integer check (repeat_interval_days is null or repeat_interval_days > 0),
@@ -21,6 +20,30 @@ create table if not exists public.entries (
 alter table public.entries
   add column if not exists repeat_interval_days integer
   check (repeat_interval_days is null or repeat_interval_days > 0);
+
+alter table public.entries
+  drop constraint if exists entries_area_check;
+
+alter table public.entries
+  drop constraint if exists entries_category_check;
+
+create table if not exists public.areas (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, name)
+);
 
 create table if not exists public.entry_logs (
   id uuid primary key default gen_random_uuid(),
@@ -41,6 +64,8 @@ create table if not exists public.settings (
 alter table public.entries enable row level security;
 alter table public.entry_logs enable row level security;
 alter table public.settings enable row level security;
+alter table public.areas enable row level security;
+alter table public.categories enable row level security;
 
 create policy "Users can read their entries"
   on public.entries for select
@@ -88,5 +113,31 @@ create policy "Users can upsert their settings"
 
 create policy "Users can update their settings"
   on public.settings for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read their areas"
+  on public.areas for select
+  using (auth.uid() = user_id);
+
+create policy "Users can create their areas"
+  on public.areas for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their areas"
+  on public.areas for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can read their categories"
+  on public.categories for select
+  using (auth.uid() = user_id);
+
+create policy "Users can create their categories"
+  on public.categories for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update their categories"
+  on public.categories for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);

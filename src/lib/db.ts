@@ -1,12 +1,14 @@
 import { supabase } from './supabase';
-import type { AppSetting, Entry, EntryPayload, HistoryItem } from '@/types/entry';
+import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
+
+const defaultAreaNames = ['home', 'work', 'personal', 'health'];
+const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase'];
 
 const entriesSelect = `
   id,
   user_id,
   title,
   area,
-  type,
   category,
   entry_date,
   next_due_date,
@@ -33,6 +35,121 @@ async function requireUserId() {
   if (error) throw error;
   if (!data.user) throw new Error('Please sign in before changing entries.');
   return data.user.id;
+}
+
+function normalizeOptionName(name: string) {
+  return name.trim().replace(/\s+/g, ' ');
+}
+
+function hasOptionNamed(options: EntryOption[], name: string, exceptId?: string) {
+  const normalized = name.toLocaleLowerCase();
+  return options.some(
+    (option) => option.id !== exceptId && option.name.toLocaleLowerCase() === normalized
+  );
+}
+
+async function getOptions(table: 'areas' | 'categories', defaults: string[]): Promise<EntryOption[]> {
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from(table)
+    .select('id, user_id, name, created_at, updated_at')
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  if ((data ?? []).length > 0) return (data ?? []) as EntryOption[];
+
+  const now = new Date().toISOString();
+  const { data: seeded, error: seedError } = await supabase
+    .from(table)
+    .insert(defaults.map((name) => ({ user_id: userId, name, created_at: now, updated_at: now })))
+    .select('id, user_id, name, created_at, updated_at')
+    .order('created_at', { ascending: true });
+
+  if (seedError) throw seedError;
+  return (seeded ?? []) as EntryOption[];
+}
+
+async function insertOption(table: 'areas' | 'categories', name: string): Promise<EntryOption> {
+  const userId = await requireUserId();
+  const normalizedName = normalizeOptionName(name);
+  if (!normalizedName) throw new Error('Name is required.');
+
+  const options = await getOptions(table, table === 'areas' ? defaultAreaNames : defaultCategoryNames);
+  if (hasOptionNamed(options, normalizedName)) throw new Error('That name already exists.');
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from(table)
+    .insert({ user_id: userId, name: normalizedName, created_at: now, updated_at: now })
+    .select('id, user_id, name, created_at, updated_at')
+    .single();
+
+  if (error) throw error;
+  return data as EntryOption;
+}
+
+async function renameOption(
+  table: 'areas' | 'categories',
+  entryColumn: 'area' | 'category',
+  option: Pick<EntryOption, 'id' | 'name'>,
+  nextName: string
+): Promise<void> {
+  const userId = await requireUserId();
+  const normalizedName = normalizeOptionName(nextName);
+  if (!normalizedName) throw new Error('Name is required.');
+  if (normalizedName === option.name) return;
+
+  const options = await getOptions(table, table === 'areas' ? defaultAreaNames : defaultCategoryNames);
+  if (hasOptionNamed(options, normalizedName, option.id)) throw new Error('That name already exists.');
+
+  const now = new Date().toISOString();
+  const { error: optionError } = await supabase
+    .from(table)
+    .update({ name: normalizedName, updated_at: now })
+    .eq('id', option.id)
+    .eq('user_id', userId);
+
+  if (optionError) throw optionError;
+
+  const { error: entriesError } = await supabase
+    .from('entries')
+    .update({ [entryColumn]: normalizedName, updated_at: now })
+    .eq('user_id', userId)
+    .eq(entryColumn, option.name);
+
+  if (entriesError) throw entriesError;
+}
+
+export function getDefaultAreas() {
+  return defaultAreaNames;
+}
+
+export function getDefaultCategories() {
+  return defaultCategoryNames;
+}
+
+export async function getAreas(): Promise<EntryOption[]> {
+  return getOptions('areas', defaultAreaNames);
+}
+
+export async function getCategories(): Promise<EntryOption[]> {
+  return getOptions('categories', defaultCategoryNames);
+}
+
+export async function insertArea(name: string): Promise<EntryOption> {
+  return insertOption('areas', name);
+}
+
+export async function insertCategory(name: string): Promise<EntryOption> {
+  return insertOption('categories', name);
+}
+
+export async function renameArea(option: Pick<EntryOption, 'id' | 'name'>, nextName: string): Promise<void> {
+  return renameOption('areas', 'area', option, nextName);
+}
+
+export async function renameCategory(option: Pick<EntryOption, 'id' | 'name'>, nextName: string): Promise<void> {
+  return renameOption('categories', 'category', option, nextName);
 }
 
 export async function insertEntry(entry: EntryPayload): Promise<string> {
