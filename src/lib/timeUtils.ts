@@ -1,7 +1,8 @@
 import {
-  differenceInDays,
+  differenceInCalendarDays,
   differenceInMonths,
   differenceInWeeks,
+  intervalToDuration,
   isBefore,
   parseISO,
 } from 'date-fns';
@@ -11,7 +12,7 @@ export function computeTimeSummary(entryDateIso: string, nextDueDateIso?: string
   const now = new Date();
   const entryDate = parseISO(entryDateIso);
 
-  const daysPassed = differenceInDays(now, entryDate);
+  const daysPassed = differenceInCalendarDays(now, entryDate);
   const weeksPassed = differenceInWeeks(now, entryDate);
   const monthsPassed = differenceInMonths(now, entryDate);
 
@@ -26,7 +27,7 @@ export function computeTimeSummary(entryDateIso: string, nextDueDateIso?: string
   }
 
   const nextDueDate = parseISO(nextDueDateIso);
-  const nextDueIn = differenceInDays(nextDueDate, now);
+  const nextDueIn = differenceInCalendarDays(nextDueDate, now);
   const isOverdue = isBefore(nextDueDate, now);
 
   return {
@@ -36,4 +37,28 @@ export function computeTimeSummary(entryDateIso: string, nextDueDateIso?: string
     nextDueIn,
     isOverdue,
   };
+}
+
+export function formatYearMonthDayDuration(fromDate: Date | string, toDate: Date = new Date()): string {
+  const start = typeof fromDate === 'string' ? parseISO(fromDate) : fromDate;
+  const isFuture = isBefore(toDate, start);
+  const formatted = formatYearMonthDaySpan(isFuture ? toDate : start, isFuture ? start : toDate);
+
+  return `${formatted}${isFuture ? ' from now' : ' ago'}`;
+}
+
+export function formatYearMonthDaySpan(fromDate: Date | string, toDate: Date | string): string {
+  const start = typeof fromDate === 'string' ? parseISO(fromDate) : fromDate;
+  const end = typeof toDate === 'string' ? parseISO(toDate) : toDate;
+  const duration = intervalToDuration({ start, end });
+
+  const parts = [
+    duration.years ? `${duration.years} ${duration.years === 1 ? 'year' : 'years'}` : null,
+    duration.months ? `${duration.months} ${duration.months === 1 ? 'month' : 'months'}` : null,
+    duration.days || (!duration.years && !duration.months)
+      ? `${duration.days ?? 0} ${duration.days === 1 ? 'day' : 'days'}`
+      : null,
+  ].filter(Boolean);
+
+  return parts.join(', ');
 }

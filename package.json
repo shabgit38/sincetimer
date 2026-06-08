@@ -13,6 +13,7 @@
     "@fontsource-variable/geist": "^5.2.8",
     "@supabase/supabase-js": "^2.87.1",
     "date-fns": "^4.1.0",
+    "lucide-react": "^1.17.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0"

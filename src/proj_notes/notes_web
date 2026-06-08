@@ -1,0 +1,636 @@
+Good call � web is much simpler to run and debug. Here's the updated guide:
+
+---
+
+## Revised Stack
+
+| Layer | Choice | Reason |
+|---|---|---|
+| Framework | React + TypeScript (Vite) | Fast, lightweight, no mobile complexity |
+| Storage | IndexedDB via `idb` library | Browser-native persistent storage, no backend |
+| Notifications | Web Notifications API (native browser) | Built-in, no extra library |
+| Routing | React Router v6 | Simple page navigation |
+| UI | shadcn/ui + Tailwind CSS | Clean, modern, easy to customise |
+| Date handling | `date-fns` | Same as before |
+
+---
+
+## What Changes From Mobile Version
+
+| Aspect | Mobile (Expo) | Web (Vite) |
+|---|---|---|
+| Run command | `expo start` | `npm run dev` ? opens `localhost:5173` |
+| Storage | SQLite on device | IndexedDB in browser |
+| Notifications | Native push | Browser notification popups |
+| Installation | Expo Go app needed | Just a browser tab |
+| Deployment | App store | Vercel / Netlify (one command) |
+
+---
+
+## Phase 1 � Project Setup
+
+```
+Prompt to Claude Code:
+```
+
+> Create a new Vite + React + TypeScript project called `since-timer-web`. Install dependencies: `idb`, `react-router-dom`, `date-fns`, `tailwindcss`, `shadcn/ui`. Set up Tailwind and shadcn. Create a base layout with a sidebar or top navbar with two navigation links: **Dashboard** (entry list) and **Add Entry**. Make sure the dev server runs cleanly on `localhost:5173`.
+
+---
+
+## Phase 2 � Database Schema
+
+```
+Prompt:
+```
+
+> Create an IndexedDB module at `src/lib/db.ts` using the `idb` library. Define a database called `since-timer-db` with these object stores:
+>
+> **entries** store � keyPath: `id` (auto-increment):
+> - `title` string
+> - `category` � `purchase | task | event | routine`
+> - `entry_date` string (ISO)
+> - `next_due_date` string | null
+> - `price` number | null
+> - `notes` string | null
+> - `reminder_enabled` boolean
+> - `reminder_time` string | null
+> - `created_at` string
+>
+> **history** store � keyPath: `id`, with index on `entry_id`:
+> - `entry_id` number
+> - `logged_date` string
+> - `notes` string
+>
+> **settings** store � keyPath: `key`:
+> - `history_months` default 6
+>
+> Expose typed async CRUD functions: `insertEntry`, `getAllEntries`, `updateEntry`, `deleteEntry`, `getHistoryForEntry`, `pruneOldHistory(months)`.
+
+---
+
+## Phase 3 � Data Model & Types
+
+```
+Prompt:
+```
+
+> Create `src/types/entry.ts` with TypeScript interfaces matching the DB schema. Add a `TimeSummary` type with: `daysPassed`, `weeksPassed`, `monthsPassed`, `nextDueIn: number | null`, `isOverdue: boolean`. Create `src/lib/timeUtils.ts` using `date-fns` to compute `TimeSummary` from an entry's dates.
+
+---
+
+## Phase 4 � Dashboard Screen
+
+```
+Prompt:
+```
+
+> Build `src/pages/Dashboard.tsx`. It should:
+> - Load all entries from IndexedDB on mount
+> - Show each entry as a shadcn Card with: title, category badge, time since (e.g. "14 days ago"), next due countdown or overdue warning in red, price if set
+> - Filter buttons at top: All / Purchase / Task / Event / Routine
+> - Sort options: by date added, most overdue first, by category
+> - Clicking a card opens Entry Detail page
+> - Empty state with a call-to-action to add first entry
+
+---
+
+## Phase 5 � Add / Edit Entry Form
+
+```
+Prompt:
+```
+
+> Build `src/pages/AddEntry.tsx`, reusable for editing. Use shadcn form components. Fields:
+> - Title (text input)
+> - Category (tabs or select: Purchase / Task / Event / Routine)
+> - Entry Date (date picker, defaults to today)
+> - Next Due Date (optional date picker)
+> - Price (optional, shown only for Purchase)
+> - Notes (optional textarea)
+> - Reminder toggle � if on, show a time input
+>
+> On save: write to IndexedDB, request browser notification permission if reminder is enabled, schedule notification. Validate title and entry date are filled.
+
+---
+
+## Phase 6 � Entry Detail & History
+
+```
+Prompt:
+```
+
+> Build `src/pages/EntryDetail.tsx` at route `/entry/:id`. Display:
+> - Full entry info and live TimeSummary
+> - **Log Again** button � saves today as new history record, updates entry_date to today
+> - History list respecting `history_months` setting
+> - Edit (routes to AddEntry pre-filled) and Delete buttons
+> - Running total spend for purchases logged multiple times
+
+---
+
+## Phase 7 � Browser Notifications
+
+```
+Prompt:
+```
+
+> Create `src/lib/notifications.ts`:
+> - `requestPermission()` � prompts browser notification access
+> - `scheduleReminder(entry)` � uses `setTimeout` calculated from `next_due_date` + `reminder_time` to fire a `new Notification(...)` in the browser tab
+> - `cancelReminder(entryId)` � clears the timeout
+> - `rescheduleAll(entries)` � call on app load to restore reminders
+>
+> Note to Claude: browser notifications only fire while the tab is open � add a small banner warning users of this limitation.
+
+---
+
+## Phase 8 � Settings Page
+
+```
+Prompt:
+```
+
+> Build `src/pages/Settings.tsx`:
+> - History retention selector: 1 / 3 / 6 / 12 months � saves to IndexedDB settings store, triggers `pruneOldHistory`
+> - Notification permission status + re-request button
+> - Export button � downloads all entries + history as a `.json` file
+> - Import button � reads a `.json` file and restores entries (useful as backup)
+> - App version display
+
+---
+
+## Phase 9 � Polish
+
+```
+Prompt:
+```
+
+> Add across the app:
+> 1. Overdue entries highlighted in amber/red on Dashboard
+> 2. Confirm dialog before delete
+> 3. Responsive layout � works on both desktop and mobile browser
+> 4. Dark mode toggle using Tailwind dark class
+> 5. Page title updates per route (browser tab title)
+> 6. Loading skeletons while IndexedDB reads
+
+---
+
+## How to Run (Beginner Steps)
+
+```bash
+# One-time setup
+npm create vite@latest since-timer-web -- --template react-ts
+cd since-timer-web
+npm install
+
+# Every time you work
+npm run dev
+# Opens http://localhost:5173 in browser � that's your app
+```
+
+---
+
+## Key Advantage Over Expo
+
+> Open terminal ? `npm run dev` ? app is live in your browser in under 10 seconds. No phone, no emulator, no QR codes. When ready to share, deploy to Vercel in one command: `npx vercel`.
+
+
+### PHASE 1 -upgrade
+I would actually rethink the model slightly.
+
+The user should **not think in terms of database categories** ("Goal", "Routine", "Purchase"). They think in terms of:
+
+> "What kind of thing am I trying to remember?"
+
+For a SinceTimer app, the entire product revolves around **life events**.
+
+---
+
+# 1. Areas (High-level Domains)
+
+Current:
+
+```
+Home | Work | Personal | Health
+```
+
+I'd expand to:
+
+| Area            | Examples                           |
+| --------------- | ---------------------------------- |
+| 🏠 Home         | Curtains, AC service, Water filter |
+| 👤 Personal     | Passport renewal, Haircut          |
+| ❤️ Health       | Checkups, Vaccines, Dental         |
+| 💼 Work         | Certifications, Reviews            |
+| 🚗 Vehicle      | Insurance, Service                 |
+| 💰 Finance      | FD maturity, SIP review            |
+| 🏡 Property     | Tax, Maintenance                   |
+| 🐶 Pets         | Vaccines, Grooming                 |
+| 👨‍👩‍👧 Family | Parents checkup, School fees       |
+| 📦 Digital      | Domain renewal, Cloud subscription |
+
+Areas are mostly for filtering.
+
+---
+
+# 2. Categories (Core Object Types)
+
+Instead of:
+
+```
+Goal
+Routine
+Task
+Purchase
+Subscription
+```
+
+I would use:
+
+| Category         | Purpose                     |
+| ---------------- | --------------------------- |
+| 🔄 Routine       | Repeating activities        |
+| 📅 Appointment   | One-off scheduled events    |
+| 💳 Subscription  | Recurring payments          |
+| 📜 Renewal       | Documents/licenses          |
+| 🛠 Maintenance   | Physical assets             |
+| 🎯 Goal          | Long-term targets           |
+| 🛒 Purchase      | Warranty/ownership tracking |
+| 💉 Health Record | Medical events              |
+| 📝 Custom        | User-defined                |
+
+---
+
+# 3. Each Category should have its own fields
+
+## A. Routine
+
+Examples:
+
+* Floor mop
+* Curtains wash
+* Water plants
+
+### Required
+
+| Field                    |
+| ------------------------ |
+| Title                    |
+| Last Done Date           |
+| Repeat Every             |
+| Unit (days/weeks/months) |
+| Reminder Before          |
+
+### Computed
+
+```
+Time Since
+Next Due
+Overdue Days
+```
+
+### Optional
+
+* History log
+* Attach image
+* Notes
+
+---
+
+## B. Goal
+
+Examples:
+
+* Learn Spanish
+* Lose 5kg
+* Build SinceTimer MVP
+
+### Fields
+
+| Field       |
+| ----------- |
+| Goal Name   |
+| Start Date  |
+| Target Date |
+| Status      |
+| Progress %  |
+| Milestones  |
+
+Optional:
+
+```
+Current Progress:
+■■■■□□□□ 40%
+```
+
+---
+
+## C. Subscription
+
+Examples:
+
+* Netflix
+* ChatGPT Plus
+* Domain Hosting
+
+### Fields
+
+| Field           |
+| --------------- |
+| Service Name    |
+| Start Date      |
+| Renewal Date    |
+| Billing Cycle   |
+| Cost            |
+| Auto Renew      |
+| Reminder Before |
+
+Optional:
+
+* Payment method
+* Invoice attachment
+
+---
+
+## D. Purchase
+
+Examples:
+
+* Washing Machine
+* Laptop
+* Refrigerator
+
+### Fields
+
+| Field         |
+| ------------- |
+| Purchase Date |
+| Cost          |
+| Warranty Ends |
+| Seller        |
+| Invoice Image |
+
+Optional:
+
+```
+Days Owned
+Warranty Remaining
+```
+
+---
+
+## E. Maintenance
+
+Examples:
+
+* AC Service
+* Water Filter Change
+* Car Service
+
+### Fields
+
+| Field           |
+| --------------- |
+| Last Service    |
+| Repeat Interval |
+| Vendor          |
+| Cost            |
+| Next Due        |
+
+Optional:
+
+Service history table.
+
+---
+
+## F. Renewal
+
+Examples:
+
+* Passport
+* Driving License
+* Insurance
+
+### Fields
+
+| Field           |
+| --------------- |
+| Issue Date      |
+| Expiry Date     |
+| Reminder Before |
+| Document Number |
+
+Optional:
+
+PDF attachment.
+
+---
+
+## G. Appointment
+
+Examples:
+
+* Dentist
+* Parent meeting
+* Interview
+
+### Fields
+
+| Field            |
+| ---------------- |
+| Appointment Date |
+| Location         |
+| Reminder         |
+| Completed        |
+
+After completion:
+
+```
+Last Visit:
+6 months ago
+```
+
+---
+
+## H. Health Record
+
+Probably your strongest use case.
+
+Examples:
+
+* Blood test
+* Eye exam
+* Dental cleaning
+* Thyroid check
+
+### Fields
+
+| Field           |
+| --------------- |
+| Event Type      |
+| Last Done       |
+| Doctor          |
+| Hospital        |
+| Repeat Interval |
+
+Optional:
+
+* Attach report PDF
+* Blood values
+* Notes
+
+---
+
+# 4. Better Dashboard Grouping
+
+Instead of category first:
+
+```
+TODAY
+
+🔴 AC Service
+Due Today
+
+🟡 Curtains
+Due in 5 days
+
+🟢 Blood Test
+Completed 10 days ago
+```
+
+---
+
+# 5. Hidden Universal Fields
+
+Every object should automatically have:
+
+| Field           | User Visible? |
+| --------------- | ------------- |
+| created_at      | No            |
+| updated_at      | No            |
+| completed_count | Optional      |
+| history[]       | Yes           |
+| tags[]          | Yes           |
+| favorite        | Yes           |
+| archived        | No            |
+
+---
+
+# 6. Smart Attachments
+
+Any category should optionally allow:
+
+```
+📷 Photo
+📄 PDF
+🔗 URL
+📝 Notes
+```
+
+Example:
+
+```
+Water Purifier
+
+Last Changed:
+Jan 15
+
+Invoice:
+[PDF]
+
+Technician:
+ABC Services
+```
+
+---
+
+# 7. I would actually add one more category:
+
+## Asset
+
+Examples:
+
+* House
+* Bike
+* Laptop
+* Washing Machine
+
+Assets become parents.
+
+```
+Car
+ ├── Insurance Renewal
+ ├── Pollution Check
+ ├── Service
+ └── Battery Replacement
+```
+
+This creates a much more powerful life-management system.
+
+---
+
+# 8. The real data model underneath
+
+Rather than many tables:
+
+```
+Event
+├── title
+├── area
+├── category
+├── dates{}
+├── metadata{}
+├── history[]
+├── attachments[]
+```
+
+Example:
+
+```json
+{
+  "title": "Curtains",
+  "area": "Home",
+  "category": "Routine",
+  "dates": {
+    "last_done": "2026-06-06",
+    "next_due": "2026-08-06"
+  },
+  "metadata": {
+    "interval_days": 60
+  }
+}
+```
+
+This gives you enormous flexibility without changing the database schema.
+
+---
+
+## If I were designing v1.0, I would reduce the UI to:
+
+### Areas
+
+```
+🏠 Home
+👤 Personal
+❤️ Health
+💼 Work
+🚗 Vehicle
+💰 Finance
+📦 Digital
+```
+
+### Categories
+
+```
+🔄 Routine
+🛠 Maintenance
+💳 Subscription
+📜 Renewal
+💉 Health Record
+🎯 Goal
+🛒 Purchase
+📅 Appointment
+```
+
+
+These eight categories cover about **95% of the recurring "when did I last..." problems** people actually face, while keeping the UI simple enough that a non-technical user immediately understands what to choose.

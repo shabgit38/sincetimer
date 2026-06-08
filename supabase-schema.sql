@@ -9,6 +9,7 @@ create table if not exists public.entries (
   entry_date timestamptz not null,
   next_due_date timestamptz,
   repeat_interval_days integer check (repeat_interval_days is null or repeat_interval_days > 0),
+  metadata jsonb not null default '{}'::jsonb,
   price numeric(12, 2),
   notes text,
   reminder_enabled boolean not null default false,
@@ -20,6 +21,9 @@ create table if not exists public.entries (
 alter table public.entries
   add column if not exists repeat_interval_days integer
   check (repeat_interval_days is null or repeat_interval_days > 0);
+
+alter table public.entries
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 alter table public.entries
   drop constraint if exists entries_area_check;

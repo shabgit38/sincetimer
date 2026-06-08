@@ -1,0 +1,410 @@
+For **this app**, don't think of it as a todo app.
+
+Think of it as:
+
+> **A personal life maintenance dashboard.**
+>
+> Calm. Minimal. Information-dense.
+> Almost like a mix between Google Calendar + Apple Health + Linear.
+
+---
+
+# First UI Principle
+
+Your users should never ask:
+
+* Where do I click?
+* What does this number mean?
+
+Instead, they should immediately see:
+
+```text
+Curtains
+72 days ago
+Next due in 8 days
+```
+
+No calculations. No clutter.
+
+---
+
+# The Design Style I would copy
+
+## 1. Apple Health
+
+Very simple cards.
+
+```
+┌─────────────────────────────┐
+│ 🪟 Curtains                 │
+│                             │
+│ 72 days                     │
+│ since last wash             │
+│                             │
+│ Due in 8 days               │
+│                             │
+│           [Mark Done]       │
+└─────────────────────────────┘
+```
+
+Characteristics:
+
+* lots of whitespace
+* rounded corners (16-20px)
+* subtle shadows
+* muted colors
+* typography does most of the work
+
+---
+
+## 2. Linear.app
+
+[Linear](https://linear.app?utm_source=chatgpt.com)
+
+This is probably the closest inspiration.
+
+Take from it:
+
+* monochrome palette
+* smooth animations
+* tiny hover effects
+* minimal borders
+* dark mode first
+
+Avoid bright colors.
+
+---
+
+## 3. Apple Reminders
+
+Instead of giant tables.
+
+Use grouped sections:
+
+```
+Today
+------------------
+□ AC Filter
+□ Water Plants
+
+Upcoming
+------------------
+□ Curtains (8 days)
+
+Completed Recently
+------------------
+✓ Health Checkup
+    24 days ago
+```
+
+---
+
+# UI Libraries You Should Use
+
+## Foundation
+
+### 1. [shadcn/ui](https://ui.shadcn.com/?utm_source=chatgpt.com)
+
+This should be your base.
+
+Why:
+
+* React
+* TypeScript
+* Tailwind
+* Copy-paste components
+* Beautiful defaults
+* Industry standard for modern SaaS apps. ([Shadcn UI][1])
+
+Install:
+
+```bash
+npx shadcn@latest init
+```
+
+---
+
+## Animation Layer
+
+### 2. [Magic UI](https://magicui.design/?utm_source=chatgpt.com)
+
+Use sparingly.
+
+Good for:
+
+* fade-in cards
+* number counting animation
+* subtle loading states
+
+Avoid fancy landing-page effects.
+
+---
+
+## Inspiration Only
+
+### 3. [Aceternity UI](https://ui.aceternity.com/?utm_source=chatgpt.com)
+
+Excellent source for polished effects and layouts. ([Aceternity UI][2])
+
+But don't build your entire app with it.
+
+Think:
+
+* 90% shadcn
+* 10% Aceternity-inspired polish
+
+---
+
+# Overall Layout
+
+```
++------------------------------------------------------+
+| EverSince                              🔍  ⚙️  🌙    |
++------------------------------------------------------+
+
+ Today
+ ------------------------------------------------------
+
+ ┌───────────────┐ ┌───────────────┐
+ │ Curtains      │ │ Water Filter  │
+ │               │ │               │
+ │ 72 days       │ │ 184 days      │
+ │ since         │ │ since         │
+ │               │ │               │
+ │ Due in 8 days │ │ Due Today     │
+ │               │ │               │
+ │ [Done]        │ │ [Done]        │
+ └───────────────┘ └───────────────┘
+
+
+ Upcoming
+
+ Health Checkup
+ 5 months ago
+ Due in 24 days
+
+
+ Recently Completed
+
+ ✓ Bedsheets
+ 2 days ago
+
+ ✓ Car Service
+ 14 days ago
+```
+
+---
+
+# Card Design Rules
+
+## Good
+
+```
+🩺 Health Checkup
+
+182 days
+
+since last visit
+
+Due in 3 days
+
+[Mark Done]
+```
+
+---
+
+## Bad
+
+```
+Health Checkup
+Last Event:
+2026-01-13T09:24:11
+Interval:
+180
+Remaining:
+3
+Status:
+Pending
+```
+
+Never expose raw data.
+
+---
+
+# Color System
+
+Keep it almost monochrome.
+
+| State           | Color |
+| --------------- | ----- |
+| Normal          | Gray  |
+| Upcoming (<10%) | Amber |
+| Due             | Red   |
+| Completed today | Green |
+
+Example:
+
+```
+⚪ Normal
+
+🟡 Due Soon
+
+🔴 Overdue
+
+🟢 Just Completed
+```
+
+---
+
+# Typography
+
+Use:
+
+```
+Inter
+```
+
+or
+
+```
+Geist
+```
+
+Both are common in modern React apps.
+
+Hierarchy:
+
+```
+32px  → days count
+16px  → title
+14px  → subtitle
+12px  → metadata
+```
+
+---
+
+# Mobile First
+
+Cards should stack naturally:
+
+```
+--------------------
+🪟 Curtains
+
+72 days
+
+since last wash
+
+Due in 8 days
+
+[Done]
+--------------------
+
+🩺 Health Checkup
+
+182 days
+
+since last visit
+
+Due in 3 days
+
+[Done]
+--------------------
+```
+
+---
+
+# Nice Micro-interactions
+
+### Mark Done
+
+Click:
+
+```
+[Done]
+```
+
+Animation:
+
+```
+✓ Completed
+
+72 days
+↓
+0 days
+```
+
+Card briefly glows green.
+
+---
+
+### Counter Animation
+
+When opening app:
+
+```
+181
+182
+183
+```
+
+instead of instantly appearing.
+
+Very subtle.
+
+---
+
+# Google Calendar Integration Screen
+
+```
+Calendar Sync
+
+☑ Google Connected
+
+Next Sync:
+Today 22:00
+
+Last Synced:
+5 min ago
+
+[Sync Now]
+```
+
+---
+
+# Dashboard Philosophy
+
+Do **not** build a CRUD admin panel.
+
+Build something that feels like:
+
+* Apple Health
+* Linear
+* Notion database cards
+* Google Keep simplicity
+
+The user should feel they are looking at a **living memory system**, not a database.
+
+---
+
+# If I were giving Claude Code one UI instruction, it would be:
+
+```text
+Build the UI like a calm, premium personal dashboard.
+
+Use shadcn/ui as the component foundation.
+Use Tailwind CSS and TypeScript.
+Prefer cards over tables.
+Use generous whitespace.
+Dark mode by default.
+Avoid bright colors and excessive animations.
+Take visual inspiration from Apple Health and Linear.
+The app should feel like an external memory for life maintenance, not a task manager.
+```
+
+For a solo developer using **Vite + React + TypeScript + Tailwind**, this is currently one of the safest and most professional stacks:
+
+**shadcn/ui + Tailwind + Framer Motion (light use) + Lucide icons + Inter/Geist font**. It looks modern out of the box and requires almost no formal UI/UX background to produce a polished result. ([Shadcn UI][1])
+
+[1]: https://ui.shadcn.com/?utm_source=chatgpt.com "The Foundation for your Design System - shadcn/ui"
+[2]: https://ui.aceternity.com/?utm_source=chatgpt.com "Aceternity UI — Beautiful Tailwind CSS and Framer Motion ..."

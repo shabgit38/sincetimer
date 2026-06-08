@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
 const defaultAreaNames = ['home', 'work', 'personal', 'health'];
-const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase'];
+const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase', 'subscription', 'health record'];
 
 const entriesSelect = `
   id,
@@ -13,6 +13,7 @@ const entriesSelect = `
   entry_date,
   next_due_date,
   repeat_interval_days,
+  metadata,
   price,
   notes,
   reminder_enabled,
@@ -56,17 +57,24 @@ async function getOptions(table: 'areas' | 'categories', defaults: string[]): Pr
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  if ((data ?? []).length > 0) return (data ?? []) as EntryOption[];
+
+  const existing = (data ?? []) as EntryOption[];
+  const missingDefaults = defaults.filter(
+    (name) => !existing.some((option) => option.name.toLocaleLowerCase() === name.toLocaleLowerCase())
+  );
+  if (existing.length > 0 && missingDefaults.length === 0) return existing;
 
   const now = new Date().toISOString();
   const { data: seeded, error: seedError } = await supabase
     .from(table)
-    .insert(defaults.map((name) => ({ user_id: userId, name, created_at: now, updated_at: now })))
+    .insert((existing.length > 0 ? missingDefaults : defaults).map((name) => ({ user_id: userId, name, created_at: now, updated_at: now })))
     .select('id, user_id, name, created_at, updated_at')
     .order('created_at', { ascending: true });
 
   if (seedError) throw seedError;
-  return (seeded ?? []) as EntryOption[];
+  return [...existing, ...((seeded ?? []) as EntryOption[])].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
 }
 
 async function insertOption(table: 'areas' | 'categories', name: string): Promise<EntryOption> {

@@ -18,6 +18,7 @@ export interface Entry {
   entry_date: string;
   next_due_date: string | null;
   repeat_interval_days: number | null;
+  metadata: Record<string, unknown>;
   price: number | null;
   notes: string | null;
   reminder_enabled: boolean;
