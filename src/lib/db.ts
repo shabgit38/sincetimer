@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
 const defaultAreaNames = ['home', 'work', 'personal', 'health'];
-const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase', 'subscription', 'health record'];
+const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase', 'subscription', 'appointment', 'health record', 'plan'];
 
 const entriesSelect = `
   id,

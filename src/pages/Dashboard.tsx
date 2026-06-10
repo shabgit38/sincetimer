@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown, Plus, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,18 @@ import {
   insertCategory,
   renameArea,
   renameCategory,
+  updateEntry,
 } from "@/lib/db";
+import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
 import type { Entry, EntryOption } from "@/types/entry";
+import type { PlanSession, PlanSessionStatus } from "@/types/plan";
 
 type SortOption = "created" | "overdue" | "area";
 type ManagedKind = "area" | "category";
+
+type DashboardProps = {
+  searchQuery?: string;
+};
 
 function formatOptionLabel(value: string) {
   return value
@@ -115,14 +123,18 @@ function EditableOptionButton({ active, option, onSelect, onRename }: EditableOp
         variant={active ? "default" : "outline"}
         size="sm"
         onClick={onSelect}
-        className="rounded-r-none"
+        className={`rounded-r-none ${
+          active ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
+        }`}
       >
         {formatOptionLabel(option.name)}
       </Button>
       <Button
         variant={active ? "default" : "outline"}
         size="sm"
-        className="w-8 rounded-l-none border-l-0 px-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+        className={`w-8 rounded-l-none border-l-0 px-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ${
+          active ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
+        }`}
         onClick={() => setEditing(true)}
         aria-label={`Rename ${option.name}`}
         title={`Rename ${option.name}`}
@@ -135,21 +147,16 @@ function EditableOptionButton({ active, option, onSelect, onRename }: EditableOp
 
 type AddOptionControlProps = {
   active: boolean;
-  onStart: () => void;
   onCancel: () => void;
   onSave: (name: string) => Promise<void>;
 };
 
-function AddOptionControl({ active, onStart, onCancel, onSave }: AddOptionControlProps) {
+function AddOptionControl({ active, onCancel, onSave }: AddOptionControlProps) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
   if (!active) {
-    return (
-      <Button variant="outline" size="sm" onClick={onStart}>
-        + Add
-      </Button>
-    );
+    return null;
   }
 
   const save = async () => {
@@ -217,6 +224,49 @@ function getTags(entry: Entry) {
     : [];
 }
 
+function flattenSearchValue(value: unknown): string[] {
+  if (value === null || value === undefined) return [];
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return [String(value)];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => flattenSearchValue(item));
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).flatMap((item) => flattenSearchValue(item));
+  }
+  return [];
+}
+
+function getEntrySearchText(entry: Entry) {
+  return [
+    entry.title,
+    entry.area,
+    entry.category,
+    entry.entry_date,
+    entry.next_due_date,
+    entry.repeat_interval_days,
+    entry.price,
+    entry.notes,
+    entry.reminder_enabled,
+    entry.reminder_time,
+    entry.created_at,
+    entry.updated_at,
+    ...flattenSearchValue(entry.metadata),
+  ]
+    .filter((value) => value !== null && value !== undefined)
+    .join(" ")
+    .toLocaleLowerCase();
+}
+
+function formatShortDuration(entryDate: string) {
+  return formatYearMonthDayDuration(entryDate)
+    .replace(/ ago$/, "")
+    .replace(/\byears?\b/g, "yr")
+    .replace(/\bmonths?\b/g, "mnth")
+    .replace(/\bdays?\b/g, "dys");
+}
+
 function getDueCopy(entry: Entry) {
   const summary = computeTimeSummary(entry.entry_date, entry.next_due_date);
   if (!entry.next_due_date) {
@@ -268,32 +318,70 @@ function getToneClasses(tone: string) {
 
 type MemoryCardProps = {
   entry: Entry;
+  planSession?: PlanSession | null;
   onOpen: () => void;
+  onToggleFavorite: () => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  favoriteSaving: boolean;
+  planSessionSaving: boolean;
 };
 
-function MemoryCard({ entry, onOpen }: MemoryCardProps) {
+function MemoryCard({
+  entry,
+  planSession,
+  onOpen,
+  onToggleFavorite,
+  onSetPlanSessionStatus,
+  favoriteSaving,
+  planSessionSaving,
+}: MemoryCardProps) {
   const due = getDueCopy(entry);
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
+  const isPlan = entry.category.toLocaleLowerCase() === "plan";
   const tags = getTags(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const completedCount = getNumberMetadata(entry, "completed_count");
 
   return (
-    <button type="button" onClick={onOpen} className="group text-left">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="group cursor-pointer text-left"
+    >
       <div className="min-h-56 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20 dark:hover:bg-white/[0.06]">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-400 dark:text-stone-500">
+            <p className="text-xs uppercase tracking-[0.22em] text-stone-700 dark:text-stone-200">
               {formatOptionLabel(entry.area)} / {formatOptionLabel(entry.category)}
             </p>
             <h3 className="mt-3 text-base font-medium text-stone-950 dark:text-stone-50">{entry.title}</h3>
           </div>
           <div className="flex flex-col items-end gap-2">
-            {isFavorite ? (
-              <div className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200">
-                Favorite
-              </div>
-            ) : null}
+            <button
+              type="button"
+              disabled={favoriteSaving}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleFavorite();
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+              className={`grid h-9 w-9 place-items-center rounded-full border transition ${
+                isFavorite
+                  ? "border-amber-200 bg-amber-50 text-amber-600 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+                  : "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300 hover:text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-500 dark:hover:border-white/20 dark:hover:text-stone-200"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+              aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
+              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Star className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+            </button>
             {isPurchase && entry.price !== null ? (
               <div className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
                 {formatMoney(entry.price, entry.metadata.currency)}
@@ -304,7 +392,7 @@ function MemoryCard({ entry, onOpen }: MemoryCardProps) {
 
         <div className="mt-8">
           <p className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
-            {formatYearMonthDayDuration(entry.entry_date).replace(/ ago$/, "")}
+            {formatShortDuration(entry.entry_date)}
           </p>
           <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">since last logged</p>
         </div>
@@ -318,6 +406,27 @@ function MemoryCard({ entry, onOpen }: MemoryCardProps) {
             Open
           </span>
         </div>
+        {isPlan && planSession ? (
+          <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
+            <Button
+              size="sm"
+              className="h-8 flex-1 px-2 text-xs"
+              disabled={planSessionSaving}
+              onClick={() => onSetPlanSessionStatus(planSession, "completed")}
+            >
+              Done
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 flex-1 px-2 text-xs"
+              disabled={planSessionSaving}
+              onClick={() => onSetPlanSessionStatus(planSession, "missed")}
+            >
+              Missed
+            </Button>
+          </div>
+        ) : null}
         {(tags.length > 0 || completedCount > 0) ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {completedCount > 0 ? (
@@ -333,36 +442,78 @@ function MemoryCard({ entry, onOpen }: MemoryCardProps) {
           </div>
         ) : null}
       </div>
-    </button>
+    </div>
   );
 }
 
 type EntrySectionProps = {
   group: EntryGroup;
+  collapsed: boolean;
+  planSessionsByEntryId: Map<string, PlanSession>;
+  onToggle: () => void;
   onOpen: (entry: Entry) => void;
+  onToggleFavorite: (entry: Entry) => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  favoriteSavingIds: Set<string>;
+  planSessionSavingIds: Set<string>;
 };
 
-function EntrySection({ group, onOpen }: EntrySectionProps) {
+function EntrySection({
+  group,
+  collapsed,
+  planSessionsByEntryId,
+  onToggle,
+  onOpen,
+  onToggleFavorite,
+  onSetPlanSessionStatus,
+  favoriteSavingIds,
+  planSessionSavingIds,
+}: EntrySectionProps) {
   if (group.entries.length === 0) return null;
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold tracking-tight text-stone-950 dark:text-stone-50">{group.title}</h3>
-        <p className="text-sm text-stone-500 dark:text-stone-400">{group.description}</p>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {group.entries.map((entry) => (
-          <MemoryCard key={entry.id} entry={entry} onOpen={() => onOpen(entry)} />
-        ))}
-      </div>
+    <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <button
+        type="button"
+        className="flex w-full items-start justify-between gap-4 border-b border-stone-200 bg-stone-50 px-5 py-4 text-left transition hover:bg-stone-100 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+        onClick={onToggle}
+        aria-expanded={!collapsed}
+      >
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold tracking-tight text-stone-950 dark:text-stone-50">{group.title}</h3>
+            <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">
+              {group.entries.length}
+            </span>
+          </div>
+          <p className="text-sm text-stone-500 dark:text-stone-400">{group.description}</p>
+        </div>
+        <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${collapsed ? "" : "rotate-180"}`} />
+      </button>
+      {collapsed ? null : (
+        <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+          {group.entries.map((entry) => (
+            <MemoryCard
+              key={entry.id}
+              entry={entry}
+              planSession={planSessionsByEntryId.get(entry.id) ?? null}
+              onOpen={() => onOpen(entry)}
+              onToggleFavorite={() => onToggleFavorite(entry)}
+              onSetPlanSessionStatus={onSetPlanSessionStatus}
+              favoriteSaving={favoriteSavingIds.has(entry.id)}
+              planSessionSaving={Boolean(planSessionsByEntryId.get(entry.id)?.id && planSessionSavingIds.has(planSessionsByEntryId.get(entry.id)!.id))}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
-export default function Dashboard() {
+export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [planSessions, setPlanSessions] = useState<PlanSession[]>([]);
   const [areas, setAreas] = useState<EntryOption[]>([]);
   const [categories, setCategories] = useState<EntryOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -372,17 +523,24 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [optionError, setOptionError] = useState<string | null>(null);
   const [adding, setAdding] = useState<ManagedKind | null>(null);
+  const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
+  const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    () => new Set(["Upcoming", "Unscheduled"])
+  );
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [entryData, areaData, categoryData] = await Promise.all([
+      const [entryData, planSessionData, areaData, categoryData] = await Promise.all([
         getAllEntries(),
+        getAllPlanSessions(),
         getAreas(),
         getCategories(),
       ]);
       setEntries(entryData);
+      setPlanSessions(planSessionData);
       setAreas(areaData);
       setCategories(categoryData);
     } catch (loadError) {
@@ -398,12 +556,14 @@ export default function Dashboard() {
   }, [loadDashboard]);
 
   const refreshData = async () => {
-    const [entryData, areaData, categoryData] = await Promise.all([
+    const [entryData, planSessionData, areaData, categoryData] = await Promise.all([
       getAllEntries(),
+      getAllPlanSessions(),
       getAreas(),
       getCategories(),
     ]);
     setEntries(entryData);
+    setPlanSessions(planSessionData);
     setAreas(areaData);
     setCategories(categoryData);
   };
@@ -442,10 +602,75 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleFavorite = async (entry: Entry) => {
+    if (favoriteSavingIds.has(entry.id)) return;
+
+    setError(null);
+    setFavoriteSavingIds((current) => new Set(current).add(entry.id));
+    const nextFavorite = !getBooleanMetadata(entry, "favorite");
+    const nextMetadata = { ...entry.metadata, favorite: nextFavorite };
+
+    try {
+      await updateEntry(entry.id, { metadata: nextMetadata });
+      setEntries((current) =>
+        current.map((item) =>
+          item.id === entry.id
+            ? { ...item, metadata: nextMetadata, updated_at: new Date().toISOString() }
+            : item
+        )
+      );
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update favorite.");
+    } finally {
+      setFavoriteSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
+        return next;
+      });
+    }
+  };
+
+  const handleSetPlanSessionStatus = async (session: PlanSession, status: PlanSessionStatus) => {
+    if (planSessionSavingIds.has(session.id)) return;
+
+    setError(null);
+    setPlanSessionSavingIds((current) => new Set(current).add(session.id));
+    try {
+      await updatePlanSessionStatus(session.id, status);
+      await refreshData();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update this plan session.");
+    } finally {
+      setPlanSessionSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(session.id);
+        return next;
+      });
+    }
+  };
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections((current) => {
+      const next = new Set(current);
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+      return next;
+    });
+  };
+
   const filteredEntries = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
     const visibleEntries = entries.filter((entry) => !getBooleanMetadata(entry, "archived"));
     const byArea = areaFilter === "all" ? visibleEntries : visibleEntries.filter((entry) => entry.area === areaFilter);
-    const base = categoryFilter === "all" ? byArea : byArea.filter((entry) => entry.category === categoryFilter);
+    const byCategory = categoryFilter === "all" ? byArea : byArea.filter((entry) => entry.category === categoryFilter);
+    const base = normalizedSearch
+      ? byCategory.filter((entry) => getEntrySearchText(entry).includes(normalizedSearch))
+      : byCategory;
     if (sortOption === "area") {
       return [...base].sort((a, b) => a.area.localeCompare(b.area));
     }
@@ -461,7 +686,30 @@ export default function Dashboard() {
     return [...base].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [entries, areaFilter, categoryFilter, sortOption]);
+  }, [entries, areaFilter, categoryFilter, sortOption, searchQuery]);
+
+  const nextPlanSessionsByEntryId = useMemo(() => {
+    const now = new Date();
+    const grouped = new Map<string, PlanSession[]>();
+    planSessions
+      .filter((session) => session.status === "scheduled")
+      .forEach((session) => {
+        const group = grouped.get(session.entry_id) ?? [];
+        group.push(session);
+        grouped.set(session.entry_id, group);
+      });
+
+    const nextByEntry = new Map<string, PlanSession>();
+    grouped.forEach((sessions, entryId) => {
+      const sorted = [...sessions].sort(
+        (a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
+      );
+      const nextSession =
+        sorted.find((session) => new Date(session.session_date) >= now) ?? sorted[0] ?? null;
+      if (nextSession) nextByEntry.set(entryId, nextSession);
+    });
+    return nextByEntry;
+  }, [planSessions]);
 
   const entryGroups = useMemo<EntryGroup[]>(() => {
     const favorites: Entry[] = [];
@@ -533,115 +781,155 @@ export default function Dashboard() {
   }, [filteredEntries]);
 
   return (
-    <section className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">What needs attention?</h2>
-          <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">A calm memory layer for recurring life maintenance.</p>
-        </div>
-        <Link className="inline-flex h-10 items-center rounded-lg bg-stone-950 px-4 text-sm font-medium text-white transition hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white" to="/add">
-          Add Entry
-        </Link>
-      </div>
-
-      <div className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant={areaFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setAreaFilter("all")}
-          >
-            All
-          </Button>
-          {areas.map((option) => (
-            <EditableOptionButton
-              key={option.id}
-              active={areaFilter === option.name}
-              option={option}
-              onSelect={() => setAreaFilter(option.name)}
-              onRename={(nextName) => handleRenameOption("area", option, nextName)}
-            />
-          ))}
-          <AddOptionControl
-            active={adding === "area"}
-            onStart={() => setAdding("area")}
-            onCancel={() => setAdding(null)}
-            onSave={(name) => handleAddOption("area", name)}
-          />
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={categoryFilter === "all" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setCategoryFilter("all")}
-            >
-              All categories
-            </Button>
-            {categories.map((option) => (
-              <EditableOptionButton
-                key={option.id}
-                active={categoryFilter === option.name}
-                option={option}
-                onSelect={() => setCategoryFilter(option.name)}
-                onRename={(nextName) => handleRenameOption("category", option, nextName)}
+    <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="min-w-0">
+        {error ? (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
+            {error}
+          </div>
+        ) : loading ? (
+          <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-10 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-400">
+            Loading entries...
+          </div>
+        ) : filteredEntries.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
+            <h3 className="text-lg font-semibold text-stone-950 dark:text-stone-50">
+              {searchQuery.trim() ? "No entries match your search" : "No entries yet"}
+            </h3>
+            <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
+              {searchQuery.trim()
+                ? "Try a different title, area, category, note, tag, attachment, or form field value."
+                : "Add the first memory you want GUIDR to keep for you."}
+            </p>
+            {searchQuery.trim() ? null : (
+              <Link className="mt-4 inline-flex h-10 items-center rounded-lg bg-stone-950 px-4 text-sm font-medium text-white transition hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white" to="/add">
+                Add your first entry
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {entryGroups.map((group) => (
+              <EntrySection
+                key={group.title}
+                group={group}
+                collapsed={collapsedSections.has(group.title)}
+                planSessionsByEntryId={nextPlanSessionsByEntryId}
+                onToggle={() => toggleSection(group.title)}
+                onOpen={(entry) => navigate(entry.category.toLocaleLowerCase() === "plan" ? "/plans" : `/entry/${entry.id}`)}
+                onToggleFavorite={handleToggleFavorite}
+                onSetPlanSessionStatus={handleSetPlanSessionStatus}
+                favoriteSavingIds={favoriteSavingIds}
+                planSessionSavingIds={planSessionSavingIds}
               />
             ))}
-            <AddOptionControl
-              active={adding === "category"}
-              onStart={() => setAdding("category")}
-              onCancel={() => setAdding(null)}
-              onSave={(name) => handleAddOption("category", name)}
-            />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-stone-500 dark:text-stone-400" htmlFor="sort-select">
+        )}
+      </div>
+
+      <aside className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:sticky lg:top-24">
+        <div className="space-y-5">
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">Areas</p>
+              <button
+                type="button"
+                className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50"
+                onClick={() => setAdding("area")}
+                aria-label="Add a new Area type"
+                title="Add a new Area type"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                variant={areaFilter === "all" ? "default" : "outline"}
+                size="sm"
+                className={`${
+                  areaFilter === "all" ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
+                }`}
+                onClick={() => setAreaFilter("all")}
+              >
+                All
+              </Button>
+              {areas.map((option) => (
+                <EditableOptionButton
+                  key={option.id}
+                  active={areaFilter === option.name}
+                  option={option}
+                  onSelect={() => setAreaFilter(option.name)}
+                  onRename={(nextName) => handleRenameOption("area", option, nextName)}
+                />
+              ))}
+              <AddOptionControl
+                active={adding === "area"}
+                onCancel={() => setAdding(null)}
+                onSave={(name) => handleAddOption("area", name)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">Categories</p>
+              <button
+                type="button"
+                className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50"
+                onClick={() => setAdding("category")}
+                aria-label="Add a new Category type"
+                title="Add a new Category type"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant={categoryFilter === "all" ? "default" : "outline"}
+                size="sm"
+                className={`${
+                  categoryFilter === "all" ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
+                }`}
+                onClick={() => setCategoryFilter("all")}
+              >
+                All categories
+              </Button>
+              {categories.map((option) => (
+                <EditableOptionButton
+                  key={option.id}
+                  active={categoryFilter === option.name}
+                  option={option}
+                  onSelect={() => setCategoryFilter(option.name)}
+                  onRename={(nextName) => handleRenameOption("category", option, nextName)}
+                />
+              ))}
+              <AddOptionControl
+                active={adding === "category"}
+                onCancel={() => setAdding(null)}
+                onSave={(name) => handleAddOption("category", name)}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-stone-500" htmlFor="sort-select">
               Sort
             </label>
             <select
               id="sort-select"
               value={sortOption}
               onChange={(event) => setSortOption(event.target.value as SortOption)}
-              className="h-9 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-700 outline-none transition hover:border-stone-300 dark:border-white/10 dark:bg-stone-950 dark:text-stone-200 dark:hover:border-white/20"
+              className="mt-3 h-9 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-700 outline-none transition hover:border-stone-300 dark:border-white/10 dark:bg-stone-950 dark:text-stone-200 dark:hover:border-white/20"
             >
               <option value="created">Newest first</option>
               <option value="overdue">Most overdue</option>
               <option value="area">Area</option>
             </select>
           </div>
-        </div>
-        {optionError ? <p className="text-sm text-rose-600">{optionError}</p> : null}
-      </div>
 
-      {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
-          {error}
+          {optionError ? <p className="text-sm text-rose-600">{optionError}</p> : null}
         </div>
-      ) : loading ? (
-        <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-10 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-400">
-          Loading entries...
-        </div>
-      ) : filteredEntries.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
-          <h3 className="text-lg font-semibold text-stone-950 dark:text-stone-50">No entries yet</h3>
-          <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
-            Add the first memory you want Since Timer to keep for you.
-          </p>
-          <Link className="mt-4 inline-flex h-10 items-center rounded-lg bg-stone-950 px-4 text-sm font-medium text-white transition hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white" to="/add">
-            Add your first entry
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {entryGroups.map((group) => (
-            <EntrySection
-              key={group.title}
-              group={group}
-              onOpen={(entry) => navigate(`/entry/${entry.id}`)}
-            />
-          ))}
-        </div>
-      )}
+      </aside>
     </section>
   );
 }

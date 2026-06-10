@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays } from "date-fns";
-import { useNavigate, useParams } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { currencyOptions, getCurrencyCode, type CurrencyCode } from "@/lib/currency";
@@ -14,12 +15,25 @@ import {
   insertHistory,
   updateEntry,
 } from "@/lib/db";
+import { generatePlanSessions } from "@/lib/planScheduler";
+import { replacePlanSessions } from "@/lib/plans";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import type { Entry, EntryOption, HistoryItem } from "@/types/entry";
+import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
 type RepeatUnit = "days" | "weeks" | "months";
 type GoalStatus = "not_started" | "in_progress" | "paused" | "completed";
 type BillingCycle = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
+
+const weekdayOptions = [
+  { value: 0, label: "Sun" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+];
 
 function formatOptionLabel(value: string) {
   return value
@@ -50,11 +64,60 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
   return addDays(loggedAt, entry.repeat_interval_days).toISOString();
 }
 
+const inputClass =
+  "h-11 rounded-xl border border-stone-400 bg-white px-4 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-300 dark:focus:ring-white/10";
+const requiredInputClass =
+  "border-rose-400 bg-rose-50/60 focus:border-rose-500 focus:ring-rose-100 dark:border-rose-400/70 dark:bg-rose-950/20 dark:focus:border-rose-300 dark:focus:ring-rose-500/20";
+const textareaClass =
+  "rounded-xl border border-stone-400 bg-white px-4 py-3 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-300 dark:focus:ring-white/10";
+const sectionPanelClass =
+  "grid gap-4 rounded-2xl border border-stone-300 bg-stone-50 p-4 dark:border-white/15 dark:bg-white/[0.04]";
+const inlinePanelClass =
+  "rounded-xl border border-stone-300 bg-white px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]";
+const inactivePillClass =
+  "border-stone-300 text-stone-900 hover:border-stone-500 hover:bg-stone-50 dark:border-white/20 dark:text-stone-100 dark:hover:border-white/40 dark:hover:bg-white/[0.06]";
+const missingRequiredPillClass =
+  "border-rose-400 bg-rose-50/60 text-rose-800 dark:border-rose-400/70 dark:bg-rose-950/20 dark:text-rose-100";
+
+function requiredLabel(label: string) {
+  return (
+    <>
+      {label} <span className="text-rose-500 dark:text-rose-300">*</span>
+    </>
+  );
+}
+
+function requiredClass(isMissing: boolean) {
+  return isMissing ? requiredInputClass : "";
+}
+
+function getPlanScheduleConfig(metadata: Record<string, unknown>): PlanScheduleConfig {
+  const rawConfig = metadata.schedule_config;
+  if (rawConfig && typeof rawConfig === "object") {
+    const config = rawConfig as Partial<PlanScheduleConfig>;
+    const mode: PlanScheduleMode =
+      config.mode === "months" || config.mode === "weekdays" || config.mode === "custom" ? config.mode : "days";
+    const interval = typeof config.interval === "number" && config.interval > 0 ? config.interval : 1;
+    const weekdays = Array.isArray(config.weekdays)
+      ? config.weekdays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+      : [];
+    return { mode, interval, weekdays };
+  }
+
+  if (typeof metadata.frequency_per_week === "number" && metadata.frequency_per_week > 0) {
+    return { mode: "days", interval: Math.max(1, Math.floor(7 / metadata.frequency_per_week)), weekdays: [] };
+  }
+
+  return { mode: "days", interval: 1, weekdays: [] };
+}
+
 export default function AddEntry() {
   const navigate = useNavigate();
   const params = useParams();
+  const [searchParams] = useSearchParams();
   const entryId = params.id ?? null;
   const isEditing = Boolean(entryId);
+  const requestedCategory = searchParams.get("category");
 
   const [title, setTitle] = useState("");
   const [area, setArea] = useState("");
@@ -72,6 +135,14 @@ export default function AddEntry() {
   const [goalMilestones, setGoalMilestones] = useState("");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [autoRenew, setAutoRenew] = useState(false);
+  const [planType, setPlanType] = useState<PlanType>("learning");
+  const [planEndDate, setPlanEndDate] = useState("");
+  const [planScheduleMode, setPlanScheduleMode] = useState<PlanScheduleMode>("days");
+  const [planScheduleInterval, setPlanScheduleInterval] = useState("1");
+  const [planScheduleWeekdays, setPlanScheduleWeekdays] = useState<number[]>([]);
+  const [planSessionDurationMinutes, setPlanSessionDurationMinutes] = useState("30");
+  const [planStatus, setPlanStatus] = useState<PlanStatus>("active");
+  const [planTopics, setPlanTopics] = useState("");
   const [seller, setSeller] = useState("");
   const [invoiceImage, setInvoiceImage] = useState("");
   const [doctor, setDoctor] = useState("");
@@ -94,6 +165,8 @@ export default function AddEntry() {
   const [logDates, setLogDates] = useState<Record<string, string>>({});
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [completedLogId, setCompletedLogId] = useState<string | null>(null);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const normalizedCategory = normalizeCategory(category);
   const isGoal = normalizedCategory === "goal";
@@ -101,6 +174,7 @@ export default function AddEntry() {
   const isSubscription = normalizedCategory === "subscription";
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
+  const isPlan = normalizedCategory === "plan";
   const hasRepeatInterval = isRoutine || isHealthRecord;
   const hasCost = isPurchase || isSubscription;
   const titleLabel = isGoal
@@ -111,7 +185,9 @@ export default function AddEntry() {
         ? "Event Type"
         : isPurchase
           ? "Item Name"
-          : "Title";
+          : isPlan
+            ? "Plan Name"
+            : "Title";
   const titlePlaceholder = isGoal
     ? "e.g. Learn Spanish"
     : isSubscription
@@ -120,7 +196,9 @@ export default function AddEntry() {
         ? "e.g. Blood test"
         : isPurchase
           ? "e.g. Washing machine"
-          : "e.g. Replace air filter";
+          : isPlan
+            ? "e.g. Learn React"
+            : "e.g. Replace air filter";
   const entryDateLabel = isGoal
     ? "Start Date"
     : isRoutine
@@ -131,7 +209,9 @@ export default function AddEntry() {
           ? "Purchase Date"
           : isHealthRecord
             ? "Last Done"
-            : "Entry Date";
+            : isPlan
+              ? "Start Date"
+              : "Entry Date";
   const nextDueLabel = isGoal
     ? "Target Date"
     : isSubscription
@@ -139,6 +219,11 @@ export default function AddEntry() {
       : isPurchase
         ? "Warranty Ends"
         : "Next Due Date";
+  const titleMissing = title.trim().length === 0;
+  const areaMissing = area.length === 0;
+  const categoryMissing = category.length === 0;
+  const entryDateMissing = entryDate.length === 0;
+  const planEndDateMissing = isPlan && planEndDate.length === 0;
 
   useEffect(() => {
     const load = async () => {
@@ -193,6 +278,31 @@ export default function AddEntry() {
               : "monthly"
           );
           setAutoRenew(entry.metadata.auto_renew === true);
+          setPlanType(
+            entry.metadata.plan_type === "habit" || entry.metadata.plan_type === "practice"
+              ? entry.metadata.plan_type
+              : "learning"
+          );
+          setPlanEndDate(typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "");
+          const scheduleConfig = getPlanScheduleConfig(entry.metadata);
+          setPlanScheduleMode(scheduleConfig.mode);
+          setPlanScheduleInterval(String(scheduleConfig.interval));
+          setPlanScheduleWeekdays(scheduleConfig.weekdays);
+          setPlanSessionDurationMinutes(
+            typeof entry.metadata.session_duration_minutes === "number"
+              ? String(entry.metadata.session_duration_minutes)
+              : "30"
+          );
+          setPlanStatus(
+            entry.metadata.plan_status === "paused" || entry.metadata.plan_status === "completed"
+              ? entry.metadata.plan_status
+              : "active"
+          );
+          setPlanTopics(
+            Array.isArray(entry.metadata.topics)
+              ? entry.metadata.topics.filter((topic) => typeof topic === "string").join("\n")
+              : ""
+          );
           setSeller(typeof entry.metadata.seller === "string" ? entry.metadata.seller : "");
           setInvoiceImage(typeof entry.metadata.invoice_image === "string" ? entry.metadata.invoice_image : "");
           setDoctor(typeof entry.metadata.doctor === "string" ? entry.metadata.doctor : "");
@@ -212,19 +322,27 @@ export default function AddEntry() {
           return;
         }
 
+        const categoryFromQuery = requestedCategory
+          ? categoryOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedCategory))?.name
+          : "";
         setArea((current) => current || areaOptions[0]?.name || "");
-        setCategory((current) => current || categoryOptions[0]?.name || "");
+        setCategory((current) => current || categoryFromQuery || categoryOptions[0]?.name || "");
       } catch (loadError) {
         console.error(loadError);
         setError("Unable to load entry options.");
       }
     };
     void load();
-  }, [entryId, isEditing]);
+  }, [entryId, isEditing, requestedCategory]);
 
   const canSubmit = useMemo(
-    () => title.trim().length > 0 && entryDate.length > 0 && area.length > 0 && category.length > 0,
-    [area, category, title, entryDate]
+    () =>
+      title.trim().length > 0 &&
+      entryDate.length > 0 &&
+      area.length > 0 &&
+      category.length > 0 &&
+      (!isPlan || planEndDate.length > 0),
+    [area, category, entryDate, isPlan, planEndDate, title]
   );
 
   useEffect(() => {
@@ -255,7 +373,7 @@ export default function AddEntry() {
     if (delay <= 0) return;
 
     window.setTimeout(() => {
-      new Notification("Since Timer", {
+      new Notification("GUIDR", {
         body: `Time to log: ${title || "entry"}`,
       });
     }, delay);
@@ -311,12 +429,54 @@ export default function AddEntry() {
       progressValue = parsed;
     }
 
+    let planScheduleConfig: PlanScheduleConfig | null = null;
+    let planDurationValue: number | null = null;
+    const planTopicValues = planTopics
+      .split(/\r?\n|,/)
+      .map((topic) => topic.trim())
+      .filter(Boolean);
+
+    if (isPlan) {
+      if (!planEndDate) {
+        setError("Plan end date is required.");
+        return;
+      }
+      if (new Date(planEndDate) < new Date(entryDate)) {
+        setError("Plan end date must be on or after the start date.");
+        return;
+      }
+
+      const parsedInterval = Number(planScheduleInterval);
+      if (!Number.isInteger(parsedInterval) || parsedInterval <= 0) {
+        setError("Schedule interval must be a positive whole number.");
+        return;
+      }
+      if (planScheduleMode === "weekdays" && planScheduleWeekdays.length === 0) {
+        setError("Choose at least one day of the week.");
+        return;
+      }
+      planScheduleConfig = {
+        mode: planScheduleMode,
+        interval: parsedInterval,
+        weekdays: planScheduleMode === "weekdays" ? [...planScheduleWeekdays].sort((a, b) => a - b) : [],
+      };
+
+      const parsedDuration = Number(planSessionDurationMinutes);
+      if (!Number.isInteger(parsedDuration) || parsedDuration <= 0) {
+        setError("Session duration must be a positive whole number.");
+        return;
+      }
+      planDurationValue = parsedDuration;
+    }
+
     const entryDateIso = new Date(entryDate).toISOString();
     const tagValues = tags
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
-    const nextDueDateIso = intervalValue
+    const nextDueDateIso = isPlan
+      ? entryDateIso
+      : intervalValue
       ? addDays(new Date(entryDate), intervalValue).toISOString()
       : nextDueDate
         ? new Date(nextDueDate).toISOString()
@@ -339,6 +499,14 @@ export default function AddEntry() {
         milestones: isGoal && goalMilestones.trim() ? goalMilestones.trim() : null,
         billing_cycle: isSubscription ? billingCycle : null,
         auto_renew: isSubscription ? autoRenew : null,
+        plan_type: isPlan ? planType : null,
+        plan_status: isPlan ? planStatus : null,
+        start_date: isPlan ? entryDate : null,
+        end_date: isPlan ? planEndDate : null,
+        frequency_per_week: null,
+        schedule_config: isPlan ? planScheduleConfig : null,
+        session_duration_minutes: isPlan ? planDurationValue : null,
+        topics: isPlan ? planTopicValues : null,
         seller: isPurchase && seller.trim() ? seller.trim() : null,
         invoice_image: isPurchase && invoiceImage.trim() ? invoiceImage.trim() : null,
         warranty_ends: isPurchase && nextDueDate ? nextDueDate : null,
@@ -364,10 +532,27 @@ export default function AddEntry() {
     };
 
     try {
+      let savedEntryId = entryId;
       if (isEditing && entryId !== null) {
         await updateEntry(entryId, payload);
       } else {
-        await insertEntry(payload);
+        savedEntryId = await insertEntry(payload);
+      }
+
+      if (isPlan && savedEntryId) {
+        const sessions = generatePlanSessions({
+          entryId: savedEntryId,
+          title: title.trim(),
+          planType,
+          startDate: entryDate,
+          endDate: planEndDate,
+          schedule: planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] },
+          topics: planTopicValues,
+        });
+        await replacePlanSessions(savedEntryId, sessions);
+        await updateEntry(savedEntryId, {
+          next_due_date: sessions[0]?.session_date ?? entryDateIso,
+        });
       }
       setEntries(await getAllEntries());
       await scheduleNotification();
@@ -435,12 +620,12 @@ export default function AddEntry() {
   };
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+    <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 rounded-2xl border border-stone-300 bg-white p-6 shadow-sm dark:border-white/15 dark:bg-white/[0.04]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold">{isEditing ? "Edit Entry" : "Add Entry"}</h2>
-            <p className="text-sm text-stone-500">
+            <h2 className="text-2xl font-semibold text-stone-950 dark:text-stone-50">{isEditing ? "Edit Entry" : "Add Entry"}</h2>
+            <p className="text-sm text-stone-500 dark:text-stone-400">
               Capture what happened and the next action date.
             </p>
           </div>
@@ -449,22 +634,9 @@ export default function AddEntry() {
           </Button>
         </div>
 
-        <form className="mt-6 grid gap-6" onSubmit={handleSubmit}>
+        <form className="mt-6 grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-2">
-            <label className="text-sm font-medium text-stone-700" htmlFor="title">
-              {titleLabel}
-            </label>
-            <input
-              id="title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700 focus:border-stone-400 focus:outline-none"
-              placeholder={titlePlaceholder}
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <span className="text-sm font-medium text-stone-700">Area</span>
+            <span className="text-sm font-medium text-stone-900 dark:text-stone-100">{requiredLabel("Area")}</span>
             <div className="flex flex-wrap gap-2">
               {areas.map((item) => (
                 <button
@@ -473,8 +645,10 @@ export default function AddEntry() {
                   onClick={() => setArea(item.name)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                     area === item.name
-                      ? "border-stone-900 bg-stone-900 text-white"
-                      : "border-stone-300 text-stone-600 hover:border-stone-400"
+                      ? "border-stone-900 bg-stone-900 text-white dark:border-stone-100 dark:bg-stone-100 dark:text-stone-950"
+                      : areaMissing
+                        ? missingRequiredPillClass
+                        : inactivePillClass
                   }`}
                 >
                   {formatOptionLabel(item.name)}
@@ -484,7 +658,7 @@ export default function AddEntry() {
           </div>
 
           <div className="grid gap-2">
-            <span className="text-sm font-medium text-stone-700">Category</span>
+            <span className="text-sm font-medium text-stone-900 dark:text-stone-100">{requiredLabel("Category")}</span>
             <div className="flex flex-wrap gap-2">
               {categories.map((item) => (
                 <button
@@ -493,8 +667,10 @@ export default function AddEntry() {
                   onClick={() => setCategory(item.name)}
                   className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
                     category === item.name
-                      ? "border-stone-900 bg-stone-900 text-white"
-                      : "border-stone-300 text-stone-600 hover:border-stone-400"
+                      ? "border-stone-900 bg-stone-900 text-white dark:border-stone-100 dark:bg-stone-100 dark:text-stone-950"
+                      : categoryMissing
+                        ? missingRequiredPillClass
+                        : inactivePillClass
                   }`}
                 >
                   {formatOptionLabel(item.name)}
@@ -503,22 +679,34 @@ export default function AddEntry() {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${isRoutine ? "md:grid-cols-5" : isGoal || isSubscription || isPurchase ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+          <div className={`grid gap-4 ${isRoutine ? "md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5" : isGoal || isSubscription || isPurchase || isPlan ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
             <div className="grid gap-2">
-              <label className="text-sm font-medium text-stone-700" htmlFor="entryDate">
-                {entryDateLabel}
+              <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="title">
+                {requiredLabel(titleLabel)}
+              </label>
+              <input
+                id="title"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                className={`${inputClass} ${requiredClass(titleMissing)}`}
+                placeholder={titlePlaceholder}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="entryDate">
+                {requiredLabel(entryDateLabel)}
               </label>
               <input
                 id="entryDate"
                 type="date"
                 value={entryDate}
                 onChange={(event) => setEntryDate(event.target.value)}
-                className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                className={`${inputClass} ${requiredClass(entryDateMissing)}`}
               />
             </div>
             {hasRepeatInterval ? (
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="repeatIntervalDays">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">
                   {isRoutine ? "Repeat Every" : "Repeat Interval"}
                 </label>
                 <input
@@ -526,7 +714,7 @@ export default function AddEntry() {
                   type="number"
                   value={repeatIntervalDays}
                   onChange={(event) => setRepeatIntervalDays(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder={isRoutine ? "e.g. 2" : "e.g. 180"}
                   min="1"
                   step="1"
@@ -535,14 +723,14 @@ export default function AddEntry() {
             ) : null}
             {isRoutine ? (
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="repeatUnit">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatUnit">
                   Unit
                 </label>
                 <select
                   id="repeatUnit"
                   value={repeatUnit}
                   onChange={(event) => setRepeatUnit(event.target.value as RepeatUnit)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                 >
                   <option value="days">Days</option>
                   <option value="weeks">Weeks</option>
@@ -550,22 +738,24 @@ export default function AddEntry() {
                 </select>
               </div>
             ) : null}
-            <div className="grid gap-2">
-              <label className="text-sm font-medium text-stone-700" htmlFor="nextDueDate">
-                {nextDueLabel}
-              </label>
-              <input
-                id="nextDueDate"
-                type="date"
-                value={nextDueDate}
-                onChange={(event) => setNextDueDate(event.target.value)}
-                disabled={hasRepeatInterval && Boolean(repeatIntervalDays.trim())}
-                className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
-              />
-            </div>
+            {!isPlan ? (
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">
+                  {nextDueLabel}
+                </label>
+                <input
+                  id="nextDueDate"
+                  type="date"
+                  value={nextDueDate}
+                  onChange={(event) => setNextDueDate(event.target.value)}
+                  disabled={hasRepeatInterval && Boolean(repeatIntervalDays.trim())}
+                  className={inputClass}
+                />
+              </div>
+            ) : null}
             {isRoutine || isSubscription ? (
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="reminderBeforeDays">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">
                   Reminder Before
                 </label>
                 <input
@@ -573,7 +763,7 @@ export default function AddEntry() {
                   type="number"
                   value={reminderBeforeDays}
                   onChange={(event) => setReminderBeforeDays(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="Days before due"
                   min="0"
                   step="1"
@@ -582,17 +772,156 @@ export default function AddEntry() {
             ) : null}
           </div>
 
-          {isGoal ? (
-            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 md:grid-cols-[1fr_160px]">
+          {isPlan ? (
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="goalStatus">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planType">
+                  Plan Type
+                </label>
+                <select
+                  id="planType"
+                  value={planType}
+                  onChange={(event) => setPlanType(event.target.value as PlanType)}
+                  className={inputClass}
+                >
+                  <option value="learning">Learning</option>
+                  <option value="habit">Habit</option>
+                  <option value="practice">Practice</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planEndDate">
+                  {requiredLabel("End Date")}
+                </label>
+                <input
+                  id="planEndDate"
+                  type="date"
+                  value={planEndDate}
+                  onChange={(event) => setPlanEndDate(event.target.value)}
+                  className={`${inputClass} ${requiredClass(planEndDateMissing)}`}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planScheduleMode">
+                  Frequency
+                </label>
+                <select
+                  id="planScheduleMode"
+                  value={planScheduleMode}
+                  onChange={(event) => setPlanScheduleMode(event.target.value as PlanScheduleMode)}
+                  className={inputClass}
+                >
+                  <option value="days">Every N days</option>
+                  <option value="months">Every N months</option>
+                  <option value="weekdays">Specific days</option>
+                  <option value="custom">Custom weeks</option>
+                </select>
+              </div>
+              {planScheduleMode !== "weekdays" ? (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planScheduleInterval">
+                    Repeat Every
+                  </label>
+                  <input
+                    id="planScheduleInterval"
+                    type="number"
+                    value={planScheduleInterval}
+                    onChange={(event) => setPlanScheduleInterval(event.target.value)}
+                    className={inputClass}
+                    min="1"
+                    step="1"
+                  />
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    {planScheduleMode === "months" ? "Months" : planScheduleMode === "custom" ? "Weeks" : "Days"}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-2 xl:col-span-2">
+                  <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Days of Week</span>
+                  <div className="flex flex-wrap gap-2">
+                    {weekdayOptions.map((day) => {
+                      const selected = planScheduleWeekdays.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() =>
+                            setPlanScheduleWeekdays((current) =>
+                              current.includes(day.value)
+                                ? current.filter((value) => value !== day.value)
+                                : [...current, day.value]
+                            )
+                          }
+                          className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
+                            selected
+                              ? "border-stone-900 bg-stone-900 text-white dark:border-stone-100 dark:bg-stone-100 dark:text-stone-950"
+                              : planScheduleWeekdays.length === 0
+                                ? missingRequiredPillClass
+                                : inactivePillClass
+                          }`}
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planSessionDurationMinutes">
+                  Session Minutes
+                </label>
+                <input
+                  id="planSessionDurationMinutes"
+                  type="number"
+                  value={planSessionDurationMinutes}
+                  onChange={(event) => setPlanSessionDurationMinutes(event.target.value)}
+                  className={inputClass}
+                  min="1"
+                  step="1"
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planStatus">
+                  Status
+                </label>
+                <select
+                  id="planStatus"
+                  value={planStatus}
+                  onChange={(event) => setPlanStatus(event.target.value as PlanStatus)}
+                  className={inputClass}
+                >
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div className="grid gap-2 md:col-span-2 xl:col-span-3">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
+                  Topics
+                </label>
+                <textarea
+                  id="planTopics"
+                  value={planTopics}
+                  onChange={(event) => setPlanTopics(event.target.value)}
+                  className={`min-h-[96px] ${textareaClass}`}
+                  placeholder="One topic per line..."
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {isGoal ? (
+            <div className={`${sectionPanelClass} md:grid-cols-[1fr_160px]`}>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="goalStatus">
                   Status
                 </label>
                 <select
                   id="goalStatus"
                   value={goalStatus}
                   onChange={(event) => setGoalStatus(event.target.value as GoalStatus)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                 >
                   <option value="not_started">Not started</option>
                   <option value="in_progress">In progress</option>
@@ -601,7 +930,7 @@ export default function AddEntry() {
                 </select>
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="goalProgress">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="goalProgress">
                   Progress %
                 </label>
                 <input
@@ -609,7 +938,7 @@ export default function AddEntry() {
                   type="number"
                   value={goalProgress}
                   onChange={(event) => setGoalProgress(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="0"
                   min="0"
                   max="100"
@@ -617,14 +946,14 @@ export default function AddEntry() {
                 />
               </div>
               <div className="grid gap-2 md:col-span-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="goalMilestones">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="goalMilestones">
                   Milestones
                 </label>
                 <textarea
                   id="goalMilestones"
                   value={goalMilestones}
                   onChange={(event) => setGoalMilestones(event.target.value)}
-                  className="min-h-[96px] rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-700"
+                  className={`min-h-[96px] ${textareaClass}`}
                   placeholder="One milestone per line..."
                 />
               </div>
@@ -632,16 +961,16 @@ export default function AddEntry() {
           ) : null}
 
           {isSubscription ? (
-            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 md:grid-cols-[1fr_160px]">
+            <div className={`${sectionPanelClass} md:grid-cols-[1fr_160px]`}>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="billingCycle">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="billingCycle">
                   Billing Cycle
                 </label>
                 <select
                   id="billingCycle"
                   value={billingCycle}
                   onChange={(event) => setBillingCycle(event.target.value as BillingCycle)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                 >
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
@@ -650,11 +979,11 @@ export default function AddEntry() {
                   <option value="custom">Custom</option>
                 </select>
               </div>
-              <div className="rounded-xl border border-stone-200 bg-white px-4 py-3">
+              <div className={inlinePanelClass}>
                 <div className="flex h-full items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-stone-700">Auto Renew</p>
-                    <p className="text-xs text-stone-500">Renews without manual action.</p>
+                    <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Auto Renew</p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">Renews without manual action.</p>
                   </div>
                   <label className="relative inline-flex cursor-pointer items-center">
                     <input
@@ -673,7 +1002,7 @@ export default function AddEntry() {
           {hasCost ? (
             <div className="grid gap-4 md:grid-cols-[1fr_180px]">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="price">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="price">
                   Cost
                 </label>
                 <input
@@ -681,21 +1010,21 @@ export default function AddEntry() {
                   type="number"
                   value={price}
                   onChange={(event) => setPrice(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="currency">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="currency">
                   Currency
                 </label>
                 <select
                   id="currency"
                   value={currency}
                   onChange={(event) => setCurrency(event.target.value as CurrencyCode)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                 >
                   {currencyOptions.map((option) => (
                     <option key={option.code} value={option.code}>
@@ -708,28 +1037,28 @@ export default function AddEntry() {
           ) : null}
 
           {isPurchase ? (
-            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 md:grid-cols-2">
+            <div className={`${sectionPanelClass} md:grid-cols-2`}>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="seller">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="seller">
                   Seller
                 </label>
                 <input
                   id="seller"
                   value={seller}
                   onChange={(event) => setSeller(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="e.g. Croma"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="invoiceImage">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="invoiceImage">
                   Invoice Image
                 </label>
                 <input
                   id="invoiceImage"
                   value={invoiceImage}
                   onChange={(event) => setInvoiceImage(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="Image URL or file reference"
                 />
               </div>
@@ -737,54 +1066,54 @@ export default function AddEntry() {
           ) : null}
 
           {isHealthRecord ? (
-            <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4 md:grid-cols-2">
+            <div className={`${sectionPanelClass} md:grid-cols-2`}>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="doctor">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="doctor">
                   Doctor
                 </label>
                 <input
                   id="doctor"
                   value={doctor}
                   onChange={(event) => setDoctor(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="e.g. Dr. Rao"
                 />
               </div>
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="hospital">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="hospital">
                   Hospital
                 </label>
                 <input
                   id="hospital"
                   value={hospital}
                   onChange={(event) => setHospital(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="e.g. Apollo"
                 />
               </div>
             </div>
           ) : null}
 
-          <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+          <div className={sectionPanelClass}>
             <div>
-              <p className="text-sm font-medium text-stone-700">Universal fields</p>
-              <p className="text-xs text-stone-500">Tags and visibility controls apply to every entry.</p>
+              <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Universal fields</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">Tags and visibility controls apply to every entry.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-[1fr_160px_160px]">
               <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="tags">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="tags">
                   Tags
                 </label>
                 <input
                   id="tags"
                   value={tags}
                   onChange={(event) => setTags(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                   placeholder="home, urgent, annual"
                 />
               </div>
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
-                <span className="text-sm font-medium text-stone-700">Favorite</span>
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Favorite</span>
                 <input
                   type="checkbox"
                   checked={favorite}
@@ -792,8 +1121,8 @@ export default function AddEntry() {
                   className="h-4 w-4"
                 />
               </label>
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
-                <span className="text-sm font-medium text-stone-700">Archived</span>
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Archived</span>
                 <input
                   type="checkbox"
                   checked={archived}
@@ -804,81 +1133,112 @@ export default function AddEntry() {
             </div>
           </div>
 
-          <div className="grid gap-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-            <div>
-              <p className="text-sm font-medium text-stone-700">Smart attachments</p>
-              <p className="text-xs text-stone-500">Attach references for photos, PDFs, URLs, and attachment-specific notes.</p>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="attachmentPhoto">
-                  Photo
-                </label>
-                <input
-                  id="attachmentPhoto"
-                  value={attachmentPhoto}
-                  onChange={(event) => setAttachmentPhoto(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
-                  placeholder="Photo URL or file reference"
-                />
+          <div className="rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              onClick={() => setAttachmentsOpen((current) => !current)}
+              aria-expanded={attachmentsOpen}
+            >
+              <div>
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Smart attachments</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Photos, PDFs, URLs, and attachment notes.</p>
               </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="attachmentPdf">
-                  PDF
-                </label>
-                <input
-                  id="attachmentPdf"
-                  value={attachmentPdf}
-                  onChange={(event) => setAttachmentPdf(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
-                  placeholder="PDF URL or file reference"
-                />
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
+                  attachmentsOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {attachmentsOpen ? (
+              <div className="grid gap-4 border-t border-stone-200 p-4 dark:border-white/10 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentPhoto">
+                    Photo
+                  </label>
+                  <input
+                    id="attachmentPhoto"
+                    value={attachmentPhoto}
+                    onChange={(event) => setAttachmentPhoto(event.target.value)}
+                    className={inputClass}
+                    placeholder="Photo URL or file reference"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentPdf">
+                    PDF
+                  </label>
+                  <input
+                    id="attachmentPdf"
+                    value={attachmentPdf}
+                    onChange={(event) => setAttachmentPdf(event.target.value)}
+                    className={inputClass}
+                    placeholder="PDF URL or file reference"
+                  />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentUrl">
+                    URL
+                  </label>
+                  <input
+                    id="attachmentUrl"
+                    value={attachmentUrl}
+                    onChange={(event) => setAttachmentUrl(event.target.value)}
+                    className={inputClass}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentNotes">
+                    Attachment Notes
+                  </label>
+                  <textarea
+                    id="attachmentNotes"
+                    value={attachmentNotes}
+                    onChange={(event) => setAttachmentNotes(event.target.value)}
+                    className={`min-h-[84px] ${textareaClass}`}
+                    placeholder="Details about attached references..."
+                  />
+                </div>
               </div>
-              <div className="grid gap-2 md:col-span-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="attachmentUrl">
-                  URL
-                </label>
-                <input
-                  id="attachmentUrl"
-                  value={attachmentUrl}
-                  onChange={(event) => setAttachmentUrl(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
-                  placeholder="https://..."
-                />
+            ) : null}
+          </div>
+
+          <div className="rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              onClick={() => setNotesOpen((current) => !current)}
+              aria-expanded={notesOpen}
+            >
+              <div>
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Notes</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Optional details.</p>
               </div>
-              <div className="grid gap-2 md:col-span-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="attachmentNotes">
-                  Attachment Notes
-                </label>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
+                  notesOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+            {notesOpen ? (
+              <div className="border-t border-stone-200 p-4 dark:border-white/10">
                 <textarea
-                  id="attachmentNotes"
-                  value={attachmentNotes}
-                  onChange={(event) => setAttachmentNotes(event.target.value)}
-                  className="min-h-[84px] rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-700"
-                  placeholder="Details about attached references..."
+                  id="notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  className={`min-h-[120px] w-full ${textareaClass}`}
+                  placeholder="Optional details..."
                 />
               </div>
-            </div>
+            ) : null}
           </div>
 
-          <div className="grid gap-2">
-            <label className="text-sm font-medium text-stone-700" htmlFor="notes">
-              Notes
-            </label>
-            <textarea
-              id="notes"
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              className="min-h-[120px] rounded-xl border border-stone-300 bg-white px-4 py-3 text-sm text-stone-700"
-              placeholder="Optional details..."
-            />
-          </div>
-
-          <div className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+          <div className="rounded-2xl border border-stone-300 bg-stone-50 p-4 dark:border-white/15 dark:bg-white/[0.04]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-stone-700">Reminder</p>
-                <p className="text-xs text-stone-500">Notification will fire while this tab is open.</p>
+                <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Reminder</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">Notification will fire while this tab is open.</p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
                 <input
@@ -892,7 +1252,7 @@ export default function AddEntry() {
             </div>
             {reminderEnabled ? (
               <div className="mt-4 grid gap-2">
-                <label className="text-sm font-medium text-stone-700" htmlFor="reminderTime">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderTime">
                   Reminder Time
                 </label>
                 <input
@@ -900,7 +1260,7 @@ export default function AddEntry() {
                   type="time"
                   value={reminderTime}
                   onChange={(event) => setReminderTime(event.target.value)}
-                  className="h-11 rounded-xl border border-stone-300 bg-white px-4 text-sm text-stone-700"
+                  className={inputClass}
                 />
               </div>
             ) : null}
@@ -923,16 +1283,16 @@ export default function AddEntry() {
           </div>
         </form>
       </div>
-      <aside className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm xl:sticky xl:top-24 xl:self-start">
+      <aside className="rounded-2xl border border-stone-300 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-white/[0.04] 2xl:sticky 2xl:top-24 2xl:self-start">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Same area/category</p>
-          <h3 className="mt-2 text-lg font-semibold text-stone-900">Related entries</h3>
-          <p className="mt-1 text-sm text-stone-500">Open another card to edit it, or log another occurrence.</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-400 dark:text-stone-500">Same area/category</p>
+          <h3 className="mt-2 text-lg font-semibold text-stone-900 dark:text-stone-50">Related entries</h3>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">Open another card to edit it, or log another occurrence.</p>
         </div>
         {sidePanelError ? <p className="mt-3 text-sm text-rose-600">{sidePanelError}</p> : null}
         <div className="mt-4 grid gap-3">
           {relatedEntries.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-stone-200 p-4 text-sm text-stone-500">
+            <div className="rounded-xl border border-dashed border-stone-300 p-4 text-sm text-stone-500 dark:border-white/15 dark:text-stone-400">
               No entries match this area and category yet.
             </div>
           ) : (
@@ -952,13 +1312,15 @@ export default function AddEntry() {
                   className={`rounded-xl border p-4 transition ${
                     completedLogId === entry.id ? "animate-log-complete" : ""
                   } ${
-                    entry.id === entryId ? "border-stone-900 bg-stone-50" : "border-stone-200 bg-white hover:border-stone-300"
+                    entry.id === entryId
+                      ? "border-stone-900 bg-stone-50 dark:border-white/40 dark:bg-white/[0.08]"
+                      : "border-stone-300 bg-white hover:border-stone-500 dark:border-white/15 dark:bg-white/[0.04] dark:hover:border-white/35"
                   }`}
                 >
                   <button type="button" className="block w-full text-left" onClick={() => navigate(`/edit/${entry.id}`)}>
-                    <p className="font-medium text-stone-900">{entry.title}</p>
-                    <p className="mt-1 text-sm text-stone-500">{formatYearMonthDayDuration(entry.entry_date)}</p>
-                    <p className={`mt-2 text-sm ${summary.isOverdue ? "text-rose-600" : "text-stone-600"}`}>
+                    <p className="font-medium text-stone-900 dark:text-stone-50">{entry.title}</p>
+                    <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{formatYearMonthDayDuration(entry.entry_date)}</p>
+                    <p className={`mt-2 text-sm ${summary.isOverdue ? "text-rose-600 dark:text-rose-300" : "text-stone-600 dark:text-stone-300"}`}>
                       {dueText}
                     </p>
                   </button>
@@ -967,7 +1329,7 @@ export default function AddEntry() {
                       type="date"
                       value={logDates[entry.id] ?? ""}
                       onChange={(event) => setLogDates((current) => ({ ...current, [entry.id]: event.target.value }))}
-                      className="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+                      className="min-w-0 flex-1 rounded-lg border border-stone-400 bg-white px-3 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
                       aria-label={`Log date for ${entry.title}`}
                     />
                     <Button
@@ -975,7 +1337,7 @@ export default function AddEntry() {
                       onClick={() => void handleSidePanelLogAgain(entry)}
                       disabled={loggingId === entry.id}
                     >
-                      {loggingId === entry.id ? "Logging..." : "Log"}
+                      {loggingId === entry.id ? "Logging..." : "Log Again"}
                     </Button>
                   </div>
                 </div>

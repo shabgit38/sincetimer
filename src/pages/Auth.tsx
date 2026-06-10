@@ -32,7 +32,7 @@ export default function Auth() {
   return (
     <main className="grid min-h-screen place-items-center bg-stone-50 px-6">
       <section className="w-full max-w-md rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.24em] text-stone-400">Since Timer</p>
+        <p className="text-xs uppercase tracking-[0.24em] text-stone-400">GUIDR</p>
         <h1 className="mt-2 text-2xl font-semibold text-stone-900">Sign in</h1>
         <p className="mt-2 text-sm text-stone-500">
           Use the same account on phone, laptop, and browser.

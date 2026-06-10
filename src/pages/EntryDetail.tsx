@@ -159,24 +159,32 @@ export default function EntryDetail() {
   const historyEvents = useMemo(() => {
     if (!entry) return [];
     const currentTime = new Date(entry.entry_date).getTime();
-    const pastEvents = history
-      .filter((record) => new Date(record.logged_date).getTime() !== currentTime)
-      .map((record) => ({
+    const hasCurrentHistoryRecord = history.some(
+      (record) => new Date(record.logged_date).getTime() === currentTime
+    );
+    const loggedEvents = history.map((record) => {
+      const isCurrent = new Date(record.logged_date).getTime() === currentTime;
+      return {
         id: record.id,
         loggedDate: record.logged_date,
         label: record.notes || entry.title,
-        isCurrent: false,
-      }));
+        isCurrent,
+      };
+    });
 
-    return [
-      {
-        id: `current-${entry.id}`,
-        loggedDate: entry.entry_date,
-        label: entry.title,
-        isCurrent: true,
-      },
-      ...pastEvents,
-    ].sort((a, b) => new Date(b.loggedDate).getTime() - new Date(a.loggedDate).getTime());
+    const events = hasCurrentHistoryRecord
+      ? loggedEvents
+      : [
+          {
+            id: `current-${entry.id}`,
+            loggedDate: entry.entry_date,
+            label: entry.title,
+            isCurrent: true,
+          },
+          ...loggedEvents,
+        ];
+
+    return events.sort((a, b) => new Date(b.loggedDate).getTime() - new Date(a.loggedDate).getTime());
   }, [entry, history]);
 
   const handleLogAgain = async () => {

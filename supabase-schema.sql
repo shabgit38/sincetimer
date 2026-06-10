@@ -58,6 +58,22 @@ create table if not exists public.entry_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.plan_sessions (
+  id uuid primary key default gen_random_uuid(),
+  entry_id uuid not null references public.entries(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  session_date timestamptz not null,
+  session_type text not null check (session_type in ('learn', 'practice', 'habit', 'reflection')),
+  title text not null,
+  status text not null default 'scheduled' check (status in ('scheduled', 'completed', 'missed', 'rescheduled', 'skipped')),
+  completed_at timestamptz,
+  score integer check (score is null or (score >= 0 and score <= 100)),
+  notes text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.settings (
   user_id uuid not null references auth.users(id) on delete cascade,
   key text not null check (key in ('history_months')),
@@ -67,6 +83,7 @@ create table if not exists public.settings (
 
 alter table public.entries enable row level security;
 alter table public.entry_logs enable row level security;
+alter table public.plan_sessions enable row level security;
 alter table public.settings enable row level security;
 alter table public.areas enable row level security;
 alter table public.categories enable row level security;
@@ -105,6 +122,30 @@ create policy "Users can create logs for their entries"
 
 create policy "Users can delete their logs"
   on public.entry_logs for delete
+  using (auth.uid() = user_id);
+
+create policy "Users can read their plan sessions"
+  on public.plan_sessions for select
+  using (auth.uid() = user_id);
+
+create policy "Users can create sessions for their entries"
+  on public.plan_sessions for insert
+  with check (
+    auth.uid() = user_id
+    and exists (
+      select 1 from public.entries
+      where entries.id = plan_sessions.entry_id
+        and entries.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can update their plan sessions"
+  on public.plan_sessions for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "Users can delete their plan sessions"
+  on public.plan_sessions for delete
   using (auth.uid() = user_id);
 
 create policy "Users can read their settings"

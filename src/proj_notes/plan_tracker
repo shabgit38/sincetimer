@@ -1,0 +1,438 @@
+## Guidr Feature: **Repeating Learning / Habit Plan**
+
+Add a new category/type:
+
+> **Plan** = a repeated activity spaced across a time window, with completion tracking, revision cycles, and calendar visualization.
+
+Examples:
+
+* Learn Python basics over 30 days
+* Yoga 3x/week for 8 weeks
+* Revise finance concepts using spaced repetition
+* Build habit: wake up at 6:30 AM
+
+---
+
+# 1. Core Concept
+
+| Current Guidr Type | Tracks                            |
+| ------------------ | --------------------------------- |
+| Routine            | Last done + next due              |
+| Subscription       | Renewal + reminder                |
+| Goal               | Start + target                    |
+| **Plan**           | Repeated sessions across a period |
+
+So **Plan** sits between **Goal + Routine + Calendar**.
+
+---
+
+# 2. New Category: `Plan`
+
+## Plan Types
+
+| Plan Type      | Example                  | Scheduling Logic          |
+| -------------- | ------------------------ | ------------------------- |
+| Habit          | Yoga, meditation         | fixed weekly frequency    |
+| Learning       | AI/ML, finance, language | topic sequence + revision |
+| Practice       | coding, music, writing   | recurring sessions        |
+| Health Routine | walking, physiotherapy   | frequency + streak        |
+| Revision       | spaced repetition        | expanding intervals       |
+
+---
+
+# 3. Fields to Add
+
+## Universal Plan Fields
+
+| Field            | Example                     |
+| ---------------- | --------------------------- |
+| Plan Name        | “Learn Options Basics”      |
+| Area             | Personal / Work / Health    |
+| Plan Type        | Learning / Habit / Practice |
+| Start Date       | 2026-06-10                  |
+| End Date         | 2026-07-10                  |
+| Frequency        | 3 times/week                |
+| Session Duration | 30 min                      |
+| Reminder Time    | 7:00 AM                     |
+| Difficulty       | Easy / Medium / Hard        |
+| Status           | Active / Paused / Completed |
+
+---
+
+# 4. Learning-Specific Fields
+
+For learning a topic/skill:
+
+| Field            | Example                          |
+| ---------------- | -------------------------------- |
+| Topic List       | EMA, RSI, ATR, pivots            |
+| Session Type     | Learn / Practice / Revise / Test |
+| Revision Enabled | Yes                              |
+| Revision Pattern | 1d, 3d, 7d, 14d, 30d             |
+| Assessment Score | 0–100                            |
+| Confidence       | Low / Medium / High              |
+| Notes            | “Need to revisit ATR”            |
+
+---
+
+# 5. Habit-Specific Fields
+
+For yoga/habit-building:
+
+| Field                | Example             |
+| -------------------- | ------------------- |
+| Habit Target         | 20 sessions         |
+| Weekly Frequency     | 4 days/week         |
+| Minimum Success Rule | 10 minutes counts   |
+| Streak Enabled       | Yes                 |
+| Miss Recovery Rule   | reschedule next day |
+| Intensity            | Low / Medium / High |
+
+---
+
+# 6. Spaced Repetition Logic
+
+For learning/revision, each topic creates future revision sessions.
+
+Example:
+
+```text
+Day 0: Learn topic
+Day 1: Revise
+Day 3: Revise
+Day 7: Revise
+Day 14: Revise
+Day 30: Final review
+```
+
+## Metadata Example
+
+```json
+{
+  "plan_type": "learning",
+  "topics": [
+    {
+      "title": "EMA basics",
+      "status": "in_progress",
+      "learn_date": "2026-06-10",
+      "revision_offsets": [1, 3, 7, 14, 30],
+      "confidence": "medium",
+      "score": 70
+    }
+  ],
+  "frequency_per_week": 3,
+  "session_duration_minutes": 30
+}
+```
+
+---
+
+# 7. Calendar Visual Design
+
+## Color System
+
+| Status      | Color     | Meaning               |
+| ----------- | --------- | --------------------- |
+| Completed   | Green     | Done on time          |
+| Missed      | Red       | Not done              |
+| Rescheduled | Amber     | Delayed but recovered |
+| Upcoming    | Blue/Gray | Scheduled             |
+| Revision    | Purple    | Review session        |
+| Test        | Orange    | Assessment            |
+
+---
+
+## Calendar Cell Example
+
+```text
+June 10
+🟢 Yoga
+🟣 Revise EMA
+```
+
+```text
+June 11
+🔴 Missed Python
+```
+
+```text
+June 12
+🟢 Options Practice
+```
+
+---
+
+# 8. Metrics to Display
+
+| Metric              | Formula / Meaning                   |
+| ------------------- | ----------------------------------- |
+| Completion Rate     | completed / scheduled               |
+| Streak              | continuous completed sessions       |
+| Missed Count        | sessions not completed              |
+| Recovery Rate       | rescheduled sessions completed      |
+| Revision Coverage   | revisions completed / revisions due |
+| Learning Confidence | avg topic confidence                |
+| Plan Progress       | completed sessions / total sessions |
+
+---
+
+# 9. Dashboard Card
+
+Example card:
+
+```text
+Learn Quant Basics
+
+Progress: 42%
+Completion: 8 / 19 sessions
+Streak: 4 days
+Next: Revise ATR tomorrow
+Missed: 2
+Confidence: Medium
+
+[Open Calendar] [Log Session]
+```
+
+---
+
+# 10. Database Approach
+
+Codex’s earlier `metadata jsonb` idea still works.
+
+## Keep main entry table
+
+```sql
+entries (
+  id,
+  title,
+  area,
+  category,
+  entry_date,
+  next_due_date,
+  notes,
+  reminder_enabled,
+  metadata jsonb,
+  created_at,
+  updated_at
+)
+```
+
+## Add one child table: `plan_sessions`
+
+For calendar tracking, avoid storing every session only inside JSON.
+
+```sql
+plan_sessions (
+  id,
+  entry_id,
+  session_date,
+  session_type,
+  title,
+  status,
+  completed_at,
+  score,
+  notes,
+  metadata jsonb
+)
+```
+
+Why:
+
+* Easy calendar rendering
+* Easy metrics
+* Easy filtering by date/status
+* Cleaner than deeply nested JSON
+
+---
+
+# 11. Recommended Data Model
+
+## `entries`
+
+Stores the plan itself.
+
+```json
+{
+  "plan_type": "learning",
+  "start_date": "2026-06-10",
+  "end_date": "2026-07-10",
+  "frequency_per_week": 3,
+  "revision_pattern": [1, 3, 7, 14, 30]
+}
+```
+
+## `plan_sessions`
+
+Stores actual scheduled/completed sessions.
+
+```json
+{
+  "session_type": "revision",
+  "topic": "EMA basics",
+  "revision_number": 2,
+  "confidence_before": "low",
+  "confidence_after": "medium"
+}
+```
+
+---
+
+# 12. Session Types
+
+Use these fixed values:
+
+```ts
+type SessionType =
+  | "learn"
+  | "practice"
+  | "revise"
+  | "test"
+  | "habit"
+  | "reflection";
+```
+
+Status:
+
+```ts
+type SessionStatus =
+  | "scheduled"
+  | "completed"
+  | "missed"
+  | "rescheduled"
+  | "skipped";
+```
+
+---
+
+# 13. MVP Flow
+
+## Create Plan
+
+User selects:
+
+```text
+Category: Plan
+Plan Type: Learning
+Title: Learn Technical Analysis
+Start: June 10
+End: July 10
+Frequency: 3x/week
+Revision: 1, 3, 7, 14 days
+```
+
+Guidr generates sessions:
+
+```text
+June 10 - Learn EMA
+June 11 - Revise EMA
+June 13 - Revise EMA
+June 15 - Learn RSI
+June 16 - Revise RSI
+```
+
+---
+
+# 14. UI Components Needed
+
+For Vite + React + TS + Tailwind:
+
+| Component              | Purpose                     |
+| ---------------------- | --------------------------- |
+| `PlanForm.tsx`         | create learning/habit plan  |
+| `PlanCalendar.tsx`     | month/week visual grid      |
+| `SessionCard.tsx`      | session details             |
+| `ProgressRing.tsx`     | plan progress               |
+| `MetricCards.tsx`      | streak, missed, completion  |
+| `SessionLogModal.tsx`  | mark completed/missed       |
+| `RevisionTimeline.tsx` | show spaced repetition path |
+
+---
+
+# 15. MVP Implementation Priority
+
+## Phase 1 — Simple Plan Tracking
+
+* Add `Plan` category
+* Add plan metadata fields
+* Generate sessions
+* Mark sessions complete/missed
+* Show calendar colors
+
+## Phase 2 — Spaced Repetition
+
+* Add revision offsets
+* Auto-generate revise sessions
+* Track confidence + score
+
+## Phase 3 — Metrics
+
+* Completion %
+* Streak
+* Missed count
+* Revision coverage
+
+## Phase 4 — Intelligence
+
+* If missed → auto-reschedule
+* If confidence low → add extra revision
+* If score high → reduce revisions
+
+---
+
+# 16. Codex Instruction Summary
+
+Give Codex this:
+
+```text
+Add a new category called Plan to Guidr.
+
+A Plan represents repeated sessions across a date range, useful for learning, habits, yoga, practice, and skill-building.
+
+Keep entries as the parent object. Store plan-level configuration inside entries.metadata jsonb.
+
+Add a new table plan_sessions:
+- id
+- entry_id
+- session_date
+- session_type
+- title
+- status
+- completed_at
+- score
+- notes
+- metadata jsonb
+- created_at
+- updated_at
+
+Build:
+1. Plan creation form
+2. Session generator based on start_date, end_date, frequency_per_week
+3. Optional spaced repetition generator using offsets [1,3,7,14,30]
+4. Calendar view with color-coded session status
+5. Mark session as completed/missed/rescheduled
+6. Metrics: completion rate, streak, missed count, revision coverage
+
+Use Vite + React + TypeScript + Tailwind.
+Keep UI modern, card-based, and compatible with existing Guidr design.
+```
+
+---
+
+## Best Product Framing
+
+Call this feature:
+
+> **Guidr Plans**
+
+Not “tasks” or “habits”.
+
+Because it covers:
+
+* skill learning
+* habits
+* yoga
+* revision
+* practice
+* long-term self-improvement
+
+**Confidence: High**
