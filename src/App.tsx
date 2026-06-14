@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Search, Settings, Sun, X } from 'lucide-react';
+import { Moon, Search, Settings as SettingsIcon, Sun, X } from 'lucide-react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import Dashboard from './pages/Dashboard';
@@ -7,6 +7,7 @@ import AddEntry from './pages/AddEntry';
 import EntryDetail from './pages/EntryDetail';
 import Auth from './pages/Auth';
 import Plans from './pages/Plans';
+import SettingsPage from './pages/Settings';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { Button } from './components/ui/button';
 
@@ -146,9 +147,18 @@ export default function App() {
                 </Button>
               )}
             </div>
-            <Button variant="ghost" size="sm" className="w-9 px-0" aria-label="Settings">
-              <Settings className="h-4 w-4" />
-            </Button>
+            <NavLink to="/settings" aria-label="Settings">
+              {({ isActive }) => (
+                <Button
+                  variant={isActive ? 'default' : 'ghost'}
+                  size="sm"
+                  className="w-9 px-0"
+                  aria-label="Settings"
+                >
+                  <SettingsIcon className="h-4 w-4" />
+                </Button>
+              )}
+            </NavLink>
             <Button
               variant="ghost"
               size="sm"
@@ -172,6 +182,7 @@ export default function App() {
           <Route path="/edit/:id" element={<AddEntry />} />
           <Route path="/entry/:id" element={<EntryDetail />} />
           <Route path="/plans" element={<Plans />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
     </div>

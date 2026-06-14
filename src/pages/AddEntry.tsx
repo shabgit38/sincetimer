@@ -359,26 +359,6 @@ export default function AddEntry() {
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   }, [area, category, entries]);
 
-  const scheduleNotification = async () => {
-    if (!reminderEnabled || !nextDueDate) return;
-    if (!("Notification" in window)) return;
-
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
-
-    const [hours, minutes] = reminderTime.split(":").map(Number);
-    const trigger = new Date(`${nextDueDate}T00:00:00`);
-    trigger.setHours(hours ?? 9, minutes ?? 0, 0, 0);
-    const delay = trigger.getTime() - Date.now();
-    if (delay <= 0) return;
-
-    window.setTimeout(() => {
-      new Notification("GUIDR", {
-        body: `Time to log: ${title || "entry"}`,
-      });
-    }, delay);
-  };
-
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -555,7 +535,6 @@ export default function AddEntry() {
         });
       }
       setEntries(await getAllEntries());
-      await scheduleNotification();
       navigate("/");
     } catch (saveError) {
       console.error(saveError);
@@ -1238,7 +1217,9 @@ export default function AddEntry() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Reminder</p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">Notification will fire while this tab is open.</p>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Enable push notifications in Settings to receive reminders on registered devices.
+                </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
                 <input

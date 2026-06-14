@@ -42,6 +42,17 @@ export interface AppSetting {
   value: number;
 }
 
+export interface PushSubscriptionRecord {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  subscription: PushSubscriptionJSON;
+  user_agent: string | null;
+  timezone: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type EntryPayload = Omit<Entry, 'id' | 'user_id' | 'created_at' | 'updated_at'>;
 
 export type TimeSummary = {
