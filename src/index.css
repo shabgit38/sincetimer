@@ -123,8 +123,11 @@ input[type="radio"] {
 .dark input[type="datetime-local"]::-webkit-calendar-picker-indicator,
 .dark input[type="month"]::-webkit-calendar-picker-indicator,
 .dark input[type="week"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.4);
-  opacity: 0.9;
+  border-radius: 0.375rem;
+  background-color: rgb(245 245 244);
+  filter: none;
+  opacity: 1;
+  padding: 0.25rem;
 }
 
 .dark input:disabled,

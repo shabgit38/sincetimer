@@ -307,7 +307,7 @@ export default function EntryDetail() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-semibold">{entry.title}</h2>
-          <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
+          <p className="text-xs uppercase tracking-[0.2em] text-stone-700 dark:text-stone-200">
             {entry.area} / {entry.category}
           </p>
         </div>

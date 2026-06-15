@@ -125,7 +125,7 @@ export default function Plans() {
                       }`}
                     />
                     <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-[0.18em] text-stone-400 dark:text-stone-500">
+                      <p className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
                         {entry.area} / {getPlanTypeLabel(entry.metadata.plan_type)}
                       </p>
                       <h3 className="mt-2 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
