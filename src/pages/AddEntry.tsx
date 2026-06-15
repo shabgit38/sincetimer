@@ -971,7 +971,7 @@ export default function AddEntry() {
                       checked={autoRenew}
                       onChange={(event) => setAutoRenew(event.target.checked)}
                     />
-                    <div className="peer h-6 w-11 rounded-full bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:bg-stone-900 peer-checked:after:translate-x-5" />
+                    <div className="peer h-6 w-11 rounded-full border border-stone-300 bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:border-stone-900 peer-checked:bg-stone-900 peer-checked:after:translate-x-5 dark:border-white/20 dark:bg-stone-700 dark:after:bg-stone-100 dark:peer-checked:border-stone-100 dark:peer-checked:bg-stone-100 dark:peer-checked:after:bg-stone-950" />
                   </label>
                 </div>
               </div>
@@ -1228,7 +1228,7 @@ export default function AddEntry() {
                   checked={reminderEnabled}
                   onChange={(event) => setReminderEnabled(event.target.checked)}
                 />
-                <div className="peer h-6 w-11 rounded-full bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition peer-checked:bg-stone-900 peer-checked:after:translate-x-5" />
+                <div className="peer h-6 w-11 rounded-full border border-stone-300 bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:border-stone-900 peer-checked:bg-stone-900 peer-checked:after:translate-x-5 dark:border-white/20 dark:bg-stone-700 dark:after:bg-stone-100 dark:peer-checked:border-stone-100 dark:peer-checked:bg-stone-100 dark:peer-checked:after:bg-stone-950" />
               </label>
             </div>
             {reminderEnabled ? (
