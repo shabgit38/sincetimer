@@ -413,26 +413,22 @@ function MemoryCard({
             <p className="font-medium">{due.label}</p>
             <p className="mt-0.5 text-xs opacity-70">{due.detail}</p>
           </div>
-          <div className="flex items-center gap-2">
-            {due.tone === "overdue" && !isPlan ? (
-              <Button
-                size="sm"
-                className="h-8 px-3 text-xs"
-                disabled={entryDoneSaving}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onMarkDone();
-                }}
-                onKeyDown={(event) => event.stopPropagation()}
-              >
-                Done
-              </Button>
-            ) : null}
-            <span className="rounded-full border border-stone-200 px-3 py-1 text-xs font-medium text-stone-500 transition group-hover:border-stone-300 group-hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:group-hover:border-white/20 dark:group-hover:text-stone-50">
-              Open
-            </span>
-          </div>
+          <span className="rounded-full border border-stone-200 px-3 py-1 text-xs font-medium text-stone-500 transition group-hover:border-stone-300 group-hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:group-hover:border-white/20 dark:group-hover:text-stone-50">
+            Open
+          </span>
         </div>
+        {due.tone === "overdue" && !isPlan ? (
+          <div className="mt-4" onClick={(event) => event.stopPropagation()}>
+            <Button
+              size="sm"
+              className="h-8 w-full px-2 text-xs"
+              disabled={entryDoneSaving}
+              onClick={onMarkDone}
+            >
+              Done
+            </Button>
+          </div>
+        ) : null}
         {isPlan && planSession ? (
           <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
             <Button
