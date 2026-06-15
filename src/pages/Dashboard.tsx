@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { addDays } from "date-fns";
 import { ChevronDown, Plus, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -11,6 +12,7 @@ import {
   getCategories,
   insertArea,
   insertCategory,
+  insertHistory,
   renameArea,
   renameCategory,
   updateEntry,
@@ -224,6 +226,11 @@ function getTags(entry: Entry) {
     : [];
 }
 
+function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (!entry.repeat_interval_days) return entry.next_due_date;
+  return addDays(loggedAt, entry.repeat_interval_days).toISOString();
+}
+
 function flattenSearchValue(value: unknown): string[] {
   if (value === null || value === undefined) return [];
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -321,8 +328,10 @@ type MemoryCardProps = {
   planSession?: PlanSession | null;
   onOpen: () => void;
   onToggleFavorite: () => void;
+  onMarkDone: () => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSaving: boolean;
+  entryDoneSaving: boolean;
   planSessionSaving: boolean;
 };
 
@@ -331,8 +340,10 @@ function MemoryCard({
   planSession,
   onOpen,
   onToggleFavorite,
+  onMarkDone,
   onSetPlanSessionStatus,
   favoriteSaving,
+  entryDoneSaving,
   planSessionSaving,
 }: MemoryCardProps) {
   const due = getDueCopy(entry);
@@ -402,9 +413,25 @@ function MemoryCard({
             <p className="font-medium">{due.label}</p>
             <p className="mt-0.5 text-xs opacity-70">{due.detail}</p>
           </div>
-          <span className="rounded-full border border-stone-200 px-3 py-1 text-xs font-medium text-stone-500 transition group-hover:border-stone-300 group-hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:group-hover:border-white/20 dark:group-hover:text-stone-50">
-            Open
-          </span>
+          <div className="flex items-center gap-2">
+            {due.tone === "overdue" && !isPlan ? (
+              <Button
+                size="sm"
+                className="h-8 px-3 text-xs"
+                disabled={entryDoneSaving}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onMarkDone();
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+              >
+                Done
+              </Button>
+            ) : null}
+            <span className="rounded-full border border-stone-200 px-3 py-1 text-xs font-medium text-stone-500 transition group-hover:border-stone-300 group-hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:group-hover:border-white/20 dark:group-hover:text-stone-50">
+              Open
+            </span>
+          </div>
         </div>
         {isPlan && planSession ? (
           <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
@@ -453,8 +480,10 @@ type EntrySectionProps = {
   onToggle: () => void;
   onOpen: (entry: Entry) => void;
   onToggleFavorite: (entry: Entry) => void;
+  onMarkDone: (entry: Entry) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSavingIds: Set<string>;
+  entryDoneSavingIds: Set<string>;
   planSessionSavingIds: Set<string>;
 };
 
@@ -465,8 +494,10 @@ function EntrySection({
   onToggle,
   onOpen,
   onToggleFavorite,
+  onMarkDone,
   onSetPlanSessionStatus,
   favoriteSavingIds,
+  entryDoneSavingIds,
   planSessionSavingIds,
 }: EntrySectionProps) {
   if (group.entries.length === 0) return null;
@@ -499,8 +530,10 @@ function EntrySection({
               planSession={planSessionsByEntryId.get(entry.id) ?? null}
               onOpen={() => onOpen(entry)}
               onToggleFavorite={() => onToggleFavorite(entry)}
+              onMarkDone={() => onMarkDone(entry)}
               onSetPlanSessionStatus={onSetPlanSessionStatus}
               favoriteSaving={favoriteSavingIds.has(entry.id)}
+              entryDoneSaving={entryDoneSavingIds.has(entry.id)}
               planSessionSaving={Boolean(planSessionsByEntryId.get(entry.id)?.id && planSessionSavingIds.has(planSessionsByEntryId.get(entry.id)!.id))}
             />
           ))}
@@ -524,6 +557,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [optionError, setOptionError] = useState<string | null>(null);
   const [adding, setAdding] = useState<ManagedKind | null>(null);
   const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
+  const [entryDoneSavingIds, setEntryDoneSavingIds] = useState<Set<string>>(() => new Set());
   const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(["Upcoming", "Unscheduled"])
@@ -646,6 +680,40 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       setPlanSessionSavingIds((current) => {
         const next = new Set(current);
         next.delete(session.id);
+        return next;
+      });
+    }
+  };
+
+  const handleMarkEntryDone = async (entry: Entry) => {
+    if (entryDoneSavingIds.has(entry.id)) return;
+
+    setError(null);
+    setEntryDoneSavingIds((current) => new Set(current).add(entry.id));
+    try {
+      const loggedAt = new Date();
+      const loggedAtIso = loggedAt.toISOString();
+      await insertHistory({
+        entry_id: entry.id,
+        logged_date: loggedAtIso,
+        notes: "",
+      });
+      await updateEntry(entry.id, {
+        entry_date: loggedAtIso,
+        next_due_date: getNextDueDateForLog(entry, loggedAt),
+        metadata: {
+          ...entry.metadata,
+          completed_count: getNumberMetadata(entry, "completed_count") + 1,
+        },
+      });
+      await refreshData();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to mark this entry done.");
+    } finally {
+      setEntryDoneSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
         return next;
       });
     }
@@ -818,8 +886,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 onToggle={() => toggleSection(group.title)}
                 onOpen={(entry) => navigate(entry.category.toLocaleLowerCase() === "plan" ? "/plans" : `/entry/${entry.id}`)}
                 onToggleFavorite={handleToggleFavorite}
+                onMarkDone={handleMarkEntryDone}
                 onSetPlanSessionStatus={handleSetPlanSessionStatus}
                 favoriteSavingIds={favoriteSavingIds}
+                entryDoneSavingIds={entryDoneSavingIds}
                 planSessionSavingIds={planSessionSavingIds}
               />
             ))}
