@@ -111,6 +111,7 @@ export async function updatePlanSessionStatus(
   status: PlanSessionStatus,
   notes?: string
 ): Promise<void> {
+  const nowIso = new Date().toISOString();
   const { data: sessionRecord, error: sessionError } = await supabase
     .from("plan_sessions")
     .select("entry_id")
@@ -121,9 +122,9 @@ export async function updatePlanSessionStatus(
 
   const updates = {
     status,
-    completed_at: status === "completed" ? new Date().toISOString() : null,
+    completed_at: status === "completed" ? nowIso : null,
     notes: notes?.trim() || null,
-    updated_at: new Date().toISOString(),
+    updated_at: nowIso,
   };
   const { error } = await supabase.from("plan_sessions").update(updates).eq("id", sessionId);
   if (error) throw error;
@@ -146,12 +147,15 @@ export async function updatePlanSessionStatus(
     (scheduledSessions ?? [])[0] ??
     null;
 
+  const entryUpdates = {
+    ...(status === "completed" ? { entry_date: nowIso } : {}),
+    next_due_date: nextSession?.session_date ?? null,
+    updated_at: nowIso,
+  };
+
   const { error: entryError } = await supabase
     .from("entries")
-    .update({
-      next_due_date: nextSession?.session_date ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(entryUpdates)
     .eq("id", entryId);
 
   if (entryError) throw entryError;
