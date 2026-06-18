@@ -4,7 +4,13 @@ import { Link } from "react-router-dom";
 
 import PlanCalendar from "@/components/plans/PlanCalendar";
 import PlanMetrics from "@/components/plans/PlanMetrics";
-import { getPlanMetrics, getPlansWithSessions, updatePlanSessionStatus } from "@/lib/plans";
+import {
+  deletePlanSession,
+  getPlanMetrics,
+  getPlansWithSessions,
+  updatePlanSession,
+  updatePlanSessionStatus,
+} from "@/lib/plans";
 import type { PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
 
 function getPlanTypeLabel(value: unknown) {
@@ -54,6 +60,37 @@ export default function Plans() {
     } catch (saveError) {
       console.error(saveError);
       setError("Unable to update this session.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleUpdateSession = async (
+    session: PlanSession,
+    updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes">>
+  ) => {
+    setUpdatingId(session.id);
+    try {
+      await updatePlanSession(session.id, updates);
+      await loadPlans();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update this session.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleDeleteSession = async (session: PlanSession) => {
+    const confirmed = window.confirm("Delete this plan session? This cannot be undone.");
+    if (!confirmed) return;
+    setUpdatingId(session.id);
+    try {
+      await deletePlanSession(session);
+      await loadPlans();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to delete this session.");
     } finally {
       setUpdatingId(null);
     }
@@ -152,6 +189,8 @@ export default function Plans() {
                         updatingId={updatingId}
                         onMarkDone={(session) => void handleSetStatus(session, "completed")}
                         onMarkMissed={(session) => void handleSetStatus(session, "missed")}
+                        onUpdateSession={(session, updates) => void handleUpdateSession(session, updates)}
+                        onDeleteSession={(session) => void handleDeleteSession(session)}
                       />
                     </div>
                   </div>

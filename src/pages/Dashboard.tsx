@@ -326,6 +326,7 @@ function getToneClasses(tone: string) {
 type MemoryCardProps = {
   entry: Entry;
   planSession?: PlanSession | null;
+  planLastDoneDate?: string | null;
   onOpen: () => void;
   onToggleFavorite: () => void;
   onMarkDone: () => void;
@@ -338,6 +339,7 @@ type MemoryCardProps = {
 function MemoryCard({
   entry,
   planSession,
+  planLastDoneDate,
   onOpen,
   onToggleFavorite,
   onMarkDone,
@@ -352,6 +354,8 @@ function MemoryCard({
   const tags = getTags(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const completedCount = getNumberMetadata(entry, "completed_count");
+  const durationDate = isPlan && planLastDoneDate ? planLastDoneDate : entry.entry_date;
+  const durationLabel = isPlan ? (planLastDoneDate ? "since last done" : "since start") : "since last logged";
 
   return (
     <div
@@ -403,9 +407,9 @@ function MemoryCard({
 
         <div className="mt-8">
           <p className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
-            {formatShortDuration(entry.entry_date)}
+            {formatShortDuration(durationDate)}
           </p>
-          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">since last logged</p>
+          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{durationLabel}</p>
         </div>
 
         <div className="mt-7 flex items-end justify-between gap-4">
@@ -473,6 +477,7 @@ type EntrySectionProps = {
   group: EntryGroup;
   collapsed: boolean;
   planSessionsByEntryId: Map<string, PlanSession>;
+  planLastDoneByEntryId: Map<string, string>;
   onToggle: () => void;
   onOpen: (entry: Entry) => void;
   onToggleFavorite: (entry: Entry) => void;
@@ -487,6 +492,7 @@ function EntrySection({
   group,
   collapsed,
   planSessionsByEntryId,
+  planLastDoneByEntryId,
   onToggle,
   onOpen,
   onToggleFavorite,
@@ -524,6 +530,7 @@ function EntrySection({
               key={entry.id}
               entry={entry}
               planSession={planSessionsByEntryId.get(entry.id) ?? null}
+              planLastDoneDate={planLastDoneByEntryId.get(entry.id) ?? null}
               onOpen={() => onOpen(entry)}
               onToggleFavorite={() => onToggleFavorite(entry)}
               onMarkDone={() => onMarkDone(entry)}
@@ -775,6 +782,20 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     return nextByEntry;
   }, [planSessions]);
 
+  const lastCompletedPlanSessionByEntryId = useMemo(() => {
+    const latestByEntry = new Map<string, string>();
+    planSessions
+      .filter((session) => session.status === "completed")
+      .forEach((session) => {
+        const completedDate = session.completed_at ?? session.session_date;
+        const current = latestByEntry.get(session.entry_id);
+        if (!current || new Date(completedDate).getTime() > new Date(current).getTime()) {
+          latestByEntry.set(session.entry_id, completedDate);
+        }
+      });
+    return latestByEntry;
+  }, [planSessions]);
+
   const entryGroups = useMemo<EntryGroup[]>(() => {
     const favorites: Entry[] = [];
     const overdue: Entry[] = [];
@@ -879,6 +900,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 group={group}
                 collapsed={collapsedSections.has(group.title)}
                 planSessionsByEntryId={nextPlanSessionsByEntryId}
+                planLastDoneByEntryId={lastCompletedPlanSessionByEntryId}
                 onToggle={() => toggleSection(group.title)}
                 onOpen={(entry) => navigate(entry.category.toLocaleLowerCase() === "plan" ? "/plans" : `/entry/${entry.id}`)}
                 onToggleFavorite={handleToggleFavorite}

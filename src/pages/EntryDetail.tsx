@@ -7,11 +7,13 @@ import { formatMoney } from "@/lib/currency";
 import { computeTimeSummary, formatYearMonthDayDuration, formatYearMonthDaySpan } from "@/lib/timeUtils";
 import {
   deleteEntry,
+  deleteHistory,
   getEntryById,
   getHistoryForEntry,
   getHistoryMonths,
   insertHistory,
   updateEntry,
+  updateHistory,
 } from "@/lib/db";
 import type { Entry, HistoryItem } from "@/types/entry";
 
@@ -115,6 +117,10 @@ export default function EntryDetail() {
   const [logDate, setLogDate] = useState("");
   const [logError, setLogError] = useState<string | null>(null);
   const [logCompleted, setLogCompleted] = useState(false);
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
+  const [editHistoryDate, setEditHistoryDate] = useState("");
+  const [editHistoryNotes, setEditHistoryNotes] = useState("");
+  const [historySavingId, setHistorySavingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -166,8 +172,10 @@ export default function EntryDetail() {
       const isCurrent = new Date(record.logged_date).getTime() === currentTime;
       return {
         id: record.id,
+        historyId: record.id,
         loggedDate: record.logged_date,
         label: record.notes || entry.title,
+        notes: record.notes,
         isCurrent,
       };
     });
@@ -177,8 +185,10 @@ export default function EntryDetail() {
       : [
           {
             id: `current-${entry.id}`,
+            historyId: null,
             loggedDate: entry.entry_date,
             label: entry.title,
+            notes: "",
             isCurrent: true,
           },
           ...loggedEvents,
@@ -231,6 +241,91 @@ export default function EntryDetail() {
     } catch (saveError) {
       console.error(saveError);
       setLogError("Unable to save this log. Please try again.");
+    }
+  };
+
+  const reloadEntryAndHistory = async () => {
+    if (!entryId) return;
+    const [updated, historyRecords] = await Promise.all([
+      getEntryById(entryId),
+      getHistoryForEntry(entryId),
+    ]);
+    setEntry(updated);
+    setHistory(historyRecords);
+  };
+
+  const syncEntryFromHistory = async (historyRecords: HistoryItem[]) => {
+    if (!entry || !entryId || historyRecords.length === 0) return;
+    const latest = historyRecords.reduce((current, record) => {
+      const loggedAt = parseISO(record.logged_date);
+      return isAfter(loggedAt, current) ? loggedAt : current;
+    }, parseISO(historyRecords[0].logged_date));
+
+    await updateEntry(entryId, {
+      entry_date: latest.toISOString(),
+      next_due_date: getNextDueDateForLog(entry, latest),
+      metadata: {
+        ...entry.metadata,
+        completed_count: historyRecords.length,
+      },
+    });
+  };
+
+  const startEditingHistory = (record: { historyId: string | null; loggedDate: string; notes: string }) => {
+    if (!record.historyId) return;
+    setEditingHistoryId(record.historyId);
+    setEditHistoryDate(parseISO(record.loggedDate).toISOString().slice(0, 10));
+    setEditHistoryNotes(record.notes);
+  };
+
+  const handleSaveHistory = async (historyId: string) => {
+    if (!editHistoryDate) {
+      setLogError("Choose a history date first.");
+      return;
+    }
+    setHistorySavingId(historyId);
+    setLogError(null);
+    try {
+      await updateHistory(historyId, {
+        logged_date: new Date(editHistoryDate).toISOString(),
+        notes: editHistoryNotes.trim(),
+      });
+      const historyRecords = entryId ? await getHistoryForEntry(entryId) : [];
+      await syncEntryFromHistory(historyRecords);
+      await reloadEntryAndHistory();
+      setEditingHistoryId(null);
+    } catch (saveError) {
+      console.error(saveError);
+      setLogError("Unable to update this history record.");
+    } finally {
+      setHistorySavingId(null);
+    }
+  };
+
+  const handleDeleteHistory = async (historyId: string) => {
+    const confirmed = window.confirm("Delete this history record? This cannot be undone.");
+    if (!confirmed) return;
+    setHistorySavingId(historyId);
+    setLogError(null);
+    try {
+      await deleteHistory(historyId);
+      const historyRecords = entryId ? await getHistoryForEntry(entryId) : [];
+      if (historyRecords.length > 0) {
+        await syncEntryFromHistory(historyRecords);
+      } else if (entry && entryId) {
+        await updateEntry(entryId, {
+          metadata: {
+            ...entry.metadata,
+            completed_count: 0,
+          },
+        });
+      }
+      await reloadEntryAndHistory();
+    } catch (saveError) {
+      console.error(saveError);
+      setLogError("Unable to delete this history record.");
+    } finally {
+      setHistorySavingId(null);
     }
   };
 
@@ -665,16 +760,74 @@ export default function EntryDetail() {
                 key={record.id}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
               >
-                <div>
-                  <p className="text-sm font-medium text-stone-700">
-                    {formatYearMonthDayDuration(record.loggedDate)}
-                    {record.isCurrent ? <span className="ml-2 text-xs font-normal text-emerald-700">Current</span> : null}
-                  </p>
-                  <p className="text-xs text-stone-500">
-                    {record.label}
-                  </p>
-                </div>
-                <p className="text-xs text-stone-500">{format(parseISO(record.loggedDate), "PPP p")}</p>
+                {editingHistoryId === record.historyId && record.historyId ? (
+                  <div className="grid flex-1 gap-2 md:grid-cols-[12rem_minmax(0,1fr)_auto] md:items-center">
+                    <input
+                      type="date"
+                      value={editHistoryDate}
+                      onChange={(event) => setEditHistoryDate(event.target.value)}
+                      className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+                    />
+                    <input
+                      value={editHistoryNotes}
+                      onChange={(event) => setEditHistoryNotes(event.target.value)}
+                      className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+                      placeholder="Notes"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={historySavingId === record.historyId}
+                        onClick={() => void handleSaveHistory(record.historyId!)}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={historySavingId === record.historyId}
+                        onClick={() => setEditingHistoryId(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium text-stone-700">
+                        {formatYearMonthDayDuration(record.loggedDate)}
+                        {record.isCurrent ? <span className="ml-2 text-xs font-normal text-emerald-700">Current</span> : null}
+                      </p>
+                      <p className="text-xs text-stone-500">
+                        {record.label}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-stone-500">{format(parseISO(record.loggedDate), "PPP p")}</p>
+                      {record.historyId ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={historySavingId === record.historyId}
+                            onClick={() => startEditingHistory(record)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={historySavingId === record.historyId}
+                            onClick={() => void handleDeleteHistory(record.historyId!)}
+                          >
+                            Delete
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                  </>
+                )}
               </div>
             ))
           )}

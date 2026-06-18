@@ -231,6 +231,23 @@ export async function insertHistory(history: Pick<HistoryItem, 'entry_id' | 'log
   return data.id as string;
 }
 
+export async function updateHistory(
+  id: string,
+  updates: Partial<Pick<HistoryItem, 'logged_date' | 'notes'>>
+): Promise<void> {
+  const { error } = await supabase
+    .from('entry_logs')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) throw error;
+}
+
+export async function deleteHistory(id: string): Promise<void> {
+  const { error } = await supabase.from('entry_logs').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function pruneOldHistory(months: number): Promise<void> {
   const userId = await requireUserId();
   const cutoff = new Date();

@@ -144,6 +144,11 @@ create policy "Users can create logs for their entries"
     )
   );
 
+create policy "Users can update their logs"
+  on public.entry_logs for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 create policy "Users can delete their logs"
   on public.entry_logs for delete
   using (auth.uid() = user_id);

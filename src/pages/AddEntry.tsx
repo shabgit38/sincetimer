@@ -454,8 +454,9 @@ export default function AddEntry() {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
+    const existingEntry = isEditing && entryId ? entries.find((entry) => entry.id === entryId) : null;
     const nextDueDateIso = isPlan
-      ? entryDateIso
+      ? existingEntry?.next_due_date ?? entryDateIso
       : intervalValue
       ? addDays(new Date(entryDate), intervalValue).toISOString()
       : nextDueDate
@@ -519,7 +520,7 @@ export default function AddEntry() {
         savedEntryId = await insertEntry(payload);
       }
 
-      if (isPlan && savedEntryId) {
+      if (isPlan && savedEntryId && !isEditing) {
         const sessions = generatePlanSessions({
           entryId: savedEntryId,
           title: title.trim(),

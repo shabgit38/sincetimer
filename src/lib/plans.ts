@@ -106,6 +106,33 @@ export async function replacePlanSessions(entryId: string, sessions: NewPlanSess
   if (insertError) throw insertError;
 }
 
+async function refreshPlanNextDueDate(entryId: string, updatedAt: string): Promise<void> {
+  const { data: scheduledSessions, error: nextError } = await supabase
+    .from("plan_sessions")
+    .select("session_date")
+    .eq("entry_id", entryId)
+    .eq("status", "scheduled")
+    .order("session_date", { ascending: true });
+
+  if (nextError) throw nextError;
+
+  const now = new Date();
+  const nextSession =
+    (scheduledSessions ?? []).find((session) => new Date(session.session_date) >= now) ??
+    (scheduledSessions ?? [])[0] ??
+    null;
+
+  const { error: entryError } = await supabase
+    .from("entries")
+    .update({
+      next_due_date: nextSession?.session_date ?? null,
+      updated_at: updatedAt,
+    })
+    .eq("id", entryId);
+
+  if (entryError) throw entryError;
+}
+
 export async function updatePlanSessionStatus(
   sessionId: string,
   status: PlanSessionStatus,
@@ -132,33 +159,85 @@ export async function updatePlanSessionStatus(
   const entryId = typeof sessionRecord?.entry_id === "string" ? sessionRecord.entry_id : null;
   if (!entryId) return;
 
-  const { data: scheduledSessions, error: nextError } = await supabase
-    .from("plan_sessions")
-    .select("session_date")
-    .eq("entry_id", entryId)
-    .eq("status", "scheduled")
-    .order("session_date", { ascending: true });
+  await refreshPlanNextDueDate(entryId, nowIso);
+}
 
-  if (nextError) throw nextError;
+export async function updatePlanSession(
+  sessionId: string,
+  updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes">>
+): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const { data: sessionRecord, error: sessionError } = await supabase
+    .from("plan_sessions")
+    .select("entry_id")
+    .eq("id", sessionId)
+    .maybeSingle();
+
+  if (sessionError) throw sessionError;
+
+  const { error } = await supabase
+    .from("plan_sessions")
+    .update({
+      ...updates,
+      ...(updates.status === "completed"
+        ? { completed_at: nowIso }
+        : updates.status
+          ? { completed_at: null }
+          : {}),
+      updated_at: nowIso,
+    })
+    .eq("id", sessionId);
+
+  if (error) throw error;
+
+  const entryId = typeof sessionRecord?.entry_id === "string" ? sessionRecord.entry_id : null;
+  if (entryId) await refreshPlanNextDueDate(entryId, nowIso);
+}
+
+export async function deletePlanSession(session: Pick<PlanSession, "id" | "entry_id">): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase.from("plan_sessions").delete().eq("id", session.id);
+  if (error) throw error;
+  await refreshPlanNextDueDate(session.entry_id, nowIso);
+}
+
+export async function touchPlanNextDueDate(entryId: string): Promise<void> {
+  await refreshPlanNextDueDate(entryId, new Date().toISOString());
+}
+
+export function getLatestCompletedPlanSession(sessions: PlanSession[]): PlanSession | null {
+  return sessions
+    .filter((session) => session.status === "completed")
+    .sort((a, b) => {
+      const aTime = new Date(a.completed_at ?? a.session_date).getTime();
+      const bTime = new Date(b.completed_at ?? b.session_date).getTime();
+      return bTime - aTime;
+    })[0] ?? null;
+}
+
+export function getVisiblePlanSessions(sessions: PlanSession[], limit = 24): PlanSession[] {
+  const sorted = [...sessions].sort(
+    (a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
+  );
+  if (sorted.length <= limit) return sorted;
 
   const now = new Date();
-  const nextSession =
-    (scheduledSessions ?? []).find((session) => new Date(session.session_date) >= now) ??
-    (scheduledSessions ?? [])[0] ??
-    null;
+  const anchorIndex = sorted.findIndex(
+    (session) => session.status === "scheduled" && new Date(session.session_date) >= now
+  );
 
-  const entryUpdates = {
-    ...(status === "completed" ? { entry_date: nowIso } : {}),
-    next_due_date: nextSession?.session_date ?? null,
-    updated_at: nowIso,
-  };
+  if (anchorIndex === -1) {
+    return sorted.slice(-limit);
+  }
 
-  const { error: entryError } = await supabase
-    .from("entries")
-    .update(entryUpdates)
-    .eq("id", entryId);
+  const historyCount = Math.min(7, anchorIndex);
+  const start = Math.max(0, Math.min(anchorIndex - historyCount, sorted.length - limit));
+  return sorted.slice(start, start + limit);
+}
 
-  if (entryError) throw entryError;
+export function getPlanLastDoneLabel(sessions: PlanSession[]): string | null {
+  const latest = getLatestCompletedPlanSession(sessions);
+  return latest?.completed_at ?? latest?.session_date ?? null;
 }
 
 export function getPlanMetrics(sessions: PlanSession[]) {
