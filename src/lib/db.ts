@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getBillingCycle, getNextSubscriptionRenewalIso } from './subscriptions';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
 const defaultAreaNames = ['home', 'work', 'personal', 'health'];
@@ -48,7 +49,22 @@ function addDaysIso(date: Date, days: number) {
   return next.toISOString();
 }
 
+function normalizeCategory(value: string) {
+  return value.trim().toLocaleLowerCase().replace(/[_-]+/g, ' ');
+}
+
+function isSubscriptionEntry(entry: Entry) {
+  return normalizeCategory(entry.category) === 'subscription';
+}
+
 function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (isSubscriptionEntry(entry)) {
+    return getNextSubscriptionRenewalIso(
+      entry.entry_date,
+      getBillingCycle(entry.metadata.billing_cycle),
+      loggedAt
+    ) ?? entry.next_due_date;
+  }
   if (!entry.repeat_interval_days) return entry.next_due_date;
   return addDaysIso(loggedAt, entry.repeat_interval_days);
 }
@@ -287,7 +303,11 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
   }
 
   await updateEntry(entry.id, {
-    ...(shouldPromoteLog
+    ...(isSubscriptionEntry(entry)
+      ? {
+          next_due_date: getNextDueDateForLog(entry, loggedAt),
+        }
+      : shouldPromoteLog
       ? {
           entry_date: loggedAt.toISOString(),
           next_due_date: getNextDueDateForLog(entry, loggedAt),

@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
+import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration, formatYearMonthDaySpan } from "@/lib/timeUtils";
 import {
   deleteEntry,
@@ -18,6 +19,13 @@ import {
 import type { Entry, HistoryItem } from "@/types/entry";
 
 function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (normalizeCategory(entry.category) === "subscription") {
+    return getNextSubscriptionRenewalIso(
+      entry.entry_date,
+      getBillingCycle(entry.metadata.billing_cycle),
+      loggedAt
+    ) ?? entry.next_due_date;
+  }
   if (!entry.repeat_interval_days) return entry.next_due_date;
   return addDays(loggedAt, entry.repeat_interval_days).toISOString();
 }
@@ -240,8 +248,14 @@ export default function EntryDetail() {
       return isAfter(loggedAt, current) ? loggedAt : current;
     }, parseISO(historyRecords[0].logged_date));
 
+    const isSubscriptionEntry = normalizeCategory(entry.category) === "subscription";
+
     await updateEntry(entryId, {
-      entry_date: latest.toISOString(),
+      ...(isSubscriptionEntry
+        ? {}
+        : {
+            entry_date: latest.toISOString(),
+          }),
       next_due_date: getNextDueDateForLog(entry, latest),
       metadata: {
         ...entry.metadata,
@@ -571,7 +585,7 @@ export default function EntryDetail() {
               <p className="mt-1 font-semibold text-stone-900">{autoRenew ? "Yes" : "No"}</p>
             </div>
             <div>
-              <p className="text-stone-400">Reminder before</p>
+              <p className="text-stone-400">Reminder before renewal (days)</p>
               <p className="mt-1 font-semibold text-stone-900">
                 {reminderBefore !== null ? `${reminderBefore} days` : "Not set"}
               </p>

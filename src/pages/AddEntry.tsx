@@ -16,6 +16,7 @@ import {
 } from "@/lib/db";
 import { generatePlanSessions } from "@/lib/planScheduler";
 import { replacePlanSessions, replaceScheduledPlanSessions } from "@/lib/plans";
+import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
@@ -211,6 +212,11 @@ export default function AddEntry() {
   const categoryMissing = category.length === 0;
   const entryDateMissing = entryDate.length === 0;
   const planEndDateMissing = isPlan && planEndDate.length === 0;
+  const calculatedSubscriptionRenewalDate =
+    isSubscription && billingCycle !== "custom"
+      ? getNextSubscriptionRenewalIso(entryDate, getBillingCycle(billingCycle))?.slice(0, 10) ?? ""
+      : "";
+  const renewalDateValue = isSubscription && billingCycle !== "custom" ? calculatedSubscriptionRenewalDate : nextDueDate;
 
   useEffect(() => {
     const load = async () => {
@@ -444,11 +450,17 @@ export default function AddEntry() {
     const existingEntry = isEditing && entryId ? entries.find((entry) => entry.id === entryId) : null;
     const nextDueDateIso = isPlan
       ? existingEntry?.next_due_date ?? entryDateIso
+      : isSubscription
+        ? billingCycle === "custom"
+          ? nextDueDate
+            ? new Date(nextDueDate).toISOString()
+            : null
+          : getNextSubscriptionRenewalIso(entryDate, getBillingCycle(billingCycle))
       : intervalValue
-      ? addDays(new Date(entryDate), intervalValue).toISOString()
-      : nextDueDate
-        ? new Date(nextDueDate).toISOString()
-        : null;
+        ? addDays(new Date(entryDate), intervalValue).toISOString()
+        : nextDueDate
+          ? new Date(nextDueDate).toISOString()
+          : null;
 
     setSaving(true);
     const payload = {
@@ -697,9 +709,9 @@ export default function AddEntry() {
                 <input
                   id="nextDueDate"
                   type="date"
-                  value={nextDueDate}
+                  value={renewalDateValue}
                   onChange={(event) => setNextDueDate(event.target.value)}
-                  disabled={hasRepeatInterval && Boolean(repeatIntervalDays.trim())}
+                  disabled={(hasRepeatInterval && Boolean(repeatIntervalDays.trim())) || (isSubscription && billingCycle !== "custom")}
                   className={inputClass}
                 />
               </div>
@@ -707,7 +719,7 @@ export default function AddEntry() {
             {isRoutine || isSubscription ? (
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">
-                  Reminder Before
+                  {isSubscription ? "Reminder before renewal (days)" : "Reminder Before"}
                 </label>
                 <input
                   id="reminderBeforeDays"
@@ -715,7 +727,7 @@ export default function AddEntry() {
                   value={reminderBeforeDays}
                   onChange={(event) => setReminderBeforeDays(event.target.value)}
                   className={inputClass}
-                  placeholder="Days before due"
+                  placeholder={isSubscription ? "Days before renewal" : "Days before due"}
                   min="0"
                   step="1"
                 />
