@@ -15,7 +15,7 @@ import {
   updateEntry,
 } from "@/lib/db";
 import { generatePlanSessions } from "@/lib/planScheduler";
-import { replacePlanSessions } from "@/lib/plans";
+import { replacePlanSessions, replaceScheduledPlanSessions } from "@/lib/plans";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
@@ -507,7 +507,7 @@ export default function AddEntry() {
         savedEntryId = await insertEntry(payload);
       }
 
-      if (isPlan && savedEntryId && !isEditing) {
+      if (isPlan && savedEntryId) {
         const sessions = generatePlanSessions({
           entryId: savedEntryId,
           title: title.trim(),
@@ -517,10 +517,16 @@ export default function AddEntry() {
           schedule: planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] },
           topics: planTopicValues,
         });
-        await replacePlanSessions(savedEntryId, sessions);
-        await updateEntry(savedEntryId, {
-          next_due_date: sessions[0]?.session_date ?? entryDateIso,
-        });
+        if (isEditing) {
+          const now = new Date();
+          const futureSessions = sessions.filter((session) => new Date(session.session_date) >= now);
+          await replaceScheduledPlanSessions(savedEntryId, futureSessions);
+        } else {
+          await replacePlanSessions(savedEntryId, sessions);
+          await updateEntry(savedEntryId, {
+            next_due_date: sessions[0]?.session_date ?? entryDateIso,
+          });
+        }
       }
       setEntries(await getAllEntries());
       navigate("/");

@@ -106,6 +106,32 @@ export async function replacePlanSessions(entryId: string, sessions: NewPlanSess
   if (insertError) throw insertError;
 }
 
+export async function replaceScheduledPlanSessions(entryId: string, sessions: NewPlanSession[]): Promise<void> {
+  const userId = await requireUserId();
+  const nowIso = new Date().toISOString();
+  const { error: deleteError } = await supabase
+    .from("plan_sessions")
+    .delete()
+    .eq("entry_id", entryId)
+    .eq("status", "scheduled");
+
+  if (deleteError) throw deleteError;
+
+  if (sessions.length > 0) {
+    const { error: insertError } = await supabase.from("plan_sessions").insert(
+      sessions.map((session) => ({
+        ...session,
+        user_id: userId,
+        created_at: nowIso,
+        updated_at: nowIso,
+      }))
+    );
+    if (insertError) throw insertError;
+  }
+
+  await refreshPlanNextDueDate(entryId, nowIso);
+}
+
 async function refreshPlanNextDueDate(entryId: string, updatedAt: string): Promise<void> {
   const { data: scheduledSessions, error: nextError } = await supabase
     .from("plan_sessions")
