@@ -10,15 +10,14 @@ import {
   getAreas,
   getCategories,
   getEntryById,
-  getHistoryForEntry,
   insertEntry,
-  insertHistory,
+  logEntryAgain,
   updateEntry,
 } from "@/lib/db";
 import { generatePlanSessions } from "@/lib/planScheduler";
 import { replacePlanSessions } from "@/lib/plans";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
-import type { Entry, EntryOption, HistoryItem } from "@/types/entry";
+import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
 type RepeatUnit = "days" | "weeks" | "months";
@@ -50,18 +49,6 @@ function getRepeatIntervalDays(value: number, unit: RepeatUnit) {
   if (unit === "weeks") return value * 7;
   if (unit === "months") return value * 30;
   return value;
-}
-
-function getLatestLogDate(entry: Entry, history: HistoryItem[]) {
-  return history.reduce((latest, record) => {
-    const loggedDate = new Date(record.logged_date);
-    return loggedDate > latest ? loggedDate : latest;
-  }, new Date(entry.entry_date));
-}
-
-function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
-  if (!entry.repeat_interval_days) return entry.next_due_date;
-  return addDays(loggedAt, entry.repeat_interval_days).toISOString();
 }
 
 const inputClass =
@@ -556,29 +543,7 @@ export default function AddEntry() {
     setLoggingId(entry.id);
     try {
       const loggedAt = new Date(logDate);
-      const history = await getHistoryForEntry(entry.id);
-      const latestLogDate = getLatestLogDate(entry, history);
-      const shouldPromoteLog = loggedAt >= latestLogDate;
-
-      await insertHistory({
-        entry_id: entry.id,
-        logged_date: loggedAt.toISOString(),
-        notes: "",
-      });
-
-      await updateEntry(entry.id, {
-        ...(shouldPromoteLog
-          ? {
-              entry_date: loggedAt.toISOString(),
-              next_due_date: getNextDueDateForLog(entry, loggedAt),
-            }
-          : {}),
-        metadata: {
-          ...entry.metadata,
-          completed_count:
-            (typeof entry.metadata.completed_count === "number" ? entry.metadata.completed_count : 0) + 1,
-        },
-      });
+      await logEntryAgain(entry, loggedAt);
 
       setLogDates((current) => ({ ...current, [entry.id]: "" }));
       setEntries(await getAllEntries());
@@ -600,7 +565,7 @@ export default function AddEntry() {
   };
 
   return (
-    <section className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_320px]">
+    <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 rounded-2xl border border-stone-300 bg-white p-6 shadow-sm dark:border-white/15 dark:bg-white/[0.04]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -1265,7 +1230,7 @@ export default function AddEntry() {
           </div>
         </form>
       </div>
-      <aside className="rounded-2xl border border-stone-300 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-white/[0.04] 2xl:sticky 2xl:top-24 2xl:self-start">
+      <aside className="rounded-2xl border border-stone-300 bg-white p-5 shadow-sm dark:border-white/15 dark:bg-white/[0.04] xl:sticky xl:top-24 xl:self-start">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400 dark:text-stone-500">Same area/category</p>
           <h3 className="mt-2 text-lg font-semibold text-stone-900 dark:text-stone-50">Related entries</h3>

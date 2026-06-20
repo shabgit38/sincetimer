@@ -11,7 +11,7 @@ import {
   getEntryById,
   getHistoryForEntry,
   getHistoryMonths,
-  insertHistory,
+  logEntryAgain,
   updateEntry,
   updateHistory,
 } from "@/lib/db";
@@ -207,28 +207,7 @@ export default function EntryDetail() {
 
     try {
       const loggedAt = new Date(logDate);
-      const loggedAtIso = loggedAt.toISOString();
-      const latestEventDate = getLatestEventDate(entry, history);
-      const shouldPromoteLog = isAfter(loggedAt, latestEventDate) || loggedAt.getTime() === latestEventDate.getTime();
-      const nextDueDate = shouldPromoteLog ? getNextDueDateForLog(entry, loggedAt) : entry.next_due_date;
-
-      await insertHistory({
-        entry_id: entryId,
-        logged_date: loggedAtIso,
-        notes: "",
-      });
-      await updateEntry(entryId, {
-        ...(shouldPromoteLog
-          ? {
-              entry_date: loggedAtIso,
-              next_due_date: nextDueDate,
-            }
-          : {}),
-        metadata: {
-          ...entry.metadata,
-          completed_count: (getNumberMetadata(entry.metadata, "completed_count") ?? 0) + 1,
-        },
-      });
+      await logEntryAgain(entry, loggedAt);
       const [updated, historyRecords] = await Promise.all([
         getEntryById(entryId),
         getHistoryForEntry(entryId),

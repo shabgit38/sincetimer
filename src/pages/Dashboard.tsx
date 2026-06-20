@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { addDays } from "date-fns";
 import { ChevronDown, Plus, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -12,7 +11,7 @@ import {
   getCategories,
   insertArea,
   insertCategory,
-  insertHistory,
+  logEntryAgain,
   renameArea,
   renameCategory,
   updateEntry,
@@ -226,11 +225,6 @@ function getTags(entry: Entry) {
     : [];
 }
 
-function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
-  if (!entry.repeat_interval_days) return entry.next_due_date;
-  return addDays(loggedAt, entry.repeat_interval_days).toISOString();
-}
-
 function flattenSearchValue(value: unknown): string[] {
   if (value === null || value === undefined) return [];
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -272,6 +266,26 @@ function formatShortDuration(entryDate: string) {
     .replace(/\byears?\b/g, "yr")
     .replace(/\bmonths?\b/g, "mnth")
     .replace(/\bdays?\b/g, "dys");
+}
+
+function isPlanEntry(entry: Entry) {
+  return entry.category.toLocaleLowerCase() === "plan" || typeof entry.metadata.plan_type === "string";
+}
+
+function getNextScheduledPlanSession(sessions: PlanSession[]) {
+  const now = new Date();
+  const sorted = sessions
+    .filter((session) => session.status === "scheduled")
+    .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
+
+  return sorted.find((session) => new Date(session.session_date) >= now) ?? sorted[0] ?? null;
+}
+
+function getLatestCompletedPlanSessionDate(sessions: PlanSession[]) {
+  return sessions
+    .filter((session) => session.status === "completed")
+    .map((session) => session.completed_at ?? session.session_date)
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 }
 
 function getDueCopy(entry: Entry) {
@@ -325,8 +339,7 @@ function getToneClasses(tone: string) {
 
 type MemoryCardProps = {
   entry: Entry;
-  planSession?: PlanSession | null;
-  planLastDoneDate?: string | null;
+  planSessions?: PlanSession[];
   onOpen: () => void;
   onToggleFavorite: () => void;
   onMarkDone: () => void;
@@ -338,8 +351,7 @@ type MemoryCardProps = {
 
 function MemoryCard({
   entry,
-  planSession,
-  planLastDoneDate,
+  planSessions = [],
   onOpen,
   onToggleFavorite,
   onMarkDone,
@@ -348,9 +360,12 @@ function MemoryCard({
   entryDoneSaving,
   planSessionSaving,
 }: MemoryCardProps) {
-  const due = getDueCopy(entry);
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
-  const isPlan = entry.category.toLocaleLowerCase() === "plan";
+  const isPlan = isPlanEntry(entry);
+  const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
+  const planLastDoneDate = isPlan ? getLatestCompletedPlanSessionDate(planSessions) : null;
+  const dueEntry = isPlan ? { ...entry, next_due_date: planSession?.session_date ?? null } : entry;
+  const due = getDueCopy(dueEntry);
   const tags = getTags(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const completedCount = getNumberMetadata(entry, "completed_count");
@@ -476,8 +491,7 @@ function MemoryCard({
 type EntrySectionProps = {
   group: EntryGroup;
   collapsed: boolean;
-  planSessionsByEntryId: Map<string, PlanSession>;
-  planLastDoneByEntryId: Map<string, string>;
+  planSessionsByEntryId: Map<string, PlanSession[]>;
   onToggle: () => void;
   onOpen: (entry: Entry) => void;
   onToggleFavorite: (entry: Entry) => void;
@@ -492,7 +506,6 @@ function EntrySection({
   group,
   collapsed,
   planSessionsByEntryId,
-  planLastDoneByEntryId,
   onToggle,
   onOpen,
   onToggleFavorite,
@@ -525,21 +538,24 @@ function EntrySection({
       </button>
       {collapsed ? null : (
         <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
-          {group.entries.map((entry) => (
-            <MemoryCard
-              key={entry.id}
-              entry={entry}
-              planSession={planSessionsByEntryId.get(entry.id) ?? null}
-              planLastDoneDate={planLastDoneByEntryId.get(entry.id) ?? null}
-              onOpen={() => onOpen(entry)}
-              onToggleFavorite={() => onToggleFavorite(entry)}
-              onMarkDone={() => onMarkDone(entry)}
-              onSetPlanSessionStatus={onSetPlanSessionStatus}
-              favoriteSaving={favoriteSavingIds.has(entry.id)}
-              entryDoneSaving={entryDoneSavingIds.has(entry.id)}
-              planSessionSaving={Boolean(planSessionsByEntryId.get(entry.id)?.id && planSessionSavingIds.has(planSessionsByEntryId.get(entry.id)!.id))}
-            />
-          ))}
+          {group.entries.map((entry) => {
+            const planSessions = planSessionsByEntryId.get(entry.id) ?? [];
+            const nextPlanSession = getNextScheduledPlanSession(planSessions);
+            return (
+              <MemoryCard
+                key={entry.id}
+                entry={entry}
+                planSessions={planSessions}
+                onOpen={() => onOpen(entry)}
+                onToggleFavorite={() => onToggleFavorite(entry)}
+                onMarkDone={() => onMarkDone(entry)}
+                onSetPlanSessionStatus={onSetPlanSessionStatus}
+                favoriteSaving={favoriteSavingIds.has(entry.id)}
+                entryDoneSaving={entryDoneSavingIds.has(entry.id)}
+                planSessionSaving={Boolean(nextPlanSession?.id && planSessionSavingIds.has(nextPlanSession.id))}
+              />
+            );
+          })}
         </div>
       )}
     </section>
@@ -695,20 +711,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setEntryDoneSavingIds((current) => new Set(current).add(entry.id));
     try {
       const loggedAt = new Date();
-      const loggedAtIso = loggedAt.toISOString();
-      await insertHistory({
-        entry_id: entry.id,
-        logged_date: loggedAtIso,
-        notes: "",
-      });
-      await updateEntry(entry.id, {
-        entry_date: loggedAtIso,
-        next_due_date: getNextDueDateForLog(entry, loggedAt),
-        metadata: {
-          ...entry.metadata,
-          completed_count: getNumberMetadata(entry, "completed_count") + 1,
-        },
-      });
+      await logEntryAgain(entry, loggedAt);
       await refreshData();
     } catch (saveError) {
       console.error(saveError);
@@ -734,6 +737,16 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     });
   };
 
+  const planSessionsByEntryId = useMemo(() => {
+    const grouped = new Map<string, PlanSession[]>();
+    planSessions.forEach((session) => {
+      const group = grouped.get(session.entry_id) ?? [];
+      group.push(session);
+      grouped.set(session.entry_id, group);
+    });
+    return grouped;
+  }, [planSessions]);
+
   const filteredEntries = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
     const visibleEntries = entries.filter((entry) => !getBooleanMetadata(entry, "archived"));
@@ -747,8 +760,12 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     }
     if (sortOption === "overdue") {
       return [...base].sort((a, b) => {
-        const aSummary = computeTimeSummary(a.entry_date, a.next_due_date);
-        const bSummary = computeTimeSummary(b.entry_date, b.next_due_date);
+        const aPlanSession = getNextScheduledPlanSession(planSessionsByEntryId.get(a.id) ?? []);
+        const bPlanSession = getNextScheduledPlanSession(planSessionsByEntryId.get(b.id) ?? []);
+        const aDueDate = isPlanEntry(a) ? aPlanSession?.session_date ?? null : a.next_due_date;
+        const bDueDate = isPlanEntry(b) ? bPlanSession?.session_date ?? null : b.next_due_date;
+        const aSummary = computeTimeSummary(a.entry_date, aDueDate);
+        const bSummary = computeTimeSummary(b.entry_date, bDueDate);
         const aDue = aSummary.nextDueIn ?? Number.POSITIVE_INFINITY;
         const bDue = bSummary.nextDueIn ?? Number.POSITIVE_INFINITY;
         return aDue - bDue;
@@ -757,44 +774,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     return [...base].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [entries, areaFilter, categoryFilter, sortOption, searchQuery]);
-
-  const nextPlanSessionsByEntryId = useMemo(() => {
-    const now = new Date();
-    const grouped = new Map<string, PlanSession[]>();
-    planSessions
-      .filter((session) => session.status === "scheduled")
-      .forEach((session) => {
-        const group = grouped.get(session.entry_id) ?? [];
-        group.push(session);
-        grouped.set(session.entry_id, group);
-      });
-
-    const nextByEntry = new Map<string, PlanSession>();
-    grouped.forEach((sessions, entryId) => {
-      const sorted = [...sessions].sort(
-        (a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
-      );
-      const nextSession =
-        sorted.find((session) => new Date(session.session_date) >= now) ?? sorted[0] ?? null;
-      if (nextSession) nextByEntry.set(entryId, nextSession);
-    });
-    return nextByEntry;
-  }, [planSessions]);
-
-  const lastCompletedPlanSessionByEntryId = useMemo(() => {
-    const latestByEntry = new Map<string, string>();
-    planSessions
-      .filter((session) => session.status === "completed")
-      .forEach((session) => {
-        const completedDate = session.completed_at ?? session.session_date;
-        const current = latestByEntry.get(session.entry_id);
-        if (!current || new Date(completedDate).getTime() > new Date(current).getTime()) {
-          latestByEntry.set(session.entry_id, completedDate);
-        }
-      });
-    return latestByEntry;
-  }, [planSessions]);
+  }, [entries, areaFilter, categoryFilter, sortOption, searchQuery, planSessionsByEntryId]);
 
   const entryGroups = useMemo<EntryGroup[]>(() => {
     const favorites: Entry[] = [];
@@ -806,18 +786,20 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     const recentlyCompleted: Entry[] = [];
 
     filteredEntries.forEach((entry) => {
-      const summary = computeTimeSummary(entry.entry_date, entry.next_due_date);
+      const planSession = getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? []);
+      const dueDate = isPlanEntry(entry) ? planSession?.session_date ?? null : entry.next_due_date;
+      const summary = computeTimeSummary(entry.entry_date, dueDate);
       if (getBooleanMetadata(entry, "favorite")) {
         favorites.push(entry);
         return;
       }
-      if (entry.next_due_date && summary.isOverdue) {
+      if (dueDate && summary.isOverdue) {
         overdue.push(entry);
-      } else if (entry.next_due_date && summary.nextDueIn === 0) {
+      } else if (dueDate && summary.nextDueIn === 0) {
         today.push(entry);
-      } else if (entry.next_due_date && (summary.nextDueIn ?? 0) <= 7) {
+      } else if (dueDate && (summary.nextDueIn ?? 0) <= 7) {
         dueSoon.push(entry);
-      } else if (entry.next_due_date) {
+      } else if (dueDate) {
         upcoming.push(entry);
       } else if (getNumberMetadata(entry, "completed_count") > 0 && summary.daysPassed <= 14) {
         recentlyCompleted.push(entry);
@@ -863,7 +845,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         entries: unscheduled,
       },
     ];
-  }, [filteredEntries]);
+  }, [filteredEntries, planSessionsByEntryId]);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -899,10 +881,9 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 key={group.title}
                 group={group}
                 collapsed={collapsedSections.has(group.title)}
-                planSessionsByEntryId={nextPlanSessionsByEntryId}
-                planLastDoneByEntryId={lastCompletedPlanSessionByEntryId}
+                planSessionsByEntryId={planSessionsByEntryId}
                 onToggle={() => toggleSection(group.title)}
-                onOpen={(entry) => navigate(entry.category.toLocaleLowerCase() === "plan" ? "/plans" : `/entry/${entry.id}`)}
+                onOpen={(entry) => navigate(isPlanEntry(entry) ? "/plans" : `/entry/${entry.id}`)}
                 onToggleFavorite={handleToggleFavorite}
                 onMarkDone={handleMarkEntryDone}
                 onSetPlanSessionStatus={handleSetPlanSessionStatus}

@@ -42,6 +42,29 @@ function normalizeOptionName(name: string) {
   return name.trim().replace(/\s+/g, ' ');
 }
 
+function addDaysIso(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next.toISOString();
+}
+
+function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (!entry.repeat_interval_days) return entry.next_due_date;
+  return addDaysIso(loggedAt, entry.repeat_interval_days);
+}
+
+function getLatestLogDate(entry: Entry, history: HistoryItem[]) {
+  return history.reduce((latest, record) => {
+    const loggedDate = new Date(record.logged_date);
+    return loggedDate > latest ? loggedDate : latest;
+  }, new Date(entry.entry_date));
+}
+
+function hasHistoryForDate(history: HistoryItem[], date: Date) {
+  const timestamp = date.getTime();
+  return history.some((record) => new Date(record.logged_date).getTime() === timestamp);
+}
+
 function hasOptionNamed(options: EntryOption[], name: string, exceptId?: string) {
   const normalized = name.toLocaleLowerCase();
   return options.some(
@@ -246,6 +269,36 @@ export async function updateHistory(
 export async function deleteHistory(id: string): Promise<void> {
   const { error } = await supabase.from('entry_logs').delete().eq('id', id);
   if (error) throw error;
+}
+
+export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void> {
+  const history = await getHistoryForEntry(entry.id);
+  const latestLogDate = getLatestLogDate(entry, history);
+  const shouldPromoteLog = loggedAt >= latestLogDate;
+  const historyDate = shouldPromoteLog ? new Date(entry.entry_date) : loggedAt;
+  const shouldInsertHistory = !shouldPromoteLog || historyDate.getTime() !== loggedAt.getTime();
+
+  if (shouldInsertHistory && !hasHistoryForDate(history, historyDate)) {
+    await insertHistory({
+      entry_id: entry.id,
+      logged_date: historyDate.toISOString(),
+      notes: '',
+    });
+  }
+
+  await updateEntry(entry.id, {
+    ...(shouldPromoteLog
+      ? {
+          entry_date: loggedAt.toISOString(),
+          next_due_date: getNextDueDateForLog(entry, loggedAt),
+        }
+      : {}),
+    metadata: {
+      ...entry.metadata,
+      completed_count:
+        (typeof entry.metadata.completed_count === 'number' ? entry.metadata.completed_count : 0) + 1,
+    },
+  });
 }
 
 export async function pruneOldHistory(months: number): Promise<void> {
