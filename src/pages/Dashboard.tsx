@@ -17,6 +17,7 @@ import {
   updateEntry,
 } from "@/lib/db";
 import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
+import { supabase } from "@/lib/supabase";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanSession, PlanSessionStatus } from "@/types/plan";
 
@@ -606,6 +607,43 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   useEffect(() => {
     void loadDashboard();
+  }, [loadDashboard]);
+
+  useEffect(() => {
+    let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => {
+        if (document.visibilityState === "visible") {
+          void loadDashboard();
+        }
+      }, 250);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        scheduleRefresh();
+      }
+    };
+
+    window.addEventListener("focus", scheduleRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const channel = supabase
+      .channel("dashboard-freshness")
+      .on("postgres_changes", { event: "*", schema: "public", table: "entries" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "areas" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "plan_sessions" }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      window.removeEventListener("focus", scheduleRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      void supabase.removeChannel(channel);
+    };
   }, [loadDashboard]);
 
   const refreshData = async () => {
