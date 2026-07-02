@@ -73,8 +73,12 @@ function getLocalParts(date: Date, timezone: string) {
   };
 }
 
-function getLocalMinuteValue(parts: ReturnType<typeof getLocalParts>) {
-  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+function padDatePart(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function getLocalDateKey(parts: ReturnType<typeof getLocalParts>) {
+  return `${parts.year}-${padDatePart(parts.month)}-${padDatePart(parts.day)}`;
 }
 
 function getReminderBeforeDays(metadata: Record<string, unknown>) {
@@ -99,19 +103,10 @@ function shouldSendReminder(entry: ReminderEntry, timezone: string, now = new Da
   const reminderBeforeDays = getReminderBeforeDays(entry.metadata);
   const reminderDate = getReminderDate(entry.next_due_date, reminderBeforeDays);
   const reminderTime = getReminderTime(entry.reminder_time);
-  const [hour, minute] = reminderTime.split(':').map(Number);
-  const nowLocal = getLocalMinuteValue(getLocalParts(now, timezone));
-  const reminderLocal = Date.UTC(
-    Number(reminderDate.slice(0, 4)),
-    Number(reminderDate.slice(5, 7)) - 1,
-    Number(reminderDate.slice(8, 10)),
-    hour,
-    minute
-  );
-  const ageMinutes = (nowLocal - reminderLocal) / 60000;
+  const todayLocal = getLocalDateKey(getLocalParts(now, timezone));
 
   return {
-    due: ageMinutes >= 0 && ageMinutes <= 60,
+    due: reminderDate === todayLocal,
     reminderAt: getReminderKeyTimestamp(reminderDate, reminderTime),
   };
 }
