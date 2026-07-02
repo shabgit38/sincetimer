@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import * as webpush from 'web-push';
+import webpush from 'web-push';
 
 type PushSubscriptionRecord = {
   id: string;
@@ -112,108 +112,113 @@ function shouldSendReminder(entry: ReminderEntry, timezone: string, now = new Da
 }
 
 export default async function handler(request: VercelRequest, response: VercelResponse) {
-  if (!isAuthorized(request)) {
-    response.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+  try {
+    if (!isAuthorized(request)) {
+      response.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
 
-  if (!supabaseUrl || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
-    response.status(500).json({ error: 'Missing notification server environment variables.' });
-    return;
-  }
+    if (!supabaseUrl || !serviceRoleKey || !vapidPublicKey || !vapidPrivateKey) {
+      response.status(500).json({ error: 'Missing notification server environment variables.' });
+      return;
+    }
 
-  webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const { data: subscriptions, error: subscriptionError } = await supabase
-    .from('push_subscriptions')
-    .select('id, user_id, endpoint, subscription, timezone');
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { data: subscriptions, error: subscriptionError } = await supabase
+      .from('push_subscriptions')
+      .select('id, user_id, endpoint, subscription, timezone');
 
-  if (subscriptionError) {
-    response.status(500).json({ error: subscriptionError.message });
-    return;
-  }
+    if (subscriptionError) {
+      response.status(500).json({ error: subscriptionError.message });
+      return;
+    }
 
-  const activeSubscriptions = (subscriptions ?? []) as PushSubscriptionRecord[];
-  if (activeSubscriptions.length === 0) {
-    response.status(200).json({ checked: 0, sent: 0 });
-    return;
-  }
+    const activeSubscriptions = (subscriptions ?? []) as PushSubscriptionRecord[];
+    if (activeSubscriptions.length === 0) {
+      response.status(200).json({ checked: 0, sent: 0 });
+      return;
+    }
 
-  const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
-  const { data: entries, error: entriesError } = await supabase
-    .from('entries')
-    .select('id, user_id, title, next_due_date, reminder_time, metadata')
-    .eq('reminder_enabled', true)
-    .not('next_due_date', 'is', null)
-    .in('user_id', userIds);
+    const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
+    const { data: entries, error: entriesError } = await supabase
+      .from('entries')
+      .select('id, user_id, title, next_due_date, reminder_time, metadata')
+      .eq('reminder_enabled', true)
+      .not('next_due_date', 'is', null)
+      .in('user_id', userIds);
 
-  if (entriesError) {
-    response.status(500).json({ error: entriesError.message });
-    return;
-  }
+    if (entriesError) {
+      response.status(500).json({ error: entriesError.message });
+      return;
+    }
 
-  let sent = 0;
-  let skipped = 0;
-  const reminderEntries = (entries ?? []) as ReminderEntry[];
+    let sent = 0;
+    let skipped = 0;
+    const reminderEntries = (entries ?? []) as ReminderEntry[];
 
-  for (const subscription of activeSubscriptions) {
-    const timezone = subscription.timezone || 'UTC';
-    const userEntries = reminderEntries.filter((entry) => entry.user_id === subscription.user_id);
+    for (const subscription of activeSubscriptions) {
+      const timezone = subscription.timezone || 'UTC';
+      const userEntries = reminderEntries.filter((entry) => entry.user_id === subscription.user_id);
 
-    for (const entry of userEntries) {
-      const reminder = shouldSendReminder(entry, timezone);
-      if (!reminder.due) {
-        skipped += 1;
-        continue;
-      }
+      for (const entry of userEntries) {
+        const reminder = shouldSendReminder(entry, timezone);
+        if (!reminder.due) {
+          skipped += 1;
+          continue;
+        }
 
-      const { data: existingDelivery, error: existingError } = await supabase
-        .from('reminder_deliveries')
-        .select('id')
-        .eq('entry_id', entry.id)
-        .eq('push_subscription_id', subscription.id)
-        .eq('reminder_at', reminder.reminderAt)
-        .maybeSingle();
+        const { data: existingDelivery, error: existingError } = await supabase
+          .from('reminder_deliveries')
+          .select('id')
+          .eq('entry_id', entry.id)
+          .eq('push_subscription_id', subscription.id)
+          .eq('reminder_at', reminder.reminderAt)
+          .maybeSingle();
 
-      if (existingError) throw existingError;
-      if (existingDelivery) {
-        skipped += 1;
-        continue;
-      }
+        if (existingError) throw existingError;
+        if (existingDelivery) {
+          skipped += 1;
+          continue;
+        }
 
-      try {
-        await webpush.sendNotification(
-          subscription.subscription,
-          JSON.stringify({
-            title: 'GUIDR reminder',
-            body: `Time to log: ${entry.title}`,
-            url: `/entry/${entry.id}`,
-          })
-        );
+        try {
+          await webpush.sendNotification(
+            subscription.subscription,
+            JSON.stringify({
+              title: 'GUIDR reminder',
+              body: `Time to log: ${entry.title}`,
+              url: `/entry/${entry.id}`,
+            })
+          );
 
-        const { error: deliveryError } = await supabase.from('reminder_deliveries').insert({
-          user_id: entry.user_id,
-          entry_id: entry.id,
-          push_subscription_id: subscription.id,
-          reminder_at: reminder.reminderAt,
-        });
-        if (deliveryError) throw deliveryError;
-        sent += 1;
-      } catch (sendError) {
-        const statusCode =
-          typeof sendError === 'object' && sendError !== null && 'statusCode' in sendError
-            ? Number((sendError as { statusCode?: number }).statusCode)
-            : null;
+          const { error: deliveryError } = await supabase.from('reminder_deliveries').insert({
+            user_id: entry.user_id,
+            entry_id: entry.id,
+            push_subscription_id: subscription.id,
+            reminder_at: reminder.reminderAt,
+          });
+          if (deliveryError) throw deliveryError;
+          sent += 1;
+        } catch (sendError) {
+          const statusCode =
+            typeof sendError === 'object' && sendError !== null && 'statusCode' in sendError
+              ? Number((sendError as { statusCode?: number }).statusCode)
+              : null;
 
-        if (statusCode === 404 || statusCode === 410) {
-          await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
-        } else {
-          console.error(sendError);
+          if (statusCode === 404 || statusCode === 410) {
+            await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
+          } else {
+            console.error(sendError);
+          }
         }
       }
     }
-  }
 
-  response.status(200).json({ checked: activeSubscriptions.length, entries: reminderEntries.length, sent, skipped });
+    response.status(200).json({ checked: activeSubscriptions.length, entries: reminderEntries.length, sent, skipped });
+  } catch (error) {
+    console.error(error);
+    response.status(500).json({ error: error instanceof Error ? error.message : 'Notification job failed.' });
+  }
 }
