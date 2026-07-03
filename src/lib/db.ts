@@ -290,12 +290,17 @@ export async function deleteHistory(id: string): Promise<void> {
 
 export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void> {
   const history = await getHistoryForEntry(entry.id);
+  const isSubscription = isSubscriptionEntry(entry);
   const latestLogDate = getLatestLogDate(entry, history);
   const shouldPromoteLog = loggedAt >= latestLogDate;
-  const historyDate = shouldPromoteLog ? new Date(entry.entry_date) : loggedAt;
-  const shouldInsertHistory = !shouldPromoteLog || historyDate.getTime() !== loggedAt.getTime();
+  const historyDate = isSubscription ? loggedAt : shouldPromoteLog ? new Date(entry.entry_date) : loggedAt;
+  const shouldInsertHistory = isSubscription
+    ? !hasHistoryForDate(history, historyDate)
+    : (!shouldPromoteLog || historyDate.getTime() !== loggedAt.getTime()) && !hasHistoryForDate(history, historyDate);
+  const currentCompletedCount =
+    typeof entry.metadata.completed_count === 'number' ? entry.metadata.completed_count : 0;
 
-  if (shouldInsertHistory && !hasHistoryForDate(history, historyDate)) {
+  if (shouldInsertHistory) {
     await insertHistory({
       entry_id: entry.id,
       logged_date: historyDate.toISOString(),
@@ -304,7 +309,7 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
   }
 
   await updateEntry(entry.id, {
-    ...(isSubscriptionEntry(entry)
+    ...(isSubscription
       ? {
           next_due_date: getNextDueDateForLog(entry, loggedAt),
         }
@@ -316,8 +321,9 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
       : {}),
     metadata: {
       ...entry.metadata,
-      completed_count:
-        (typeof entry.metadata.completed_count === 'number' ? entry.metadata.completed_count : 0) + 1,
+      completed_count: isSubscription && !shouldInsertHistory
+        ? currentCompletedCount
+        : currentCompletedCount + 1,
     },
   });
 }
