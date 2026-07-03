@@ -412,7 +412,7 @@ function MemoryCard({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-stone-700 dark:text-stone-200">
-              {formatOptionLabel(entry.area)} / {formatOptionLabel(entry.category)}
+              {formatOptionLabel(entry.area)}
             </p>
             <h3 className="mt-3 text-base font-medium text-stone-950 dark:text-stone-50">{entry.title}</h3>
           </div>
@@ -455,9 +455,16 @@ function MemoryCard({
             <p className="font-medium">{due.label}</p>
             <p className="mt-0.5 text-xs opacity-70">{due.detail}</p>
           </div>
-          <span className="rounded-full border border-stone-200 px-3 py-1 text-xs font-medium text-stone-500 transition group-hover:border-stone-300 group-hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:group-hover:border-white/20 dark:group-hover:text-stone-50">
-            Open
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <span className="rounded-full border border-stone-200 px-2.5 py-1 text-xs font-medium text-stone-500 transition group-hover:border-stone-300 group-hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:group-hover:border-white/20 dark:group-hover:text-stone-50">
+              {formatOptionLabel(entry.category)}
+            </span>
+            {completedCount > 0 ? (
+              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
+                {completedCount} done
+              </span>
+            ) : null}
+          </div>
         </div>
         {due.tone === "overdue" && !isPlan ? (
           <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
@@ -499,13 +506,8 @@ function MemoryCard({
             </Button>
           </div>
         ) : null}
-        {(tags.length > 0 || completedCount > 0) ? (
+        {tags.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
-            {completedCount > 0 ? (
-              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
-                {completedCount} completed
-              </span>
-            ) : null}
             {tags.slice(0, 3).map((tag) => (
               <span key={tag} className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
                 {tag}
