@@ -582,20 +582,17 @@ function EntrySection({
     <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
       <button
         type="button"
-        className="flex w-full items-start justify-between gap-4 border-b border-stone-200 bg-stone-50 px-5 py-4 text-left transition hover:bg-stone-100 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+        className="flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition hover:bg-stone-100 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
         onClick={onToggle}
         aria-expanded={!collapsed}
       >
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold tracking-tight text-stone-950 dark:text-stone-50">{group.title}</h3>
-            <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">
-              {group.entries.length}
-            </span>
-          </div>
-          <p className="text-sm text-stone-500 dark:text-stone-400">{group.description}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold tracking-tight text-stone-950 dark:text-stone-50">{group.title}</h3>
+          <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">
+            {group.entries.length}
+          </span>
         </div>
-        <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${collapsed ? "" : "rotate-180"}`} />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${collapsed ? "" : "rotate-180"}`} />
       </button>
       {collapsed ? null : (
         <div className={`grid gap-4 p-5 ${isReadingSection ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
