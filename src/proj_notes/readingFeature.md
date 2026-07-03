@@ -118,6 +118,7 @@ For reading items:
 - Added `reading` to default categories.
 - Added reading-specific metadata fields in Add/Edit Entry.
 - Added Dashboard `Reading list` section for non-done reading items.
+- Moved Dashboard `Reading list` near the top, immediately after Favorites, so it acts as a visible nudge.
 - Added `/reading` page with quick add, grouped reading cards, open-link actions, and status actions.
 - Seeded the four starter links as `to_read` reading entries.
 

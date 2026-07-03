@@ -901,6 +901,11 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         entries: favorites,
       },
       {
+        title: "Reading list",
+        description: "Links and topics waiting for focused reading.",
+        entries: readingList,
+      },
+      {
         title: "Overdue",
         description: "Items that have crossed their due date.",
         entries: overdue,
@@ -914,11 +919,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         title: "Due soon",
         description: "Coming up in the next 7 days.",
         entries: dueSoon,
-      },
-      {
-        title: "Reading list",
-        description: "Links and topics waiting for focused reading.",
-        entries: readingList,
       },
       {
         title: "Upcoming",
