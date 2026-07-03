@@ -82,6 +82,23 @@ function hasHistoryForDate(history: HistoryItem[], date: Date) {
   return history.some((record) => new Date(record.logged_date).getTime() === timestamp);
 }
 
+function getDateKey(date: Date | string) {
+  const parsed = typeof date === 'string' ? new Date(date) : date;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function hasHistoryForDay(history: HistoryItem[], date: Date) {
+  const key = getDateKey(date);
+  return history.some((record) => getDateKey(record.logged_date) === key);
+}
+
+function getSubscriptionCompletedCount(entry: Entry, history: HistoryItem[], pendingLogDate?: Date) {
+  const loggedDays = new Set<string>([getDateKey(entry.entry_date)]);
+  history.forEach((record) => loggedDays.add(getDateKey(record.logged_date)));
+  if (pendingLogDate) loggedDays.add(getDateKey(pendingLogDate));
+  return loggedDays.size;
+}
+
 function hasOptionNamed(options: EntryOption[], name: string, exceptId?: string) {
   const normalized = name.toLocaleLowerCase();
   return options.some(
@@ -295,10 +312,13 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
   const shouldPromoteLog = loggedAt >= latestLogDate;
   const historyDate = isSubscription ? loggedAt : shouldPromoteLog ? new Date(entry.entry_date) : loggedAt;
   const shouldInsertHistory = isSubscription
-    ? !hasHistoryForDate(history, historyDate)
+    ? !hasHistoryForDay(history, historyDate)
     : (!shouldPromoteLog || historyDate.getTime() !== loggedAt.getTime()) && !hasHistoryForDate(history, historyDate);
   const currentCompletedCount =
     typeof entry.metadata.completed_count === 'number' ? entry.metadata.completed_count : 0;
+  const nextCompletedCount = isSubscription
+    ? getSubscriptionCompletedCount(entry, history, shouldInsertHistory ? historyDate : undefined)
+    : currentCompletedCount + 1;
 
   if (shouldInsertHistory) {
     await insertHistory({
@@ -321,9 +341,7 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
       : {}),
     metadata: {
       ...entry.metadata,
-      completed_count: isSubscription && !shouldInsertHistory
-        ? currentCompletedCount
-        : currentCompletedCount + 1,
+      completed_count: nextCompletedCount,
     },
   });
 }

@@ -96,6 +96,17 @@ function getLatestEventDate(entry: Entry, history: HistoryItem[]) {
   }, parseISO(entry.entry_date));
 }
 
+function getDateKey(date: Date | string) {
+  const parsed = typeof date === "string" ? new Date(date) : date;
+  return parsed.toISOString().slice(0, 10);
+}
+
+function getSubscriptionCompletedCount(entry: Entry, history: HistoryItem[]) {
+  const loggedDays = new Set<string>([getDateKey(entry.entry_date)]);
+  history.forEach((record) => loggedDays.add(getDateKey(record.logged_date)));
+  return loggedDays.size;
+}
+
 function getRoutineSummary(entry: Entry, history: HistoryItem[]) {
   const lastDone = getLatestEventDate(entry, history);
   const nextDue = entry.repeat_interval_days ? addDays(lastDone, entry.repeat_interval_days) : null;
@@ -260,7 +271,9 @@ export default function EntryDetail() {
       next_due_date: getNextDueDateForLog(entry, latest),
       metadata: {
         ...entry.metadata,
-        completed_count: historyRecords.length,
+        completed_count: isSubscriptionEntry
+          ? getSubscriptionCompletedCount(entry, historyRecords)
+          : historyRecords.length,
       },
     });
   };
@@ -307,10 +320,11 @@ export default function EntryDetail() {
       if (historyRecords.length > 0) {
         await syncEntryFromHistory(historyRecords);
       } else if (entry && entryId) {
+        const isSubscriptionEntry = normalizeCategory(entry.category) === "subscription";
         await updateEntry(entryId, {
           metadata: {
             ...entry.metadata,
-            completed_count: 0,
+            completed_count: isSubscriptionEntry ? 1 : 0,
           },
         });
       }
