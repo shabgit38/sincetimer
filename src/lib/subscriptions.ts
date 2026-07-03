@@ -17,7 +17,8 @@ function addBillingCycle(date: Date, cycle: SubscriptionBillingCycle) {
 export function getNextSubscriptionRenewalDate(
   startDate: string,
   cycle: SubscriptionBillingCycle,
-  fromDate: Date = new Date()
+  fromDate: Date = new Date(),
+  options: { afterFromDate?: boolean } = {}
 ) {
   if (cycle === "custom") return null;
 
@@ -26,7 +27,10 @@ export function getNextSubscriptionRenewalDate(
 
   let renewalDate = addBillingCycle(parsedStart, cycle);
   const today = startOfDay(fromDate);
-  while (isBefore(startOfDay(renewalDate), today)) {
+  while (
+    isBefore(startOfDay(renewalDate), today) ||
+    (options.afterFromDate && startOfDay(renewalDate).getTime() === today.getTime())
+  ) {
     renewalDate = addBillingCycle(renewalDate, cycle);
   }
   return renewalDate;
@@ -35,7 +39,8 @@ export function getNextSubscriptionRenewalDate(
 export function getNextSubscriptionRenewalIso(
   startDate: string,
   cycle: SubscriptionBillingCycle,
-  fromDate: Date = new Date()
+  fromDate: Date = new Date(),
+  options: { afterFromDate?: boolean } = {}
 ) {
-  return getNextSubscriptionRenewalDate(startDate, cycle, fromDate)?.toISOString() ?? null;
+  return getNextSubscriptionRenewalDate(startDate, cycle, fromDate, options)?.toISOString() ?? null;
 }

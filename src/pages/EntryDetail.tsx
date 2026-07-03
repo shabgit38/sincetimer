@@ -23,7 +23,8 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
     return getNextSubscriptionRenewalIso(
       entry.entry_date,
       getBillingCycle(entry.metadata.billing_cycle),
-      loggedAt
+      loggedAt,
+      { afterFromDate: true }
     ) ?? entry.next_due_date;
   }
   if (!entry.repeat_interval_days) return entry.next_due_date;
