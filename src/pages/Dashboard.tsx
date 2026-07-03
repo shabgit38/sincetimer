@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, Plus, Star } from "lucide-react";
+import { ChevronDown, ExternalLink, Plus, Star } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -218,6 +218,10 @@ function getBooleanMetadata(entry: Entry, key: string) {
 
 function getNumberMetadata(entry: Entry, key: string) {
   return typeof entry.metadata[key] === "number" ? entry.metadata[key] : 0;
+}
+
+function getStringMetadata(entry: Entry, key: string) {
+  return typeof entry.metadata[key] === "string" ? entry.metadata[key] : "";
 }
 
 function getTags(entry: Entry) {
@@ -514,6 +518,38 @@ function MemoryCard({
   );
 }
 
+function ReadingDashboardCard({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+  const topic = getStringMetadata(entry, "reading_topic");
+  const url = getStringMetadata(entry, "reading_url");
+
+  return (
+    <article className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-stone-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20">
+      <div className="flex items-start justify-between gap-3">
+        <button type="button" className="min-w-0 text-left" onClick={onOpen}>
+          <h4 className="line-clamp-2 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h4>
+          {topic ? (
+            <span className="mt-2 inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+              {topic}
+            </span>
+          ) : null}
+        </button>
+        {url ? (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-white/15 dark:text-stone-300 dark:hover:border-white/35 dark:hover:text-stone-50"
+            aria-label={`Open ${entry.title}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 type EntrySectionProps = {
   group: EntryGroup;
   collapsed: boolean;
@@ -546,6 +582,7 @@ function EntrySection({
   planSessionSavingIds,
 }: EntrySectionProps) {
   if (group.entries.length === 0) return null;
+  const isReadingSection = group.title === "Reading list";
 
   return (
     <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
@@ -567,11 +604,17 @@ function EntrySection({
         <ChevronDown className={`mt-1 h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${collapsed ? "" : "rotate-180"}`} />
       </button>
       {collapsed ? null : (
-        <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className={`grid gap-4 p-5 ${isReadingSection ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
           {group.entries.map((entry) => {
             const planSessions = planSessionsByEntryId.get(entry.id) ?? [];
             const nextPlanSession = getNextScheduledPlanSession(planSessions);
-            return (
+            return isReadingSection ? (
+              <ReadingDashboardCard
+                key={entry.id}
+                entry={entry}
+                onOpen={() => onOpen(entry)}
+              />
+            ) : (
               <MemoryCard
                 key={entry.id}
                 entry={entry}

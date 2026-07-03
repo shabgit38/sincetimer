@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Search, Settings as SettingsIcon, Sun, X } from 'lucide-react';
+import { Menu, Moon, Search, Settings as SettingsIcon, Sun, X } from 'lucide-react';
 import { NavLink, Route, Routes } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import Dashboard from './pages/Dashboard';
@@ -18,6 +18,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -102,30 +103,48 @@ export default function App() {
             >
               Add Entry
             </NavLink>
-            <NavLink
-              to="/plans"
-              className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
-                    : 'border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50 hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
-                }`
-              }
-            >
-              Plans
-            </NavLink>
-            <NavLink
-              to="/reading"
-              className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-sm font-medium transition ${
-                  isActive
-                    ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
-                    : 'border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50 hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
-                }`
-              }
-            >
-              Reading
-            </NavLink>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-9 px-0"
+                aria-label="Open navigation menu"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((current) => !current)}
+              >
+                <Menu className="h-4 w-4" />
+              </Button>
+              {menuOpen ? (
+                <div className="absolute right-0 top-11 z-20 grid min-w-36 gap-1 rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-stone-950">
+                  <NavLink
+                    to="/plans"
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
+                          : 'text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
+                      }`
+                    }
+                  >
+                    Plans
+                  </NavLink>
+                  <NavLink
+                    to="/reading"
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
+                          : 'text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
+                      }`
+                    }
+                  >
+                    Reading
+                  </NavLink>
+                </div>
+              ) : null}
+            </div>
             <div className="flex items-center gap-1">
               {searchOpen || searchQuery ? (
                 <div className="flex h-9 items-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-stone-700 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-200">

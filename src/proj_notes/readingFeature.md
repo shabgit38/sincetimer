@@ -6,7 +6,7 @@ Add a first-class reading tracker for pending articles, reading lists, and topic
 
 The feature should support:
 
-- A dedicated `Reading` link in the header.
+- A dedicated `/reading` page reachable from the header menu.
 - A dedicated `/reading` page for tracking reading across topics.
 - A separate dashboard section for pending reading items, apart from upcoming events.
 - Link storage, notes, topic grouping, and reading status.
@@ -119,6 +119,8 @@ For reading items:
 - Added reading-specific metadata fields in Add/Edit Entry.
 - Added Dashboard `Reading list` section for non-done reading items.
 - Moved Dashboard `Reading list` near the top, immediately after Favorites, so it acts as a visible nudge.
+- Simplified Dashboard reading cards to show only title, topic badge, and open-link action.
+- Moved `Plans` and `Reading` under a header menu to keep primary nav focused on Dashboard and Add Entry.
 - Added `/reading` page with quick add, grouped reading cards, open-link actions, and status actions.
 - Seeded the four starter links as `to_read` reading entries.
 
