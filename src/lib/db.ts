@@ -3,7 +3,7 @@ import { getBillingCycle, getNextSubscriptionRenewalIso } from './subscriptions'
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
 const defaultAreaNames = ['home', 'work', 'personal', 'health'];
-const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase', 'subscription', 'appointment', 'health record', 'plan'];
+const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase', 'subscription', 'appointment', 'health record', 'plan', 'reading'];
 
 const entriesSelect = `
   id,
@@ -66,7 +66,7 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
       { afterFromDate: true }
     ) ?? entry.next_due_date;
   }
-  if (!entry.repeat_interval_days) return entry.next_due_date;
+  if (!entry.repeat_interval_days) return null;
   return addDaysIso(loggedAt, entry.repeat_interval_days);
 }
 
@@ -96,6 +96,13 @@ function getSubscriptionCompletedCount(entry: Entry, history: HistoryItem[], pen
   const loggedDays = new Set<string>([getDateKey(entry.entry_date)]);
   history.forEach((record) => loggedDays.add(getDateKey(record.logged_date)));
   if (pendingLogDate) loggedDays.add(getDateKey(pendingLogDate));
+  return loggedDays.size;
+}
+
+function getCompletedCountForLog(history: HistoryItem[], nextEntryDate: Date, pendingHistoryDate?: Date) {
+  const loggedDays = new Set<string>([getDateKey(nextEntryDate)]);
+  history.forEach((record) => loggedDays.add(getDateKey(record.logged_date)));
+  if (pendingHistoryDate) loggedDays.add(getDateKey(pendingHistoryDate));
   return loggedDays.size;
 }
 
@@ -314,11 +321,10 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
   const shouldInsertHistory = isSubscription
     ? !hasHistoryForDay(history, historyDate)
     : (!shouldPromoteLog || historyDate.getTime() !== loggedAt.getTime()) && !hasHistoryForDate(history, historyDate);
-  const currentCompletedCount =
-    typeof entry.metadata.completed_count === 'number' ? entry.metadata.completed_count : 0;
+  const nextEntryDate = isSubscription || !shouldPromoteLog ? new Date(entry.entry_date) : loggedAt;
   const nextCompletedCount = isSubscription
     ? getSubscriptionCompletedCount(entry, history, shouldInsertHistory ? historyDate : undefined)
-    : currentCompletedCount + 1;
+    : getCompletedCountForLog(history, nextEntryDate, shouldInsertHistory ? historyDate : undefined);
 
   if (shouldInsertHistory) {
     await insertHistory({

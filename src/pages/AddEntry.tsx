@@ -24,6 +24,7 @@ import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from 
 type RepeatUnit = "days" | "weeks" | "months";
 type GoalStatus = "not_started" | "in_progress" | "paused" | "completed";
 type BillingCycle = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
+type ReadingStatus = "to_read" | "reading" | "done";
 
 const weekdayOptions = [
   { value: 0, label: "Sun" },
@@ -123,6 +124,10 @@ export default function AddEntry() {
   const [goalMilestones, setGoalMilestones] = useState("");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [autoRenew, setAutoRenew] = useState(false);
+  const [readingUrl, setReadingUrl] = useState("");
+  const [readingTopic, setReadingTopic] = useState("");
+  const [readingStatus, setReadingStatus] = useState<ReadingStatus>("to_read");
+  const [readingPriority, setReadingPriority] = useState("");
   const [planType, setPlanType] = useState<PlanType>("learning");
   const [planEndDate, setPlanEndDate] = useState("");
   const [planScheduleMode, setPlanScheduleMode] = useState<PlanScheduleMode>("days");
@@ -163,12 +168,15 @@ export default function AddEntry() {
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
   const isPlan = normalizedCategory === "plan";
+  const isReading = normalizedCategory === "reading";
   const hasRepeatInterval = isRoutine || isHealthRecord;
   const hasCost = isPurchase || isSubscription;
   const titleLabel = isGoal
     ? "Goal Name"
     : isSubscription
       ? "Service Name"
+      : isReading
+        ? "Reading Title"
       : isHealthRecord
         ? "Event Type"
         : isPurchase
@@ -180,6 +188,8 @@ export default function AddEntry() {
     ? "e.g. Learn Spanish"
     : isSubscription
       ? "e.g. ChatGPT Plus"
+      : isReading
+        ? "e.g. We Live Like Royalty"
       : isHealthRecord
         ? "e.g. Blood test"
         : isPurchase
@@ -191,6 +201,8 @@ export default function AddEntry() {
     ? "Start Date"
     : isRoutine
       ? "Last Done Date"
+      : isReading
+        ? "Saved Date"
       : isSubscription
         ? "Start Date"
         : isPurchase
@@ -204,6 +216,8 @@ export default function AddEntry() {
     ? "Target Date"
     : isSubscription
       ? "Renewal Date"
+      : isReading
+        ? "Read By"
       : isPurchase
         ? "Warranty Ends"
         : "Next Due Date";
@@ -271,6 +285,18 @@ export default function AddEntry() {
               : "monthly"
           );
           setAutoRenew(entry.metadata.auto_renew === true);
+          setReadingUrl(typeof entry.metadata.reading_url === "string" ? entry.metadata.reading_url : "");
+          setReadingTopic(typeof entry.metadata.reading_topic === "string" ? entry.metadata.reading_topic : "");
+          setReadingStatus(
+            entry.metadata.reading_status === "reading" || entry.metadata.reading_status === "done"
+              ? entry.metadata.reading_status
+              : "to_read"
+          );
+          setReadingPriority(
+            typeof entry.metadata.reading_priority === "number"
+              ? String(entry.metadata.reading_priority)
+              : ""
+          );
           setPlanType(
             entry.metadata.plan_type === "habit" || entry.metadata.plan_type === "practice"
               ? entry.metadata.plan_type
@@ -402,6 +428,16 @@ export default function AddEntry() {
       progressValue = parsed;
     }
 
+    let readingPriorityValue: number | null = null;
+    if (isReading && readingPriority.trim()) {
+      const parsed = Number(readingPriority);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+        setError("Reading priority must be a whole number between 1 and 5.");
+        return;
+      }
+      readingPriorityValue = parsed;
+    }
+
     let planScheduleConfig: PlanScheduleConfig | null = null;
     let planDurationValue: number | null = null;
     const planTopicValues = planTopics
@@ -442,12 +478,19 @@ export default function AddEntry() {
       planDurationValue = parsedDuration;
     }
 
-    const entryDateIso = new Date(entryDate).toISOString();
     const tagValues = tags
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
     const existingEntry = isEditing && entryId ? entries.find((entry) => entry.id === entryId) : null;
+    const existingEntryIsSubscription = existingEntry ? normalizeCategory(existingEntry.category) === "subscription" : false;
+    const shouldPreserveSubscriptionStartDate = Boolean(isSubscription && existingEntryIsSubscription && existingEntry);
+    const entryDateIso = shouldPreserveSubscriptionStartDate
+      ? existingEntry!.entry_date
+      : new Date(entryDate).toISOString();
+    const subscriptionStartDate = shouldPreserveSubscriptionStartDate
+      ? existingEntry!.entry_date
+      : entryDate;
     const nextDueDateIso = isPlan
       ? existingEntry?.next_due_date ?? entryDateIso
       : isSubscription
@@ -455,7 +498,7 @@ export default function AddEntry() {
           ? nextDueDate
             ? new Date(nextDueDate).toISOString()
             : null
-          : getNextSubscriptionRenewalIso(entryDate, getBillingCycle(billingCycle))
+          : getNextSubscriptionRenewalIso(subscriptionStartDate, getBillingCycle(billingCycle))
       : intervalValue
         ? addDays(new Date(entryDate), intervalValue).toISOString()
         : nextDueDate
@@ -479,6 +522,10 @@ export default function AddEntry() {
         milestones: isGoal && goalMilestones.trim() ? goalMilestones.trim() : null,
         billing_cycle: isSubscription ? billingCycle : null,
         auto_renew: isSubscription ? autoRenew : null,
+        reading_url: isReading && readingUrl.trim() ? readingUrl.trim() : null,
+        reading_topic: isReading && readingTopic.trim() ? readingTopic.trim() : null,
+        reading_status: isReading ? readingStatus : null,
+        reading_priority: isReading ? readingPriorityValue : null,
         plan_type: isPlan ? planType : null,
         plan_status: isPlan ? planStatus : null,
         start_date: isPlan ? entryDate : null,
@@ -958,6 +1005,67 @@ export default function AddEntry() {
                     <div className="peer h-6 w-11 rounded-full border border-stone-300 bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:border-stone-900 peer-checked:bg-stone-900 peer-checked:after:translate-x-5 dark:border-white/20 dark:bg-stone-700 dark:after:bg-stone-100 dark:peer-checked:border-stone-100 dark:peer-checked:bg-stone-100 dark:peer-checked:after:bg-stone-950" />
                   </label>
                 </div>
+              </div>
+            </div>
+          ) : null}
+
+          {isReading ? (
+            <div className={`${sectionPanelClass} md:grid-cols-[minmax(0,1fr)_180px_140px]`}>
+              <div className="grid gap-2 md:col-span-3">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingUrl">
+                  Link
+                </label>
+                <input
+                  id="readingUrl"
+                  type="url"
+                  value={readingUrl}
+                  onChange={(event) => setReadingUrl(event.target.value)}
+                  className={inputClass}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingTopic">
+                  Topic
+                </label>
+                <input
+                  id="readingTopic"
+                  value={readingTopic}
+                  onChange={(event) => setReadingTopic(event.target.value)}
+                  className={inputClass}
+                  placeholder="Investing, AI, philosophy..."
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingStatus">
+                  Status
+                </label>
+                <select
+                  id="readingStatus"
+                  value={readingStatus}
+                  onChange={(event) => setReadingStatus(event.target.value as ReadingStatus)}
+                  className={inputClass}
+                >
+                  <option value="to_read">To read</option>
+                  <option value="reading">Reading</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingPriority">
+                  Priority
+                </label>
+                <input
+                  id="readingPriority"
+                  type="number"
+                  value={readingPriority}
+                  onChange={(event) => setReadingPriority(event.target.value)}
+                  className={inputClass}
+                  placeholder="1-5"
+                  min="1"
+                  max="5"
+                  step="1"
+                />
               </div>
             </div>
           ) : null}

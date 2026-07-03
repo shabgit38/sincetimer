@@ -269,8 +269,22 @@ function formatShortDuration(entryDate: string) {
     .replace(/\bdays?\b/g, "dys");
 }
 
+function getDateInputValue(date: Date = new Date()) {
+  const localDate = new Date(date);
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  return localDate.toISOString().slice(0, 10);
+}
+
 function isPlanEntry(entry: Entry) {
   return entry.category.toLocaleLowerCase() === "plan" || typeof entry.metadata.plan_type === "string";
+}
+
+function isReadingEntry(entry: Entry) {
+  return entry.category.toLocaleLowerCase() === "reading";
+}
+
+function getReadingStatus(entry: Entry) {
+  return typeof entry.metadata.reading_status === "string" ? entry.metadata.reading_status : "to_read";
 }
 
 function getNextScheduledPlanSession(sessions: PlanSession[]) {
@@ -344,6 +358,8 @@ type MemoryCardProps = {
   onOpen: () => void;
   onToggleFavorite: () => void;
   onMarkDone: () => void;
+  doneDate: string;
+  onDoneDateChange: (date: string) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSaving: boolean;
   entryDoneSaving: boolean;
@@ -356,6 +372,8 @@ function MemoryCard({
   onOpen,
   onToggleFavorite,
   onMarkDone,
+  doneDate,
+  onDoneDateChange,
   onSetPlanSessionStatus,
   favoriteSaving,
   entryDoneSaving,
@@ -438,11 +456,18 @@ function MemoryCard({
           </span>
         </div>
         {due.tone === "overdue" && !isPlan ? (
-          <div className="mt-4" onClick={(event) => event.stopPropagation()}>
+          <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
+            <input
+              type="date"
+              value={doneDate}
+              onChange={(event) => onDoneDateChange(event.target.value)}
+              className="h-8 min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
+              aria-label={`Done date for ${entry.title}`}
+            />
             <Button
               size="sm"
-              className="h-8 w-full px-2 text-xs"
-              disabled={entryDoneSaving}
+              className="h-8 px-3 text-xs"
+              disabled={entryDoneSaving || !doneDate}
               onClick={onMarkDone}
             >
               Done
@@ -497,6 +522,8 @@ type EntrySectionProps = {
   onOpen: (entry: Entry) => void;
   onToggleFavorite: (entry: Entry) => void;
   onMarkDone: (entry: Entry) => void;
+  doneDates: Record<string, string>;
+  onDoneDateChange: (entryId: string, date: string) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
@@ -511,6 +538,8 @@ function EntrySection({
   onOpen,
   onToggleFavorite,
   onMarkDone,
+  doneDates,
+  onDoneDateChange,
   onSetPlanSessionStatus,
   favoriteSavingIds,
   entryDoneSavingIds,
@@ -550,6 +579,8 @@ function EntrySection({
                 onOpen={() => onOpen(entry)}
                 onToggleFavorite={() => onToggleFavorite(entry)}
                 onMarkDone={() => onMarkDone(entry)}
+                doneDate={doneDates[entry.id] ?? getDateInputValue()}
+                onDoneDateChange={(date) => onDoneDateChange(entry.id, date)}
                 onSetPlanSessionStatus={onSetPlanSessionStatus}
                 favoriteSaving={favoriteSavingIds.has(entry.id)}
                 entryDoneSaving={entryDoneSavingIds.has(entry.id)}
@@ -578,6 +609,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [adding, setAdding] = useState<ManagedKind | null>(null);
   const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
   const [entryDoneSavingIds, setEntryDoneSavingIds] = useState<Set<string>>(() => new Set());
+  const [doneDates, setDoneDates] = useState<Record<string, string>>({});
   const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(["Upcoming", "Unscheduled"])
@@ -742,14 +774,25 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     }
   };
 
+  const handleDoneDateChange = (entryId: string, date: string) => {
+    setDoneDates((current) => ({ ...current, [entryId]: date }));
+  };
+
   const handleMarkEntryDone = async (entry: Entry) => {
     if (entryDoneSavingIds.has(entry.id)) return;
+    const doneDate = doneDates[entry.id] ?? getDateInputValue();
+    if (!doneDate) return;
 
     setError(null);
     setEntryDoneSavingIds((current) => new Set(current).add(entry.id));
     try {
-      const loggedAt = new Date();
+      const loggedAt = new Date(doneDate);
       await logEntryAgain(entry, loggedAt);
+      setDoneDates((current) => {
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      });
       await refreshData();
     } catch (saveError) {
       console.error(saveError);
@@ -820,6 +863,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     const today: Entry[] = [];
     const dueSoon: Entry[] = [];
     const upcoming: Entry[] = [];
+    const readingList: Entry[] = [];
     const unscheduled: Entry[] = [];
     const recentlyCompleted: Entry[] = [];
 
@@ -827,6 +871,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       const planSession = getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? []);
       const dueDate = isPlanEntry(entry) ? planSession?.session_date ?? null : entry.next_due_date;
       const summary = computeTimeSummary(entry.entry_date, dueDate);
+      if (isReadingEntry(entry) && getReadingStatus(entry) !== "done") {
+        readingList.push(entry);
+        return;
+      }
       if (getBooleanMetadata(entry, "favorite")) {
         favorites.push(entry);
         return;
@@ -866,6 +914,11 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         title: "Due soon",
         description: "Coming up in the next 7 days.",
         entries: dueSoon,
+      },
+      {
+        title: "Reading list",
+        description: "Links and topics waiting for focused reading.",
+        entries: readingList,
       },
       {
         title: "Upcoming",
@@ -924,6 +977,8 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 onOpen={(entry) => navigate(isPlanEntry(entry) ? "/plans" : `/entry/${entry.id}`)}
                 onToggleFavorite={handleToggleFavorite}
                 onMarkDone={handleMarkEntryDone}
+                doneDates={doneDates}
+                onDoneDateChange={handleDoneDateChange}
                 onSetPlanSessionStatus={handleSetPlanSessionStatus}
                 favoriteSavingIds={favoriteSavingIds}
                 entryDoneSavingIds={entryDoneSavingIds}

@@ -7,6 +7,7 @@ import AddEntry from './pages/AddEntry';
 import EntryDetail from './pages/EntryDetail';
 import Auth from './pages/Auth';
 import Plans from './pages/Plans';
+import Reading from './pages/Reading';
 import SettingsPage from './pages/Settings';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { Button } from './components/ui/button';
@@ -113,6 +114,18 @@ export default function App() {
             >
               Plans
             </NavLink>
+            <NavLink
+              to="/reading"
+              className={({ isActive }) =>
+                `rounded-full px-4 py-2 text-sm font-medium transition ${
+                  isActive
+                    ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
+                    : 'border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50 hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
+                }`
+              }
+            >
+              Reading
+            </NavLink>
             <div className="flex items-center gap-1">
               {searchOpen || searchQuery ? (
                 <div className="flex h-9 items-center gap-2 rounded-full border border-stone-200 bg-white px-3 text-stone-700 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-200">
@@ -182,6 +195,7 @@ export default function App() {
           <Route path="/edit/:id" element={<AddEntry />} />
           <Route path="/entry/:id" element={<EntryDetail />} />
           <Route path="/plans" element={<Plans />} />
+          <Route path="/reading" element={<Reading />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>

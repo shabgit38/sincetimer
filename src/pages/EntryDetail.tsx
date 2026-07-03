@@ -27,7 +27,7 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
       { afterFromDate: true }
     ) ?? entry.next_due_date;
   }
-  if (!entry.repeat_interval_days) return entry.next_due_date;
+  if (!entry.repeat_interval_days) return null;
   return addDays(loggedAt, entry.repeat_interval_days).toISOString();
 }
 
@@ -103,6 +103,12 @@ function getDateKey(date: Date | string) {
 
 function getSubscriptionCompletedCount(entry: Entry, history: HistoryItem[]) {
   const loggedDays = new Set<string>([getDateKey(entry.entry_date)]);
+  history.forEach((record) => loggedDays.add(getDateKey(record.logged_date)));
+  return loggedDays.size;
+}
+
+function getCompletedCount(entryDate: Date | string, history: HistoryItem[]) {
+  const loggedDays = new Set<string>([getDateKey(entryDate)]);
   history.forEach((record) => loggedDays.add(getDateKey(record.logged_date)));
   return loggedDays.size;
 }
@@ -261,19 +267,20 @@ export default function EntryDetail() {
     }, parseISO(historyRecords[0].logged_date));
 
     const isSubscriptionEntry = normalizeCategory(entry.category) === "subscription";
+    const nextEntryDate = isSubscriptionEntry ? entry.entry_date : latest.toISOString();
 
     await updateEntry(entryId, {
       ...(isSubscriptionEntry
         ? {}
         : {
-            entry_date: latest.toISOString(),
+            entry_date: nextEntryDate,
           }),
       next_due_date: getNextDueDateForLog(entry, latest),
       metadata: {
         ...entry.metadata,
         completed_count: isSubscriptionEntry
           ? getSubscriptionCompletedCount(entry, historyRecords)
-          : historyRecords.length,
+          : getCompletedCount(nextEntryDate, historyRecords),
       },
     });
   };
@@ -320,11 +327,10 @@ export default function EntryDetail() {
       if (historyRecords.length > 0) {
         await syncEntryFromHistory(historyRecords);
       } else if (entry && entryId) {
-        const isSubscriptionEntry = normalizeCategory(entry.category) === "subscription";
         await updateEntry(entryId, {
           metadata: {
             ...entry.metadata,
-            completed_count: isSubscriptionEntry ? 1 : 0,
+            completed_count: 1,
           },
         });
       }

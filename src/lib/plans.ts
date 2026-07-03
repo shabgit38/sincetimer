@@ -133,30 +133,45 @@ export async function replaceScheduledPlanSessions(entryId: string, sessions: Ne
 }
 
 async function refreshPlanNextDueDate(entryId: string, updatedAt: string): Promise<void> {
-  const { data: scheduledSessions, error: nextError } = await supabase
-    .from("plan_sessions")
-    .select("session_date")
-    .eq("entry_id", entryId)
-    .eq("status", "scheduled")
-    .order("session_date", { ascending: true });
+  const [{ data: sessions, error: sessionError }, { data: entryRecord, error: entryError }] = await Promise.all([
+    supabase
+      .from("plan_sessions")
+      .select("session_date, status")
+      .eq("entry_id", entryId)
+      .order("session_date", { ascending: true }),
+    supabase
+      .from("entries")
+      .select("metadata")
+      .eq("id", entryId)
+      .maybeSingle(),
+  ]);
 
-  if (nextError) throw nextError;
+  if (sessionError) throw sessionError;
+  if (entryError) throw entryError;
+
+  const scheduledSessions = (sessions ?? []).filter((session) => session.status === "scheduled");
+  const completedCount = (sessions ?? []).filter((session) => session.status === "completed").length;
+  const metadata =
+    entryRecord?.metadata && typeof entryRecord.metadata === "object"
+      ? { ...(entryRecord.metadata as Record<string, unknown>), completed_count: completedCount }
+      : { completed_count: completedCount };
 
   const now = new Date();
   const nextSession =
-    (scheduledSessions ?? []).find((session) => new Date(session.session_date) >= now) ??
-    (scheduledSessions ?? [])[0] ??
+    scheduledSessions.find((session) => new Date(session.session_date) >= now) ??
+    scheduledSessions[0] ??
     null;
 
-  const { error: entryError } = await supabase
+  const { error: updateError } = await supabase
     .from("entries")
     .update({
       next_due_date: nextSession?.session_date ?? null,
+      metadata,
       updated_at: updatedAt,
     })
     .eq("id", entryId);
 
-  if (entryError) throw entryError;
+  if (updateError) throw updateError;
 }
 
 export async function updatePlanSessionStatus(
