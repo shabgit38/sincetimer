@@ -17,7 +17,6 @@ import {
   updateEntry,
 } from "@/lib/db";
 import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
-import { supabase } from "@/lib/supabase";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanSession, PlanSessionStatus } from "@/types/plan";
 
@@ -408,13 +407,13 @@ function MemoryCard({
       }}
       className="group cursor-pointer text-left"
     >
-      <div className="min-h-56 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20 dark:hover:bg-white/[0.06]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
+      <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20 dark:hover:bg-white/[0.06]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.22em] text-stone-700 dark:text-stone-200">
               {formatOptionLabel(entry.area)} / {formatOptionLabel(entry.category)}
             </p>
-            <h3 className="mt-3 text-base font-medium text-stone-950 dark:text-stone-50">{entry.title}</h3>
+            <h3 className="mt-2 line-clamp-2 text-base font-medium leading-snug text-stone-950 dark:text-stone-50">{entry.title}</h3>
           </div>
           <div className="flex flex-col items-end gap-2">
             <button
@@ -425,7 +424,7 @@ function MemoryCard({
                 onToggleFavorite();
               }}
               onKeyDown={(event) => event.stopPropagation()}
-              className={`grid h-9 w-9 place-items-center rounded-full border transition ${
+              className={`grid h-7 w-7 place-items-center rounded-lg border transition ${
                 isFavorite
                   ? "border-amber-200 bg-amber-50 text-amber-600 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
                   : "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300 hover:text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-500 dark:hover:border-white/20 dark:hover:text-stone-200"
@@ -433,36 +432,36 @@ function MemoryCard({
               aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
               title={isFavorite ? "Remove from favorites" : "Add to favorites"}
             >
-              <Star className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+              <Star className={`h-3.5 w-3.5 ${isFavorite ? "fill-current" : ""}`} />
             </button>
             {isPurchase && entry.price !== null ? (
-              <div className="rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-medium text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
+              <div className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[11px] font-medium text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
                 {formatMoney(entry.price, entry.metadata.currency)}
               </div>
             ) : null}
           </div>
         </div>
 
-        <div className="mt-8">
-          <p className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <p className="text-2xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
             {formatShortDuration(durationDate)}
           </p>
-          <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">{durationLabel}</p>
+          <p className="text-xs text-stone-500 dark:text-stone-400">{durationLabel}</p>
         </div>
 
-        <div className="mt-7 flex items-end justify-between gap-4">
-          <div className={`rounded-2xl border px-3 py-2 text-sm ${getToneClasses(due.tone)}`}>
-            <p className="font-medium">{due.label}</p>
-            <p className="mt-0.5 text-xs opacity-70">{due.detail}</p>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className={`rounded-xl border px-2.5 py-1.5 text-xs ${getToneClasses(due.tone)}`}>
+            <p className="font-medium leading-tight">{due.label}</p>
+            <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <div className="flex min-w-0 shrink-0 flex-wrap justify-end gap-1.5">
             {completedCount > 0 ? (
-              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
+              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
                 {completedCount} done
               </span>
             ) : null}
             {tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
+              <span key={tag} className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
                 {tag}
               </span>
             ))}
@@ -506,15 +505,6 @@ function MemoryCard({
             >
               Missed
             </Button>
-          </div>
-        ) : null}
-        {tags.length > 2 ? (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tags.slice(2, 5).map((tag) => (
-              <span key={tag} className="rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
-                {tag}
-              </span>
-            ))}
           </div>
         ) : null}
       </div>
@@ -686,43 +676,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   useEffect(() => {
     void loadDashboard();
-  }, [loadDashboard]);
-
-  useEffect(() => {
-    let refreshTimer: ReturnType<typeof window.setTimeout> | null = null;
-
-    const scheduleRefresh = () => {
-      if (refreshTimer) window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(() => {
-        if (document.visibilityState === "visible") {
-          void loadDashboard();
-        }
-      }, 250);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        scheduleRefresh();
-      }
-    };
-
-    window.addEventListener("focus", scheduleRefresh);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    const channel = supabase
-      .channel("dashboard-freshness")
-      .on("postgres_changes", { event: "*", schema: "public", table: "entries" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "areas" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "categories" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "plan_sessions" }, scheduleRefresh)
-      .subscribe();
-
-    return () => {
-      if (refreshTimer) window.clearTimeout(refreshTimer);
-      window.removeEventListener("focus", scheduleRefresh);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      void supabase.removeChannel(channel);
-    };
   }, [loadDashboard]);
 
   const refreshData = async () => {
