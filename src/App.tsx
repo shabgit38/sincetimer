@@ -8,6 +8,7 @@ import EntryDetail from './pages/EntryDetail';
 import Auth from './pages/Auth';
 import Plans from './pages/Plans';
 import Reading from './pages/Reading';
+import FinPlanner from './pages/FinPlanner';
 import SettingsPage from './pages/Settings';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { Button } from './components/ui/button';
@@ -142,6 +143,19 @@ export default function App() {
                   >
                     Reading
                   </NavLink>
+                  <NavLink
+                    to="/finplanner"
+                    onClick={() => setMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `rounded-lg px-3 py-2 text-sm font-medium transition ${
+                        isActive
+                          ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
+                          : 'text-stone-600 hover:bg-stone-100 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
+                      }`
+                    }
+                  >
+                    FinPlanner
+                  </NavLink>
                 </div>
               ) : null}
             </div>
@@ -215,6 +229,7 @@ export default function App() {
           <Route path="/entry/:id" element={<EntryDetail />} />
           <Route path="/plans" element={<Plans />} />
           <Route path="/reading" element={<Reading />} />
+          <Route path="/finplanner" element={<FinPlanner />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
