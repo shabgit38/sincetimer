@@ -3,7 +3,6 @@ import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import PlanCalendar from "@/components/plans/PlanCalendar";
-import PlanMetrics from "@/components/plans/PlanMetrics";
 import {
   deletePlanSession,
   getPlanMetrics,
@@ -11,12 +10,71 @@ import {
   updatePlanSession,
   updatePlanSessionStatus,
 } from "@/lib/plans";
-import type { PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
+import { computeTimeSummary } from "@/lib/timeUtils";
+import type { Entry } from "@/types/entry";
+import type { PlanMetrics, PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
 
 function getPlanTypeLabel(value: unknown) {
   if (value === "habit") return "Habit";
   if (value === "practice") return "Practice";
   return "Learning";
+}
+
+function formatOptionLabel(value: string) {
+  return value
+    .split(" ")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
+
+function getPlanCategoryLabel(entry: PlanWithSessions["entry"]) {
+  return entry.category.trim().toLocaleLowerCase() === "plan"
+    ? getPlanTypeLabel(entry.metadata.plan_type)
+    : formatOptionLabel(entry.category);
+}
+
+function getPlanAreaLabel() {
+  return "Plan";
+}
+
+function getPlanDueCopy(entry: Entry, nextSession: PlanSession | null) {
+  const dueDate = nextSession?.session_date ?? null;
+  const summary = computeTimeSummary(entry.entry_date, dueDate);
+  if (!dueDate) return { tone: "neutral", label: "No upcoming session", detail: "No schedule" };
+  if (summary.isOverdue) return { tone: "overdue", label: `${Math.abs(summary.nextDueIn ?? 0)} days overdue`, detail: "Needs attention" };
+  if (summary.nextDueIn === 0) return { tone: "today", label: "Due today", detail: "Ready to log" };
+  if ((summary.nextDueIn ?? 0) <= 7) return { tone: "soon", label: `Due in ${summary.nextDueIn} days`, detail: "Coming up" };
+  return { tone: "normal", label: `Due in ${summary.nextDueIn} days`, detail: "On track" };
+}
+
+function getToneClasses(tone: string) {
+  if (tone === "overdue") return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200";
+  if (tone === "today") return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200";
+  if (tone === "soon") return "border-amber-100 bg-amber-50/70 text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200";
+  return "border-stone-200 bg-stone-50 text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300";
+}
+
+function HeaderMetrics({ metrics }: { metrics: PlanMetrics }) {
+  const items = [
+    { label: "Progress", value: `${metrics.completionRate}%` },
+    { label: "Done", value: `${metrics.completed}/${metrics.total}` },
+    { label: "Scheduled", value: metrics.scheduled },
+    { label: "Missed", value: metrics.missed },
+  ];
+
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="rounded-xl border border-emerald-300 bg-emerald-50/60 px-3 py-1.5 text-right dark:border-emerald-500/40 dark:bg-emerald-950/20"
+        >
+          <p className="text-[11px] text-emerald-700 dark:text-emerald-200">{item.label}</p>
+          <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">{item.value}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function Plans() {
@@ -146,13 +204,14 @@ export default function Plans() {
         <div className="grid gap-5">
           {planSummaries.map(({ entry, sessions, metrics }) => {
             const expanded = expandedPlanIds.has(entry.id);
+            const due = getPlanDueCopy(entry, metrics.nextSession);
 
             return (
               <article key={entry.id} className="rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-                <div className="flex flex-wrap items-start justify-between gap-4 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-4 p-5">
                   <button
                     type="button"
-                    className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     onClick={() => togglePlan(entry.id)}
                     aria-expanded={expanded}
                   >
@@ -163,14 +222,16 @@ export default function Plans() {
                     />
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
-                        {entry.area} / {getPlanTypeLabel(entry.metadata.plan_type)}
+                        {getPlanAreaLabel()} / {getPlanCategoryLabel(entry)}
                       </p>
                       <h3 className="mt-2 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
-                      <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-                        Next: {metrics.nextSession ? new Date(metrics.nextSession.session_date).toLocaleDateString() : "No upcoming session"}
-                      </p>
                     </div>
                   </button>
+                  <div className={`rounded-xl border px-2.5 py-1.5 text-xs ${getToneClasses(due.tone)}`}>
+                    <p className="font-medium leading-tight">{due.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
+                  </div>
+                  <HeaderMetrics metrics={metrics} />
                   <Link
                     to={`/edit/${entry.id}`}
                     className="inline-flex h-10 items-center justify-center rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-200 dark:hover:border-white/20 dark:hover:bg-white/[0.06]"
@@ -180,19 +241,14 @@ export default function Plans() {
                 </div>
                 {expanded ? (
                   <div className="border-t border-stone-200 p-5 dark:border-white/10">
-                    <div className="rounded-2xl border border-emerald-300 bg-emerald-50/40 p-3 dark:border-emerald-500/40 dark:bg-emerald-950/15">
-                      <PlanMetrics metrics={metrics} />
-                    </div>
-                    <div className="mt-5">
-                      <PlanCalendar
-                        sessions={sessions}
-                        updatingId={updatingId}
-                        onMarkDone={(session) => void handleSetStatus(session, "completed")}
-                        onMarkMissed={(session) => void handleSetStatus(session, "missed")}
-                        onUpdateSession={(session, updates) => void handleUpdateSession(session, updates)}
-                        onDeleteSession={(session) => void handleDeleteSession(session)}
-                      />
-                    </div>
+                    <PlanCalendar
+                      sessions={sessions}
+                      updatingId={updatingId}
+                      onMarkDone={(session) => void handleSetStatus(session, "completed")}
+                      onMarkMissed={(session) => void handleSetStatus(session, "missed")}
+                      onUpdateSession={(session, updates) => void handleUpdateSession(session, updates)}
+                      onDeleteSession={(session) => void handleDeleteSession(session)}
+                    />
                   </div>
                 ) : null}
               </article>

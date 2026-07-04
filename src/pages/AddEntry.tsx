@@ -47,6 +47,22 @@ function normalizeCategory(value: string) {
   return value.trim().toLocaleLowerCase().replace(/[_-]+/g, " ");
 }
 
+function getPlanTypeLabel(value: PlanType) {
+  if (value === "habit") return "Habit";
+  if (value === "practice") return "Practice";
+  return "Learning";
+}
+
+function isPlanAreaCategory(areaValue: string, categoryValue: string) {
+  const normalizedArea = normalizeCategory(areaValue);
+  const normalizedCategory = normalizeCategory(categoryValue);
+  return (
+    normalizedCategory === "plan" ||
+    (normalizedArea === "plan" &&
+      (normalizedCategory === "learning" || normalizedCategory === "habit" || normalizedCategory === "practice"))
+  );
+}
+
 function getRepeatIntervalDays(value: number, unit: RepeatUnit) {
   if (unit === "weeks") return value * 7;
   if (unit === "months") return value * 30;
@@ -167,7 +183,7 @@ export default function AddEntry() {
   const isSubscription = normalizedCategory === "subscription";
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
-  const isPlan = normalizedCategory === "plan";
+  const isPlan = isPlanAreaCategory(area, category);
   const isReading = normalizedCategory === "reading";
   const hasRepeatInterval = isRoutine || isHealthRecord;
   const hasCost = isPurchase || isSubscription;
@@ -344,7 +360,11 @@ export default function AddEntry() {
         const categoryFromQuery = requestedCategory
           ? categoryOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedCategory))?.name
           : "";
-        setArea((current) => current || areaOptions[0]?.name || "");
+        const areaFromQuery =
+          requestedCategory && normalizeCategory(requestedCategory) === "plan"
+            ? areaOptions.find((option) => normalizeCategory(option.name) === "plan")?.name
+            : "";
+        setArea((current) => current || areaFromQuery || areaOptions[0]?.name || "");
         setCategory((current) => current || categoryFromQuery || categoryOptions[0]?.name || "");
       } catch (loadError) {
         console.error(loadError);
@@ -504,12 +524,14 @@ export default function AddEntry() {
         : nextDueDate
           ? new Date(nextDueDate).toISOString()
           : null;
+    const payloadArea = isPlan ? "Plan" : area;
+    const payloadCategory = isPlan ? getPlanTypeLabel(planType) : category;
 
     setSaving(true);
     const payload = {
       title: title.trim(),
-      area,
-      category,
+      area: payloadArea,
+      category: payloadCategory,
       entry_date: entryDateIso,
       next_due_date: nextDueDateIso,
       repeat_interval_days: hasRepeatInterval ? intervalValue : null,

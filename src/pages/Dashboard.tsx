@@ -288,12 +288,6 @@ function getStringMetadata(entry: Entry, key: string) {
   return typeof entry.metadata[key] === "string" ? entry.metadata[key] : "";
 }
 
-function getTags(entry: Entry) {
-  return Array.isArray(entry.metadata.tags)
-    ? entry.metadata.tags.filter((tag): tag is string => typeof tag === "string")
-    : [];
-}
-
 function flattenSearchValue(value: unknown): string[] {
   if (value === null || value === undefined) return [];
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
@@ -344,7 +338,20 @@ function getDateInputValue(date: Date = new Date()) {
 }
 
 function isPlanEntry(entry: Entry) {
-  return entry.category.toLocaleLowerCase() === "plan" || typeof entry.metadata.plan_type === "string";
+  return typeof entry.metadata.plan_type === "string";
+}
+
+function getPlanTypeLabel(value: unknown) {
+  if (value === "habit") return "Habit";
+  if (value === "practice") return "Practice";
+  return "Learning";
+}
+
+function getEntryAreaCategoryLabel(entry: Entry) {
+  if (isPlanEntry(entry)) {
+    return `Plan / ${getPlanTypeLabel(entry.metadata.plan_type)}`;
+  }
+  return `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`;
 }
 
 function isReadingEntry(entry: Entry) {
@@ -420,21 +427,7 @@ function getToneClasses(tone: string) {
   return "border-stone-200 bg-stone-50 text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300";
 }
 
-type MemoryCardProps = {
-  entry: Entry;
-  planSessions?: PlanSession[];
-  onOpen: () => void;
-  onToggleFavorite: () => void;
-  onMarkDone: () => void;
-  doneDate: string;
-  onDoneDateChange: (date: string) => void;
-  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
-  favoriteSaving: boolean;
-  entryDoneSaving: boolean;
-  planSessionSaving: boolean;
-};
-
-function MemoryCard({
+function CompactDashboardListItem({
   entry,
   planSessions = [],
   onOpen,
@@ -446,169 +439,232 @@ function MemoryCard({
   favoriteSaving,
   entryDoneSaving,
   planSessionSaving,
-}: MemoryCardProps) {
+  showFavoriteStar,
+  actionExpanded,
+  onToggleAction,
+  accent = "neutral",
+}: {
+  entry: Entry;
+  planSessions?: PlanSession[];
+  onOpen: () => void;
+  onToggleFavorite: () => void;
+  onMarkDone: () => void;
+  doneDate: string;
+  onDoneDateChange: (date: string) => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  favoriteSaving: boolean;
+  entryDoneSaving: boolean;
+  planSessionSaving: boolean;
+  showFavoriteStar: boolean;
+  actionExpanded: boolean;
+  onToggleAction: () => void;
+  accent?: "amber" | "neutral";
+}) {
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
   const isPlan = isPlanEntry(entry);
   const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
   const planLastDoneDate = isPlan ? getLatestCompletedPlanSessionDate(planSessions) : null;
   const dueEntry = isPlan ? { ...entry, next_due_date: planSession?.session_date ?? null } : entry;
   const due = getDueCopy(dueEntry);
-  const tags = getTags(entry);
-  const isFavorite = getBooleanMetadata(entry, "favorite");
-  const isReading = isReadingEntry(entry);
   const completedCount = getNumberMetadata(entry, "completed_count");
   const durationDate = isPlan && planLastDoneDate ? planLastDoneDate : entry.entry_date;
   const durationLabel = isPlan ? (planLastDoneDate ? "since last done" : "since start") : "since last logged";
+  const borderClass = accent === "amber" ? "border-amber-200/70 dark:border-amber-300/15" : "border-stone-200 dark:border-white/10";
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      className="group cursor-pointer text-left"
-    >
-      <div
-        className={`rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:bg-white/[0.04] dark:hover:bg-white/[0.06] ${
-          isFavorite
-            ? "bg-amber-50/80 hover:bg-amber-50 dark:border-amber-300/55 dark:bg-amber-200/12 dark:hover:border-amber-200/80 dark:hover:bg-amber-200/16"
-            : isReading
-              ? "bg-emerald-50/80 hover:bg-emerald-50 dark:border-emerald-300/55 dark:bg-emerald-200/12 dark:hover:border-emerald-200/80 dark:hover:bg-emerald-200/16"
-              : due.tone === "overdue"
-                ? "bg-rose-50/80 hover:bg-rose-50 dark:border-rose-300/55 dark:bg-rose-200/12 dark:hover:border-rose-200/80 dark:hover:bg-rose-200/16"
-              : "dark:border-white/10 dark:hover:border-white/20"
-        }`}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-700 dark:text-stone-200">
-              {formatOptionLabel(entry.area)} / {formatOptionLabel(entry.category)}
-            </p>
-            <h3 className="mt-2 line-clamp-2 text-base font-medium leading-snug text-stone-950 dark:text-stone-50">{entry.title}</h3>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <button
-              type="button"
-              disabled={favoriteSaving}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleFavorite();
-              }}
-              onKeyDown={(event) => event.stopPropagation()}
-              className={`grid h-7 w-7 place-items-center rounded-lg border transition ${
-                isFavorite
-                  ? "border-amber-300 bg-amber-50 text-amber-600 shadow-[0_0_0_1px_rgb(245_158_11_/_0.18)] hover:border-amber-400 hover:bg-amber-100 dark:border-amber-300/75 dark:bg-amber-200/18 dark:text-amber-300 dark:shadow-[0_0_0_1px_rgb(251_191_36_/_0.25)] dark:hover:border-amber-100 dark:hover:bg-amber-200/24 dark:hover:text-amber-200"
-                  : "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300 hover:text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-500 dark:hover:border-white/20 dark:hover:text-stone-200"
-              } disabled:cursor-not-allowed disabled:opacity-60`}
-              aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
-              title={isFavorite ? "Remove from favorites" : "Add to favorites"}
-            >
-              <Star className={`h-3.5 w-3.5 ${isFavorite ? "fill-current" : ""}`} />
-            </button>
-            {isPurchase && entry.price !== null ? (
-              <div className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[11px] font-medium text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
-                {formatMoney(entry.price, entry.metadata.currency)}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <p className="text-2xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">
-            {formatShortDuration(durationDate)}
-          </p>
-          <p className="text-xs text-stone-500 dark:text-stone-400">{durationLabel}</p>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <div className={`rounded-xl border px-2.5 py-1.5 text-xs ${getToneClasses(due.tone)}`}>
-            <p className="font-medium leading-tight">{due.label}</p>
-            <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
-          </div>
-          <div className="flex min-w-0 shrink-0 flex-wrap justify-end gap-1.5">
-            {completedCount > 0 ? (
-              <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
-                {completedCount} done
-              </span>
-            ) : null}
-            {tags.slice(0, 2).map((tag) => (
-              <span key={tag} className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-        {due.tone === "overdue" && !isPlan ? (
-          <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
-            <input
-              type="date"
-              value={doneDate}
-              onChange={(event) => onDoneDateChange(event.target.value)}
-              className="h-8 min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
-              aria-label={`Done date for ${entry.title}`}
-            />
-            <Button
-              size="sm"
-              className="h-8 px-3 text-xs"
-              disabled={entryDoneSaving || !doneDate}
-              onClick={onMarkDone}
-            >
-              Done
-            </Button>
-          </div>
+    <li className={`border-b py-2 last:border-b-0 ${borderClass}`}>
+      <div className="flex items-center gap-3">
+        {showFavoriteStar ? (
+          <button
+            type="button"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-amber-300 bg-amber-50 text-amber-600 shadow-[0_0_0_1px_rgb(245_158_11_/_0.18)] transition hover:border-amber-400 hover:bg-amber-100 dark:border-amber-300/75 dark:bg-amber-200/18 dark:text-amber-300 dark:shadow-[0_0_0_1px_rgb(251_191_36_/_0.25)] dark:hover:border-amber-100 dark:hover:bg-amber-200/24 dark:hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={favoriteSaving}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleFavorite();
+            }}
+            aria-label={`Remove ${entry.title} from favorites`}
+            title="Remove from favorites"
+          >
+            <Star className="h-3.5 w-3.5 fill-current" />
+          </button>
         ) : null}
-        {isPlan && planSession ? (
-          <div className="mt-4 flex gap-2" onClick={(event) => event.stopPropagation()}>
-            <Button
-              size="sm"
-              className="h-8 flex-1 px-2 text-xs"
-              disabled={planSessionSaving}
-              onClick={() => onSetPlanSessionStatus(planSession, "completed")}
-            >
-              Done
-            </Button>
+
+        <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h4 className="truncate text-base font-medium leading-snug text-stone-950 dark:text-stone-50">{entry.title}</h4>
+            <span className="shrink-0 text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
+              {getEntryAreaCategoryLabel(entry)}
+            </span>
+            <span className="shrink-0 text-lg font-semibold tracking-tight text-stone-950 dark:text-stone-50">
+              {formatShortDuration(durationDate)}
+            </span>
+            <span className="shrink-0 text-xs text-stone-500 dark:text-stone-400">{durationLabel}</span>
+          </div>
+        </button>
+
+        <div className="flex shrink-0 items-center justify-end gap-1.5 text-[11px]">
+          <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone)}`}>
+            {due.label}
+          </span>
+          {completedCount > 0 ? (
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
+              {completedCount} done
+            </span>
+          ) : null}
+          {isPurchase && entry.price !== null ? (
+            <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+              {formatMoney(entry.price, entry.metadata.currency)}
+            </span>
+          ) : null}
+          {isPlan && planSession ? (
+            <>
+              <Button
+                size="sm"
+                className="h-7 px-2 text-[11px]"
+                disabled={planSessionSaving}
+                onClick={() => onSetPlanSessionStatus(planSession, "completed")}
+              >
+                Done
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-[11px]"
+                disabled={planSessionSaving}
+                onClick={() => onSetPlanSessionStatus(planSession, "missed")}
+              >
+                Missed
+              </Button>
+            </>
+          ) : due.tone === "overdue" ? (
             <Button
               size="sm"
               variant="outline"
-              className="h-8 flex-1 px-2 text-xs"
-              disabled={planSessionSaving}
-              onClick={() => onSetPlanSessionStatus(planSession, "missed")}
+              className="h-7 px-2 text-[11px]"
+              disabled={entryDoneSaving}
+              onClick={onToggleAction}
             >
-              Missed
+              Done
             </Button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
+      {actionExpanded && due.tone === "overdue" && !isPlan ? (
+        <div className={`mt-2 flex justify-end gap-2 ${showFavoriteStar ? "pl-10" : ""}`}>
+          <input
+            type="date"
+            value={doneDate}
+            onChange={(event) => onDoneDateChange(event.target.value)}
+            className="h-8 rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
+            aria-label={`Done date for ${entry.title}`}
+          />
+          <Button
+            size="sm"
+            className="h-8 px-3 text-xs"
+            disabled={entryDoneSaving || !doneDate}
+            onClick={onMarkDone}
+          >
+            Save Done
+          </Button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+function CompactDashboardList({
+  entries,
+  planSessionsByEntryId,
+  onOpen,
+  onToggleFavorite,
+  onMarkDone,
+  doneDates,
+  onDoneDateChange,
+  onSetPlanSessionStatus,
+  favoriteSavingIds,
+  entryDoneSavingIds,
+  planSessionSavingIds,
+  expandedDoneIds,
+  onToggleDoneAction,
+  showFavoriteStar = false,
+  accent = "neutral",
+}: {
+  entries: Entry[];
+  planSessionsByEntryId: Map<string, PlanSession[]>;
+  onOpen: (entry: Entry) => void;
+  onToggleFavorite: (entry: Entry) => void;
+  onMarkDone: (entry: Entry) => void;
+  doneDates: Record<string, string>;
+  onDoneDateChange: (entryId: string, date: string) => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  favoriteSavingIds: Set<string>;
+  entryDoneSavingIds: Set<string>;
+  planSessionSavingIds: Set<string>;
+  expandedDoneIds: Set<string>;
+  onToggleDoneAction: (entryId: string) => void;
+  showFavoriteStar?: boolean;
+  accent?: "amber" | "neutral";
+}) {
+  const shellClass =
+    accent === "amber"
+      ? "border-amber-200 bg-amber-50/80 dark:border-amber-300/25 dark:bg-amber-200/10"
+      : "border-stone-200 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]";
+
+  return (
+    <div className="p-4">
+      <ul className={`rounded-xl border px-4 py-1 shadow-sm ${shellClass}`}>
+        {entries.map((entry) => (
+          <CompactDashboardListItem
+            key={entry.id}
+            entry={entry}
+            planSessions={planSessionsByEntryId.get(entry.id) ?? []}
+            onOpen={() => onOpen(entry)}
+            onToggleFavorite={() => onToggleFavorite(entry)}
+            onMarkDone={() => onMarkDone(entry)}
+            doneDate={doneDates[entry.id] ?? getDateInputValue()}
+            onDoneDateChange={(date) => onDoneDateChange(entry.id, date)}
+            onSetPlanSessionStatus={onSetPlanSessionStatus}
+            favoriteSaving={favoriteSavingIds.has(entry.id)}
+            entryDoneSaving={entryDoneSavingIds.has(entry.id)}
+            planSessionSaving={Boolean(
+              getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? [])?.id &&
+                planSessionSavingIds.has(getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? [])!.id)
+            )}
+            showFavoriteStar={showFavoriteStar}
+            actionExpanded={expandedDoneIds.has(entry.id)}
+            onToggleAction={() => onToggleDoneAction(entry.id)}
+            accent={accent}
+          />
+        ))}
+      </ul>
     </div>
   );
 }
 
-function ReadingDashboardCard({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
   const topic = getStringMetadata(entry, "reading_topic");
   const url = getStringMetadata(entry, "reading_url");
 
   return (
-    <article className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-stone-300 hover:shadow-md dark:border-sky-400/30 dark:bg-sky-950/20 dark:hover:border-sky-300/45">
+    <li className="border-b border-stone-200 py-2 last:border-b-0 dark:border-sky-300/15">
       <div className="flex items-start justify-between gap-3">
         <button type="button" className="min-w-0 text-left" onClick={onOpen}>
-          <h4 className="line-clamp-2 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h4>
-          {topic ? (
-            <span className="mt-2 inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-sky-300/10 dark:text-sky-100">
-              {topic}
-            </span>
-          ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h4 className="line-clamp-1 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h4>
+            {topic ? (
+              <span className="inline-flex rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-sky-300/10 dark:text-sky-100">
+                {topic}
+              </span>
+            ) : null}
+          </div>
         </button>
         {url ? (
           <a
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-sky-300/30 dark:text-sky-100 dark:hover:border-sky-200/60 dark:hover:text-white"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-sky-300/30 dark:text-sky-100 dark:hover:border-sky-200/60 dark:hover:text-white"
             aria-label={`Open ${entry.title}`}
             onClick={(event) => event.stopPropagation()}
           >
@@ -616,7 +672,40 @@ function ReadingDashboardCard({ entry, onOpen }: { entry: Entry; onOpen: () => v
           </a>
         ) : null}
       </div>
-    </article>
+    </li>
+  );
+}
+
+function ReadingDashboardColumns({ entries, onOpen }: { entries: Entry[]; onOpen: (entry: Entry) => void }) {
+  const sortReading = (items: Entry[]) =>
+    [...items].sort((a, b) => {
+      const topicCompare = (getStringMetadata(a, "reading_topic") || "General").localeCompare(
+        getStringMetadata(b, "reading_topic") || "General"
+      );
+      return topicCompare || a.title.localeCompare(b.title);
+    });
+  const notes = sortReading(entries.filter((entry) => !getStringMetadata(entry, "reading_url")));
+  const links = sortReading(entries.filter((entry) => getStringMetadata(entry, "reading_url")));
+
+  const renderColumn = (items: Entry[], empty: string) => (
+    <section className="rounded-xl border border-stone-200 bg-white/70 px-4 py-2 shadow-sm dark:border-sky-300/20 dark:bg-sky-950/20">
+      {items.length === 0 ? (
+        <p className="py-2 text-sm text-stone-500 dark:text-stone-400">{empty}</p>
+      ) : (
+        <ul>
+          {items.map((entry) => (
+            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+
+  return (
+    <div className="grid gap-4 p-4 lg:grid-cols-2">
+      {renderColumn(notes, "No standalone research notes.")}
+      {renderColumn(links, "No linked reading items.")}
+    </div>
   );
 }
 
@@ -634,6 +723,8 @@ type EntrySectionProps = {
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
   planSessionSavingIds: Set<string>;
+  expandedDoneIds: Set<string>;
+  onToggleDoneAction: (entryId: string) => void;
 };
 
 function EntrySection({
@@ -650,8 +741,11 @@ function EntrySection({
   favoriteSavingIds,
   entryDoneSavingIds,
   planSessionSavingIds,
+  expandedDoneIds,
+  onToggleDoneAction,
 }: EntrySectionProps) {
   if (group.entries.length === 0) return null;
+  const isFavoriteSection = group.title === "Favorites";
   const isReadingSection = group.title === "Reading list";
   const tone = sectionToneClasses[getSectionTone(group.title)];
 
@@ -671,35 +765,42 @@ function EntrySection({
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition ${tone.chevron} ${collapsed ? "" : "rotate-180"}`} />
       </button>
-      {collapsed ? null : (
-        <div className={`grid gap-4 p-5 ${isReadingSection ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
-          {group.entries.map((entry) => {
-            const planSessions = planSessionsByEntryId.get(entry.id) ?? [];
-            const nextPlanSession = getNextScheduledPlanSession(planSessions);
-            return isReadingSection ? (
-              <ReadingDashboardCard
-                key={entry.id}
-                entry={entry}
-                onOpen={() => onOpen(entry)}
-              />
-            ) : (
-              <MemoryCard
-                key={entry.id}
-                entry={entry}
-                planSessions={planSessions}
-                onOpen={() => onOpen(entry)}
-                onToggleFavorite={() => onToggleFavorite(entry)}
-                onMarkDone={() => onMarkDone(entry)}
-                doneDate={doneDates[entry.id] ?? getDateInputValue()}
-                onDoneDateChange={(date) => onDoneDateChange(entry.id, date)}
-                onSetPlanSessionStatus={onSetPlanSessionStatus}
-                favoriteSaving={favoriteSavingIds.has(entry.id)}
-                entryDoneSaving={entryDoneSavingIds.has(entry.id)}
-                planSessionSaving={Boolean(nextPlanSession?.id && planSessionSavingIds.has(nextPlanSession.id))}
-              />
-            );
-          })}
-        </div>
+      {collapsed ? null : isFavoriteSection ? (
+        <CompactDashboardList
+          entries={group.entries}
+          planSessionsByEntryId={planSessionsByEntryId}
+          onOpen={onOpen}
+          onToggleFavorite={onToggleFavorite}
+          onMarkDone={onMarkDone}
+          doneDates={doneDates}
+          onDoneDateChange={onDoneDateChange}
+          onSetPlanSessionStatus={onSetPlanSessionStatus}
+          favoriteSavingIds={favoriteSavingIds}
+          entryDoneSavingIds={entryDoneSavingIds}
+          planSessionSavingIds={planSessionSavingIds}
+          expandedDoneIds={expandedDoneIds}
+          onToggleDoneAction={onToggleDoneAction}
+          showFavoriteStar
+          accent="amber"
+        />
+      ) : isReadingSection ? (
+        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} />
+      ) : (
+        <CompactDashboardList
+          entries={group.entries}
+          planSessionsByEntryId={planSessionsByEntryId}
+          onOpen={onOpen}
+          onToggleFavorite={onToggleFavorite}
+          onMarkDone={onMarkDone}
+          doneDates={doneDates}
+          onDoneDateChange={onDoneDateChange}
+          onSetPlanSessionStatus={onSetPlanSessionStatus}
+          favoriteSavingIds={favoriteSavingIds}
+          entryDoneSavingIds={entryDoneSavingIds}
+          planSessionSavingIds={planSessionSavingIds}
+          expandedDoneIds={expandedDoneIds}
+          onToggleDoneAction={onToggleDoneAction}
+        />
       )}
     </section>
   );
@@ -722,6 +823,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [entryDoneSavingIds, setEntryDoneSavingIds] = useState<Set<string>>(() => new Set());
   const [doneDates, setDoneDates] = useState<Record<string, string>>({});
   const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
+  const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(() => new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(["Upcoming", "Unscheduled"])
   );
@@ -852,6 +954,18 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setDoneDates((current) => ({ ...current, [entryId]: date }));
   };
 
+  const toggleDoneAction = (entryId: string) => {
+    setExpandedDoneIds((current) => {
+      const next = new Set(current);
+      if (next.has(entryId)) {
+        next.delete(entryId);
+      } else {
+        next.add(entryId);
+      }
+      return next;
+    });
+  };
+
   const handleMarkEntryDone = async (entry: Entry) => {
     if (entryDoneSavingIds.has(entry.id)) return;
     const doneDate = doneDates[entry.id] ?? getDateInputValue();
@@ -860,11 +974,15 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setError(null);
     setEntryDoneSavingIds((current) => new Set(current).add(entry.id));
     try {
-      const loggedAt = new Date(doneDate);
-      await logEntryAgain(entry, loggedAt);
+      await logEntryAgain(entry, new Date(doneDate));
       setDoneDates((current) => {
         const next = { ...current };
         delete next[entry.id];
+        return next;
+      });
+      setExpandedDoneIds((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
         return next;
       });
       await refreshData();
@@ -1057,6 +1175,8 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 favoriteSavingIds={favoriteSavingIds}
                 entryDoneSavingIds={entryDoneSavingIds}
                 planSessionSavingIds={planSessionSavingIds}
+                expandedDoneIds={expandedDoneIds}
+                onToggleDoneAction={toggleDoneAction}
               />
             ))}
           </div>

@@ -2,8 +2,21 @@ import { supabase } from './supabase';
 import { getBillingCycle, getNextSubscriptionRenewalIso } from './subscriptions';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
-const defaultAreaNames = ['home', 'work', 'personal', 'health'];
-const defaultCategoryNames = ['goal', 'routine', 'task', 'purchase', 'subscription', 'appointment', 'health record', 'plan', 'reading'];
+const defaultAreaNames = ['home', 'work', 'personal', 'health', 'Plan'];
+const defaultCategoryNames = [
+  'goal',
+  'routine',
+  'task',
+  'purchase',
+  'subscription',
+  'appointment',
+  'health record',
+  'plan',
+  'Learning',
+  'Habit',
+  'Practice',
+  'reading',
+];
 
 const entriesSelect = `
   id,
