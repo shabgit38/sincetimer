@@ -211,6 +211,71 @@ type EntryGroup = {
   entries: Entry[];
 };
 
+type SectionTone = "favorite" | "reading" | "overdue" | "today" | "soon" | "recent" | "neutral";
+
+const sectionToneClasses: Record<
+  SectionTone,
+  {
+    shell: string;
+    header: string;
+    count: string;
+    chevron: string;
+  }
+> = {
+  favorite: {
+    shell: "dark:border-amber-400/35 dark:bg-[#2a2212]/80",
+    header: "dark:border-amber-400/25 dark:bg-amber-400/10 dark:hover:bg-amber-400/15",
+    count: "dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100",
+    chevron: "dark:text-amber-200",
+  },
+  reading: {
+    shell: "dark:border-sky-400/35 dark:bg-[#102433]/82",
+    header: "dark:border-sky-400/25 dark:bg-sky-400/10 dark:hover:bg-sky-400/15",
+    count: "dark:border-sky-300/30 dark:bg-sky-300/10 dark:text-sky-100",
+    chevron: "dark:text-sky-200",
+  },
+  overdue: {
+    shell: "dark:border-rose-400/30 dark:bg-rose-950/20",
+    header: "dark:border-rose-400/20 dark:bg-rose-400/8 dark:hover:bg-rose-400/12",
+    count: "dark:border-rose-300/25 dark:bg-rose-300/10 dark:text-rose-100",
+    chevron: "dark:text-rose-200",
+  },
+  today: {
+    shell: "dark:border-emerald-400/30 dark:bg-emerald-950/15",
+    header: "dark:border-emerald-400/20 dark:bg-emerald-400/8 dark:hover:bg-emerald-400/12",
+    count: "dark:border-emerald-300/25 dark:bg-emerald-300/10 dark:text-emerald-100",
+    chevron: "dark:text-emerald-200",
+  },
+  soon: {
+    shell: "dark:border-orange-400/28 dark:bg-orange-950/15",
+    header: "dark:border-orange-400/20 dark:bg-orange-400/8 dark:hover:bg-orange-400/12",
+    count: "dark:border-orange-300/25 dark:bg-orange-300/10 dark:text-orange-100",
+    chevron: "dark:text-orange-200",
+  },
+  recent: {
+    shell: "dark:border-violet-400/25 dark:bg-violet-950/12",
+    header: "dark:border-violet-400/18 dark:bg-violet-400/8 dark:hover:bg-violet-400/12",
+    count: "dark:border-violet-300/20 dark:bg-violet-300/10 dark:text-violet-100",
+    chevron: "dark:text-violet-200",
+  },
+  neutral: {
+    shell: "dark:border-white/10 dark:bg-white/[0.04]",
+    header: "dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]",
+    count: "dark:border-white/10 dark:text-stone-300",
+    chevron: "dark:text-stone-400",
+  },
+};
+
+function getSectionTone(title: string): SectionTone {
+  if (title === "Favorites") return "favorite";
+  if (title === "Reading list") return "reading";
+  if (title === "Overdue") return "overdue";
+  if (title === "Today") return "today";
+  if (title === "Due soon") return "soon";
+  if (title === "Recently completed") return "recent";
+  return "neutral";
+}
+
 function getBooleanMetadata(entry: Entry, key: string) {
   return entry.metadata[key] === true;
 }
@@ -390,6 +455,7 @@ function MemoryCard({
   const due = getDueCopy(dueEntry);
   const tags = getTags(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
+  const isReading = isReadingEntry(entry);
   const completedCount = getNumberMetadata(entry, "completed_count");
   const durationDate = isPlan && planLastDoneDate ? planLastDoneDate : entry.entry_date;
   const durationLabel = isPlan ? (planLastDoneDate ? "since last done" : "since start") : "since last logged";
@@ -407,7 +473,15 @@ function MemoryCard({
       }}
       className="group cursor-pointer text-left"
     >
-      <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20 dark:hover:bg-white/[0.06]">
+      <div
+        className={`rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:bg-white/[0.04] dark:hover:bg-white/[0.06] ${
+          isFavorite
+            ? "dark:border-amber-400/30 dark:hover:border-amber-300/45"
+            : isReading
+              ? "dark:border-sky-400/30 dark:hover:border-sky-300/45"
+              : "dark:border-white/10 dark:hover:border-white/20"
+        }`}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs uppercase tracking-[0.22em] text-stone-700 dark:text-stone-200">
@@ -426,7 +500,7 @@ function MemoryCard({
               onKeyDown={(event) => event.stopPropagation()}
               className={`grid h-7 w-7 place-items-center rounded-lg border transition ${
                 isFavorite
-                  ? "border-amber-200 bg-amber-50 text-amber-600 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200"
+                  ? "border-amber-200 bg-amber-50 text-amber-600 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-300/45 dark:bg-amber-300/12 dark:text-amber-100"
                   : "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300 hover:text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-500 dark:hover:border-white/20 dark:hover:text-stone-200"
               } disabled:cursor-not-allowed disabled:opacity-60`}
               aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
@@ -517,12 +591,12 @@ function ReadingDashboardCard({ entry, onOpen }: { entry: Entry; onOpen: () => v
   const url = getStringMetadata(entry, "reading_url");
 
   return (
-    <article className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-stone-300 hover:shadow-md dark:border-white/10 dark:bg-white/[0.04] dark:hover:border-white/20">
+    <article className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-stone-300 hover:shadow-md dark:border-sky-400/30 dark:bg-sky-950/20 dark:hover:border-sky-300/45">
       <div className="flex items-start justify-between gap-3">
         <button type="button" className="min-w-0 text-left" onClick={onOpen}>
           <h4 className="line-clamp-2 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h4>
           {topic ? (
-            <span className="mt-2 inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+            <span className="mt-2 inline-flex rounded-full bg-stone-100 px-2.5 py-1 text-xs font-medium text-stone-600 dark:bg-sky-300/10 dark:text-sky-100">
               {topic}
             </span>
           ) : null}
@@ -532,7 +606,7 @@ function ReadingDashboardCard({ entry, onOpen }: { entry: Entry; onOpen: () => v
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-white/15 dark:text-stone-300 dark:hover:border-white/35 dark:hover:text-stone-50"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-sky-300/30 dark:text-sky-100 dark:hover:border-sky-200/60 dark:hover:text-white"
             aria-label={`Open ${entry.title}`}
             onClick={(event) => event.stopPropagation()}
           >
@@ -577,22 +651,23 @@ function EntrySection({
 }: EntrySectionProps) {
   if (group.entries.length === 0) return null;
   const isReadingSection = group.title === "Reading list";
+  const tone = sectionToneClasses[getSectionTone(group.title)];
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+    <section className={`overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm ${tone.shell}`}>
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition hover:bg-stone-100 dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+        className={`flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition hover:bg-stone-100 ${tone.header}`}
         onClick={onToggle}
         aria-expanded={!collapsed}
       >
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold tracking-tight text-stone-950 dark:text-stone-50">{group.title}</h3>
-          <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">
+          <span className={`rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 ${tone.count}`}>
             {group.entries.length}
           </span>
         </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${collapsed ? "" : "rotate-180"}`} />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition ${tone.chevron} ${collapsed ? "" : "rotate-180"}`} />
       </button>
       {collapsed ? null : (
         <div className={`grid gap-4 p-5 ${isReadingSection ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-2 xl:grid-cols-3"}`}>
