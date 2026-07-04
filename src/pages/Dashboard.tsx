@@ -476,9 +476,11 @@ function MemoryCard({
       <div
         className={`rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-stone-300 hover:shadow-md dark:bg-white/[0.04] dark:hover:bg-white/[0.06] ${
           isFavorite
-            ? "dark:border-amber-400/30 dark:hover:border-amber-300/45"
+            ? "bg-amber-50/80 hover:bg-amber-50 dark:border-amber-300/55 dark:bg-amber-200/12 dark:hover:border-amber-200/80 dark:hover:bg-amber-200/16"
             : isReading
-              ? "dark:border-sky-400/30 dark:hover:border-sky-300/45"
+              ? "bg-emerald-50/80 hover:bg-emerald-50 dark:border-emerald-300/55 dark:bg-emerald-200/12 dark:hover:border-emerald-200/80 dark:hover:bg-emerald-200/16"
+              : due.tone === "overdue"
+                ? "bg-rose-50/80 hover:bg-rose-50 dark:border-rose-300/55 dark:bg-rose-200/12 dark:hover:border-rose-200/80 dark:hover:bg-rose-200/16"
               : "dark:border-white/10 dark:hover:border-white/20"
         }`}
       >
@@ -500,7 +502,7 @@ function MemoryCard({
               onKeyDown={(event) => event.stopPropagation()}
               className={`grid h-7 w-7 place-items-center rounded-lg border transition ${
                 isFavorite
-                  ? "border-amber-200 bg-amber-50 text-amber-600 hover:border-amber-300 hover:bg-amber-100 dark:border-amber-300/45 dark:bg-amber-300/12 dark:text-amber-100"
+                  ? "border-amber-300 bg-amber-50 text-amber-600 shadow-[0_0_0_1px_rgb(245_158_11_/_0.18)] hover:border-amber-400 hover:bg-amber-100 dark:border-amber-300/75 dark:bg-amber-200/18 dark:text-amber-300 dark:shadow-[0_0_0_1px_rgb(251_191_36_/_0.25)] dark:hover:border-amber-100 dark:hover:bg-amber-200/24 dark:hover:text-amber-200"
                   : "border-stone-200 bg-stone-50 text-stone-400 hover:border-stone-300 hover:text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-500 dark:hover:border-white/20 dark:hover:text-stone-200"
               } disabled:cursor-not-allowed disabled:opacity-60`}
               aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
