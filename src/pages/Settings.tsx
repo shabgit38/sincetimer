@@ -1,7 +1,17 @@
-import { useEffect, useState } from 'react';
-import { Bell, BellOff, Database, Info } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, BellOff, Database, Download, Info, Upload } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+  createBackup,
+  downloadExcelBackup,
+  downloadJsonBackup,
+  getBackupSummary,
+  readBackupFile,
+  restoreBackup,
+  type BackupFormat,
+  type RestoreMode,
+} from '@/lib/backup';
 import { getHistoryMonths, pruneOldHistory } from '@/lib/db';
 import {
   disablePushNotifications,
@@ -15,9 +25,11 @@ const retentionOptions = [1, 3, 6, 12];
 
 export default function SettingsPage() {
   const pushSupport = getPushSupport();
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [historyMonths, setHistoryMonths] = useState(6);
   const [permission, setPermission] = useState(getNotificationPermission());
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [restoreMode, setRestoreMode] = useState<RestoreMode>('merge');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -88,11 +100,113 @@ export default function SettingsPage() {
     }
   };
 
+  const handleExport = async (format: BackupFormat) => {
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const backup = await createBackup();
+      if (format === 'json') {
+        downloadJsonBackup(backup);
+      } else {
+        downloadExcelBackup(backup);
+      }
+      setStatus(`Backup exported (${getBackupSummary(backup)}).`);
+    } catch (exportError) {
+      console.error(exportError);
+      setError(exportError instanceof Error ? exportError.message : 'Unable to export backup.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (
+      restoreMode === 'replace' &&
+      !window.confirm('Replace your current app data with this backup? This removes your current entries, logs, plans, areas, categories, and settings first.')
+    ) {
+      if (importInputRef.current) importInputRef.current.value = '';
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      const backup = await readBackupFile(file);
+      const result = await restoreBackup(backup, restoreMode);
+      const restored = Object.entries(result.counts)
+        .map(([table, count]) => `${table}: ${count}`)
+        .join(', ');
+      setStatus(`Backup imported in ${restoreMode} mode (${restored}).`);
+    } catch (importError) {
+      console.error(importError);
+      setError(importError instanceof Error ? importError.message : 'Unable to import backup.');
+    } finally {
+      if (importInputRef.current) importInputRef.current.value = '';
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="mx-auto grid max-w-4xl gap-6">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-stone-400 dark:text-stone-500">Settings</p>
         <h2 className="mt-2 text-2xl font-semibold text-stone-950 dark:text-stone-50">App preferences</h2>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex items-start gap-3">
+          <Download className="mt-1 h-5 w-5 text-stone-500 dark:text-stone-400" />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-semibold text-stone-900 dark:text-stone-50">Backup and restore</h3>
+            <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
+              Download a portable backup or restore your entries, history, plans, areas, categories, and settings.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" disabled={busy} onClick={() => void handleExport('json')}>
+                Export JSON
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => void handleExport('xlsx')}>
+                Export Excel
+              </Button>
+            </div>
+
+            <div className="mt-5 grid gap-3 rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="restore-mode">
+                Import mode
+              </label>
+              <select
+                id="restore-mode"
+                value={restoreMode}
+                disabled={busy}
+                onChange={(event) => setRestoreMode(event.target.value as RestoreMode)}
+                className="h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-900 dark:border-white/10 dark:bg-stone-950 dark:text-stone-100"
+              >
+                <option value="merge">Merge with current data</option>
+                <option value="replace">Replace my current data</option>
+              </select>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Replace mode clears your current user data first. Device push notification registrations are not imported.
+              </p>
+              <div>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json,.xlsx,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="hidden"
+                  onChange={(event) => void handleImportFile(event.target.files?.[0])}
+                />
+                <Button type="button" variant="outline" disabled={busy} onClick={() => importInputRef.current?.click()}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import backup
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
