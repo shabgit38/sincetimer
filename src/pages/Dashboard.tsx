@@ -473,7 +473,6 @@ function CompactDashboardListItem({
   favoriteSaving,
   entryDoneSaving,
   planSessionSaving,
-  showFavoriteStar,
   actionExpanded,
   onToggleAction,
   accent = "neutral",
@@ -491,7 +490,6 @@ function CompactDashboardListItem({
   favoriteSaving: boolean;
   entryDoneSaving: boolean;
   planSessionSaving: boolean;
-  showFavoriteStar: boolean;
   actionExpanded: boolean;
   onToggleAction: () => void;
   accent?: "amber" | "neutral";
@@ -499,6 +497,7 @@ function CompactDashboardListItem({
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
   const isSubscription = entry.category.toLocaleLowerCase() === "subscription";
   const isPlan = isPlanEntry(entry);
+  const isFavorite = getBooleanMetadata(entry, "favorite");
   const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
   const planLastDoneDate = isPlan ? getLatestCompletedPlanSessionDate(planSessions) : null;
   const dueEntry = isPlan ? { ...entry, next_due_date: planSession?.session_date ?? null } : entry;
@@ -512,21 +511,23 @@ function CompactDashboardListItem({
   return (
     <li className={`border-b py-3 last:border-b-0 sm:py-2 ${borderClass}`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        {showFavoriteStar ? (
-          <button
-            type="button"
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-amber-300 bg-amber-50 text-amber-600 shadow-[0_0_0_1px_rgb(245_158_11_/_0.18)] transition hover:border-amber-400 hover:bg-amber-100 dark:border-amber-300/75 dark:bg-amber-200/18 dark:text-amber-300 dark:shadow-[0_0_0_1px_rgb(251_191_36_/_0.25)] dark:hover:border-amber-100 dark:hover:bg-amber-200/24 dark:hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={favoriteSaving}
-            onClick={(event) => {
-              event.stopPropagation();
-              onToggleFavorite();
-            }}
-            aria-label={`Remove ${entry.title} from favorites`}
-            title="Remove from favorites"
-          >
-            <Star className="h-3.5 w-3.5 fill-current" />
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            isFavorite
+              ? "border-amber-300 bg-amber-50 text-amber-600 shadow-[0_0_0_1px_rgb(245_158_11_/_0.18)] hover:border-amber-400 hover:bg-amber-100 dark:border-amber-300/75 dark:bg-amber-200/18 dark:text-amber-300 dark:shadow-[0_0_0_1px_rgb(251_191_36_/_0.25)] dark:hover:border-amber-100 dark:hover:bg-amber-200/24 dark:hover:text-amber-200"
+              : "border-stone-200 bg-stone-50 text-stone-400 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-500 dark:hover:border-amber-300/60 dark:hover:bg-amber-300/10 dark:hover:text-amber-200"
+          }`}
+          disabled={favoriteSaving}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleFavorite();
+          }}
+          aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
+          title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Star className={`h-3.5 w-3.5 ${isFavorite ? "fill-current" : ""}`} />
+        </button>
 
         <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -643,7 +644,6 @@ function CompactDashboardList({
   planSessionSavingIds,
   expandedDoneIds,
   onToggleDoneAction,
-  showFavoriteStar = false,
   accent = "neutral",
 }: {
   entries: Entry[];
@@ -661,7 +661,6 @@ function CompactDashboardList({
   planSessionSavingIds: Set<string>;
   expandedDoneIds: Set<string>;
   onToggleDoneAction: (entryId: string) => void;
-  showFavoriteStar?: boolean;
   accent?: "amber" | "neutral";
 }) {
   const shellClass =
@@ -691,7 +690,6 @@ function CompactDashboardList({
               getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? [])?.id &&
                 planSessionSavingIds.has(getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? [])!.id)
             )}
-            showFavoriteStar={showFavoriteStar}
             actionExpanded={expandedDoneIds.has(entry.id)}
             onToggleAction={() => onToggleDoneAction(entry.id)}
             accent={accent}
@@ -846,7 +844,6 @@ function EntrySection({
           planSessionSavingIds={planSessionSavingIds}
           expandedDoneIds={expandedDoneIds}
           onToggleDoneAction={onToggleDoneAction}
-          showFavoriteStar
           accent="amber"
         />
       ) : isReadingSection ? (
