@@ -474,22 +474,22 @@ export default function EntryDetail() {
           <Button
             variant="outline"
             size="md"
-            className="w-10 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+            className="h-12 w-12 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
             onClick={() => navigate(`/edit/${entry.id}`)}
             aria-label={`Edit ${entry.title}`}
             title="Edit"
           >
-            <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
+            <Pencil className="h-[22px] w-[22px] stroke-[2.4]" />
           </Button>
           <Button
             variant="outline"
             size="md"
-            className="w-10 border-rose-300/70 bg-transparent px-0 text-rose-700 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-300/65 dark:bg-transparent dark:text-rose-200 dark:hover:border-rose-200 dark:hover:bg-rose-400/10"
+            className="h-12 w-12 border-rose-300/70 bg-transparent px-0 text-rose-700 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-300/65 dark:bg-transparent dark:text-rose-200 dark:hover:border-rose-200 dark:hover:bg-rose-400/10"
             onClick={handleDelete}
             aria-label={`Delete ${entry.title}`}
             title="Delete"
           >
-            <Trash2 className="h-[18px] w-[18px] stroke-[2.4]" />
+            <Trash2 className="h-[22px] w-[22px] stroke-[2.4]" />
           </Button>
         </div>
       </div>

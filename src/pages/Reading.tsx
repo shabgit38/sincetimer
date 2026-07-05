@@ -100,6 +100,12 @@ function statusLabel(status: ReadingStatus) {
   return "Done";
 }
 
+function getReadingStatusRank(status: ReadingStatus) {
+  if (status === "reading") return 0;
+  if (status === "to_read") return 1;
+  return 2;
+}
+
 function statusChipClass(status: ReadingStatus) {
   if (status === "done") {
     return "border border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-300/70 dark:bg-emerald-300 dark:text-emerald-950";
@@ -141,24 +147,6 @@ function ReadingListItem({
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">{topic}</p>
           <h3 className="mt-1 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
-          <div className="mt-1.5 flex flex-wrap gap-1.5 text-[11px]">
-            <span className={`rounded-full px-2.5 py-1 font-medium ${statusChipClass(status)}`}>
-              {statusLabel(status)}
-            </span>
-            {priority ? (
-              <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
-                Priority {priority}
-              </span>
-            ) : null}
-            <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
-              {daysSinceLogged === null ? "Logged date unknown" : `${daysSinceLogged} days since logged`}
-            </span>
-            {completedDate ? (
-              <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
-                Completed {getDateInputValue(completedDate)}
-              </span>
-            ) : null}
-          </div>
         </div>
         {url ? (
           <a
@@ -172,29 +160,57 @@ function ReadingListItem({
           </a>
         ) : null}
       </div>
-      {entry.notes ? <p className="mt-2 whitespace-pre-line text-sm text-stone-600 dark:text-stone-300">{entry.notes}</p> : null}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 w-9 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
-          onClick={() => onStartEdit(entry)}
-          aria-label={`Edit ${entry.title}`}
-          title="Edit"
-        >
-          <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
-        </Button>
-        {status !== "reading" ? (
-          <Button size="sm" variant="outline" onClick={() => onStatusChange(entry, "reading")}>
-            Mark Reading
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 w-9 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+            onClick={() => onStartEdit(entry)}
+            aria-label={`Edit ${entry.title}`}
+            title="Edit"
+          >
+            <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
           </Button>
-        ) : null}
-        {status !== "done" ? (
-          <Button size="sm" onClick={() => onStatusChange(entry, "done")}>
-            Mark Done
-          </Button>
-        ) : null}
+          {status !== "reading" ? (
+            <Button
+              size="sm"
+              className="h-6 rounded-full border border-sky-300 bg-sky-100 px-2.5 text-[11px] font-semibold text-sky-950 hover:bg-sky-200 dark:border-sky-300/70 dark:bg-sky-300 dark:text-sky-950 dark:hover:bg-sky-200"
+              onClick={() => onStatusChange(entry, "reading")}
+            >
+              Mark Reading
+            </Button>
+          ) : null}
+          {status !== "done" ? (
+            <Button
+              size="sm"
+              className="h-6 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 text-[11px] font-semibold text-emerald-950 hover:bg-emerald-200 dark:border-emerald-300/70 dark:bg-emerald-300 dark:text-emerald-950 dark:hover:bg-emerald-200"
+              onClick={() => onStatusChange(entry, "done")}
+            >
+              Mark Done
+            </Button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5 text-[11px]">
+          <span className={`rounded-full px-2.5 py-1 font-medium ${statusChipClass(status)}`}>
+            {statusLabel(status)}
+          </span>
+          {priority ? (
+            <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+              Priority {priority}
+            </span>
+          ) : null}
+          <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+            {daysSinceLogged === null ? "Logged date unknown" : `${daysSinceLogged} days since logged`}
+          </span>
+          {completedDate ? (
+            <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+              Completed {getDateInputValue(completedDate)}
+            </span>
+          ) : null}
+        </div>
       </div>
+      {entry.notes ? <p className="mt-2 whitespace-pre-line text-sm text-stone-600 dark:text-stone-300">{entry.notes}</p> : null}
     </div>
   );
 }
@@ -327,9 +343,8 @@ export default function Reading() {
   const columns = useMemo(() => {
     const sortReading = (items: Entry[]) =>
       [...items].sort((a, b) => {
-        const aDone = getReadingStatus(a) === "done";
-        const bDone = getReadingStatus(b) === "done";
-        if (aDone !== bDone) return aDone ? 1 : -1;
+        const statusCompare = getReadingStatusRank(getReadingStatus(a)) - getReadingStatusRank(getReadingStatus(b));
+        if (statusCompare !== 0) return statusCompare;
         const topicCompare = (getStringMetadata(a, "reading_topic") || "General").localeCompare(
           getStringMetadata(b, "reading_topic") || "General"
         );

@@ -362,6 +362,33 @@ function getReadingStatus(entry: Entry) {
   return typeof entry.metadata.reading_status === "string" ? entry.metadata.reading_status : "to_read";
 }
 
+function getReadingStatusRank(entry: Entry) {
+  const status = getReadingStatus(entry);
+  if (status === "reading") return 0;
+  if (status === "to_read") return 1;
+  return 2;
+}
+
+function compareEntryAreaCategoryTitle(a: Entry, b: Entry) {
+  return (
+    a.area.localeCompare(b.area) ||
+    a.category.localeCompare(b.category) ||
+    a.title.localeCompare(b.title)
+  );
+}
+
+function compareReadingEntries(a: Entry, b: Entry) {
+  return (
+    getReadingStatusRank(a) - getReadingStatusRank(b) ||
+    getStringMetadata(a, "reading_topic").localeCompare(getStringMetadata(b, "reading_topic")) ||
+    compareEntryAreaCategoryTitle(a, b)
+  );
+}
+
+function sortDashboardGroup(title: string, entries: Entry[]) {
+  return [...entries].sort(title === "Reading list" ? compareReadingEntries : compareEntryAreaCategoryTitle);
+}
+
 function getNextScheduledPlanSession(sessions: PlanSession[]) {
   const now = new Date();
   const sorted = sessions
@@ -1158,42 +1185,42 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       {
         title: "Favorites",
         description: "Pinned memories you want close at hand.",
-        entries: favorites,
+        entries: sortDashboardGroup("Favorites", favorites),
       },
       {
         title: "Reading list",
         description: "Links and topics waiting for focused reading.",
-        entries: readingList,
+        entries: sortDashboardGroup("Reading list", readingList),
       },
       {
         title: "Overdue",
         description: "Items that have crossed their due date.",
-        entries: overdue,
+        entries: sortDashboardGroup("Overdue", overdue),
       },
       {
         title: "Today",
         description: "Ready to be handled now.",
-        entries: today,
+        entries: sortDashboardGroup("Today", today),
       },
       {
         title: "Due soon",
         description: "Coming up in the next 7 days.",
-        entries: dueSoon,
+        entries: sortDashboardGroup("Due soon", dueSoon),
       },
       {
         title: "Upcoming",
         description: "Scheduled for later.",
-        entries: upcoming,
+        entries: sortDashboardGroup("Upcoming", upcoming),
       },
       {
         title: "Recently completed",
         description: "Logged again in the last two weeks.",
-        entries: recentlyCompleted,
+        entries: sortDashboardGroup("Recently completed", recentlyCompleted),
       },
       {
         title: "Unscheduled",
         description: "Tracked memories without a next due date.",
-        entries: unscheduled,
+        entries: sortDashboardGroup("Unscheduled", unscheduled),
       },
     ];
   }, [filteredEntries, planSessionsByEntryId]);
