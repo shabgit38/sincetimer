@@ -540,7 +540,7 @@ function CompactDashboardListItem({
           </div>
         </button>
 
-        <div className={`flex flex-wrap items-center gap-1.5 text-[11px] sm:shrink-0 sm:justify-end ${showFavoriteStar ? "pl-10 sm:pl-0" : ""}`}>
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:shrink-0 sm:justify-end">
           {entry.next_due_date || isPlan ? (
             <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone)}`}>
               {due.label}
@@ -593,7 +593,7 @@ function CompactDashboardListItem({
         </div>
       </div>
       {actionExpanded && due.tone === "overdue" && !isPlan ? (
-        <div className={`mt-2 flex justify-end gap-2 ${showFavoriteStar ? "pl-10" : ""}`}>
+        <div className="mt-2 flex justify-end gap-2">
           <input
             type="date"
             value={doneDate}
@@ -1227,7 +1227,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-      <div className="min-w-0">
+      <div className="order-2 min-w-0 lg:order-1">
         {error ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
             {error}
@@ -1282,7 +1282,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         )}
       </div>
 
-      <aside className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:sticky lg:top-24">
+      <aside className="order-1 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:sticky lg:top-24 lg:order-2">
         <div className="space-y-5">
           <div>
             <div className="flex items-center justify-between gap-3">

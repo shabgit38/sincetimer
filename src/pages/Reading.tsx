@@ -175,7 +175,8 @@ function ReadingListItem({
           {status !== "reading" ? (
             <Button
               size="sm"
-              className="h-6 rounded-full border border-sky-300 bg-sky-100 px-2.5 text-[11px] font-semibold text-sky-950 hover:bg-sky-200 dark:border-sky-300/70 dark:bg-sky-300 dark:text-sky-950 dark:hover:bg-sky-200"
+              variant="outline"
+              className="h-6 rounded-full border-sky-300 px-2.5 py-1 text-[11px] font-medium hover:bg-sky-50 dark:border-sky-300/70 dark:hover:bg-sky-400/10"
               onClick={() => onStatusChange(entry, "reading")}
             >
               Mark Reading
@@ -184,7 +185,8 @@ function ReadingListItem({
           {status !== "done" ? (
             <Button
               size="sm"
-              className="h-6 rounded-full border border-emerald-300 bg-emerald-100 px-2.5 text-[11px] font-semibold text-emerald-950 hover:bg-emerald-200 dark:border-emerald-300/70 dark:bg-emerald-300 dark:text-emerald-950 dark:hover:bg-emerald-200"
+              variant="outline"
+              className="h-6 rounded-full border-emerald-300 px-2.5 py-1 text-[11px] font-medium hover:bg-emerald-50 dark:border-emerald-300/70 dark:hover:bg-emerald-400/10"
               onClick={() => onStatusChange(entry, "done")}
             >
               Mark Done
