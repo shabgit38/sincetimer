@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Pencil } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -174,8 +174,15 @@ function ReadingListItem({
       </div>
       {entry.notes ? <p className="mt-2 whitespace-pre-line text-sm text-stone-600 dark:text-stone-300">{entry.notes}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" onClick={() => onStartEdit(entry)}>
-          Edit
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 w-9 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+          onClick={() => onStartEdit(entry)}
+          aria-label={`Edit ${entry.title}`}
+          title="Edit"
+        >
+          <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
         </Button>
         {status !== "reading" ? (
           <Button size="sm" variant="outline" onClick={() => onStatusChange(entry, "reading")}>

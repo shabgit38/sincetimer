@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Pencil } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import PlanCalendar from "@/components/plans/PlanCalendar";
@@ -234,9 +234,11 @@ export default function Plans() {
                   <HeaderMetrics metrics={metrics} />
                   <Link
                     to={`/edit/${entry.id}`}
-                    className="inline-flex h-10 items-center justify-center rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 transition hover:border-stone-400 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-200 dark:hover:border-white/20 dark:hover:bg-white/[0.06]"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-300/70 bg-transparent text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+                    aria-label={`Edit ${entry.title}`}
+                    title="Edit"
                   >
-                    Edit
+                    <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
                   </Link>
                 </div>
                 {expanded ? (

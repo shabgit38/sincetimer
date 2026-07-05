@@ -1,5 +1,6 @@
 import { addDays, differenceInCalendarDays, format, isAfter, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -470,11 +471,25 @@ export default function EntryDetail() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => navigate(`/edit/${entry.id}`)}>
-            Edit
+          <Button
+            variant="outline"
+            size="md"
+            className="w-10 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+            onClick={() => navigate(`/edit/${entry.id}`)}
+            aria-label={`Edit ${entry.title}`}
+            title="Edit"
+          >
+            <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
           </Button>
-          <Button variant="destructive" onClick={handleDelete}>
-            Delete
+          <Button
+            variant="outline"
+            size="md"
+            className="w-10 border-rose-300/70 bg-transparent px-0 text-rose-700 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-300/65 dark:bg-transparent dark:text-rose-200 dark:hover:border-rose-200 dark:hover:bg-rose-400/10"
+            onClick={handleDelete}
+            aria-label={`Delete ${entry.title}`}
+            title="Delete"
+          >
+            <Trash2 className="h-[18px] w-[18px] stroke-[2.4]" />
           </Button>
         </div>
       </div>
@@ -824,7 +839,7 @@ export default function EntryDetail() {
         </div>
         {logError ? <p className="mt-3 text-sm text-rose-600">{logError}</p> : null}
 
-        <div className="mt-4 grid gap-3">
+        <div className="mt-4 grid gap-1.5">
           {historyEvents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-stone-200 p-6 text-sm text-stone-500">
               No history yet. Log again to add a record.
@@ -833,10 +848,10 @@ export default function EntryDetail() {
             historyEvents.map((record) => (
               <div
                 key={record.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-stone-50/60 px-3 py-2 last:border-b-0 dark:border-white/10 dark:bg-white/[0.03]"
               >
                 {editingHistoryId === record.historyId && record.historyId ? (
-                  <div className={`grid flex-1 gap-2 md:items-center ${isSubscription ? "md:grid-cols-[12rem_8rem_minmax(0,1fr)_auto]" : "md:grid-cols-[12rem_minmax(0,1fr)_auto]"}`}>
+                  <div className={`grid flex-1 gap-2 md:items-center ${isSubscription ? "md:grid-cols-[10rem_7rem_minmax(0,1fr)_auto]" : "md:grid-cols-[10rem_minmax(0,1fr)_auto]"}`}>
                     <input
                       type="date"
                       value={editHistoryDate}
@@ -880,42 +895,47 @@ export default function EntryDetail() {
                   </div>
                 ) : (
                   <>
-                    <div>
-                      <p className="text-sm font-medium text-stone-700">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <p className="text-sm font-medium text-stone-800 dark:text-stone-100">
                         {formatYearMonthDayDuration(record.loggedDate)}
                         {record.isCurrent ? <span className="ml-2 text-xs font-normal text-emerald-700">Current</span> : null}
-                      </p>
-                      <p className="text-xs text-stone-500">
-                        {record.label}
-                      </p>
-                      {isSubscription ? (
-                        <p className="mt-1 text-xs font-medium text-stone-700">
-                          {record.price !== null ? formatMoney(record.price, record.currency ?? entry.metadata.currency) : "Price not recorded"}
                         </p>
-                      ) : null}
+                        {isSubscription ? (
+                          <p className="text-xs font-medium text-stone-700 dark:text-stone-300">
+                            {record.price !== null ? formatMoney(record.price, record.currency ?? entry.metadata.currency) : "Price not recorded"}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-xs text-stone-500">{format(parseISO(record.loggedDate), "PPP p")}</p>
+                    <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                       {record.historyId ? (
                         <>
                           <Button
                             size="sm"
                             variant="outline"
+                            className="h-8 w-9 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
                             disabled={historySavingId === record.historyId}
                             onClick={() => startEditingHistory(record)}
+                            aria-label={`Edit history for ${record.label}`}
+                            title="Edit"
                           >
-                            Edit
+                            <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
                           </Button>
                           <Button
                             size="sm"
-                            variant="destructive"
+                            variant="outline"
+                            className="h-8 w-9 border-rose-300/70 bg-transparent px-0 text-rose-700 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-300/65 dark:bg-transparent dark:text-rose-200 dark:hover:border-rose-200 dark:hover:bg-rose-400/10"
                             disabled={historySavingId === record.historyId}
                             onClick={() => void handleDeleteHistory(record.historyId!)}
+                            aria-label={`Delete history for ${record.label}`}
+                            title="Delete"
                           >
-                            Delete
+                            <Trash2 className="h-[18px] w-[18px] stroke-[2.4]" />
                           </Button>
                         </>
                       ) : null}
+                      <p className="min-w-0 max-w-48 truncate text-right text-xs text-stone-500 dark:text-stone-400">{record.label}</p>
                     </div>
                   </>
                 )}

@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getVisiblePlanSessions } from "@/lib/plans";
@@ -63,18 +64,18 @@ export default function PlanCalendar({
         return (
           <div
             key={session.id}
-            className="rounded-xl border border-stone-200 bg-white p-3 dark:border-white/10 dark:bg-white/[0.04]"
+            className="rounded-lg border border-stone-200 bg-white p-2.5 dark:border-white/10 dark:bg-white/[0.04]"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <span className={`h-2.5 w-2.5 rounded-full ${getDotClass(session.status)}`} />
-              <p className="text-sm font-medium text-stone-950 dark:text-stone-50">
+              <p className="shrink-0 text-sm font-medium text-stone-950 dark:text-stone-50">
                 {format(new Date(session.session_date), "MMM d")}
               </p>
-              <span className="ml-auto rounded-full border border-stone-200 px-2 py-0.5 text-[11px] font-medium capitalize text-stone-500 dark:border-white/10 dark:text-stone-400">
+              <span className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-[11px] font-medium capitalize text-stone-500 dark:border-white/10 dark:text-stone-400">
                 {session.status}
               </span>
+              <p className="min-w-0 truncate text-xs text-stone-500 dark:text-stone-400">{session.title}</p>
             </div>
-            <p className="mt-2 line-clamp-2 min-h-10 text-sm text-stone-500 dark:text-stone-400">{session.title}</p>
             {isEditing ? (
               <div className="mt-3 grid gap-2">
                 <input
@@ -129,11 +130,11 @@ export default function PlanCalendar({
                 </div>
               </div>
             ) : (
-              <div className="mt-3 grid gap-2">
-                <div className="flex gap-2">
+              <div className="mt-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem_2.25rem] items-center gap-1.5">
                   <Button
                     size="sm"
-                    className="h-7 flex-1 px-2 text-xs"
+                    className="h-8 min-w-0 px-2 text-xs"
                     disabled={updatingId === session.id || session.status === "completed"}
                     onClick={() => onMarkDone(session)}
                   >
@@ -142,31 +143,33 @@ export default function PlanCalendar({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 flex-1 px-2 text-xs"
+                    className="h-8 min-w-0 px-2 text-xs"
                     disabled={updatingId === session.id || session.status === "missed"}
                     onClick={() => onMarkMissed(session)}
                   >
                     Missed
                   </Button>
-                </div>
-                <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 flex-1 px-2 text-xs"
+                    className="h-8 w-9 border-sky-300/70 bg-transparent px-0 text-sky-700 hover:border-sky-400 hover:bg-sky-50 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
                     disabled={updatingId === session.id}
                     onClick={() => startEditing(session)}
+                    aria-label={`Edit ${session.title}`}
+                    title="Edit"
                   >
-                    Edit
+                    <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
                   </Button>
                   <Button
                     size="sm"
-                    variant="destructive"
-                    className="h-7 flex-1 px-2 text-xs"
+                    variant="outline"
+                    className="h-8 w-9 border-rose-300/70 bg-transparent px-0 text-rose-700 hover:border-rose-400 hover:bg-rose-50 dark:border-rose-300/65 dark:bg-transparent dark:text-rose-200 dark:hover:border-rose-200 dark:hover:bg-rose-400/10"
                     disabled={updatingId === session.id}
                     onClick={() => onDeleteSession(session)}
+                    aria-label={`Delete ${session.title}`}
+                    title="Delete"
                   >
-                    Delete
+                    <Trash2 className="h-[18px] w-[18px] stroke-[2.4]" />
                   </Button>
                 </div>
               </div>

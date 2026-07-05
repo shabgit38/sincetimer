@@ -514,9 +514,11 @@ function CompactDashboardListItem({
         </button>
 
         <div className={`flex flex-wrap items-center gap-1.5 text-[11px] sm:shrink-0 sm:justify-end ${showFavoriteStar ? "pl-10 sm:pl-0" : ""}`}>
-          <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone)}`}>
-            {due.label}
-          </span>
+          {entry.next_due_date || isPlan ? (
+            <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone)}`}>
+              {due.label}
+            </span>
+          ) : null}
           {completedCount > 0 && !isPurchase ? (
             <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
               {completedCount} done
