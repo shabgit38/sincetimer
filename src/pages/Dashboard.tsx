@@ -1224,6 +1224,55 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="order-1 rounded-2xl border border-stone-200 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:hidden">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">Area</span>
+            <select
+              value={areaFilter}
+              onChange={(event) => setAreaFilter(event.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition hover:border-stone-300 dark:border-white/10 dark:bg-stone-950 dark:text-stone-100 dark:hover:border-white/20"
+            >
+              <option value="all">All areas</option>
+              {areas.map((option) => (
+                <option key={option.id} value={option.name}>
+                  {formatOptionLabel(option.name)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">Category</span>
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="mt-1 h-9 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition hover:border-stone-300 dark:border-white/10 dark:bg-stone-950 dark:text-stone-100 dark:hover:border-white/20"
+            >
+              <option value="all">All categories</option>
+              {categories.map((option) => (
+                <option key={option.id} value={option.name}>
+                  {formatOptionLabel(option.name)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">Sort</span>
+            <select
+              value={sortOption}
+              onChange={(event) => setSortOption(event.target.value as SortOption)}
+              className="mt-1 h-9 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition hover:border-stone-300 dark:border-white/10 dark:bg-stone-950 dark:text-stone-100 dark:hover:border-white/20"
+            >
+              <option value="created">Newest first</option>
+              <option value="overdue">Most overdue</option>
+              <option value="area">Area</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
       <div className="order-2 min-w-0 lg:order-1">
         {error ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
@@ -1279,7 +1328,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         )}
       </div>
 
-      <aside className="order-1 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:sticky lg:top-24 lg:order-2">
+      <aside className="hidden rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:sticky lg:top-24 lg:order-2 lg:block">
         <div className="space-y-5">
           <div>
             <div className="flex items-center justify-between gap-3">
