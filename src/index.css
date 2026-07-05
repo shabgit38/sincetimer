@@ -124,8 +124,9 @@ input[type="radio"] {
 .dark input[type="month"]::-webkit-calendar-picker-indicator,
 .dark input[type="week"]::-webkit-calendar-picker-indicator {
   border-radius: 0.375rem;
-  background-color: rgb(245 245 244);
-  filter: none;
+  border: 1px solid rgb(125 211 252 / 0.85);
+  background-color: rgb(56 189 248 / 0.36);
+  filter: invert(82%) sepia(58%) saturate(1197%) hue-rotate(162deg) brightness(112%) contrast(103%);
   opacity: 1;
   padding: 0.25rem;
 }

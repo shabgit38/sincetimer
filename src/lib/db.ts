@@ -42,6 +42,8 @@ const historySelect = `
   user_id,
   logged_date,
   notes,
+  price,
+  currency,
   created_at
 `;
 
@@ -103,6 +105,11 @@ function getDateKey(date: Date | string) {
 function hasHistoryForDay(history: HistoryItem[], date: Date) {
   const key = getDateKey(date);
   return history.some((record) => getDateKey(record.logged_date) === key);
+}
+
+function findHistoryForDay(history: HistoryItem[], date: Date) {
+  const key = getDateKey(date);
+  return history.find((record) => getDateKey(record.logged_date) === key) ?? null;
 }
 
 function getSubscriptionCompletedCount(entry: Entry, history: HistoryItem[], pendingLogDate?: Date) {
@@ -296,7 +303,10 @@ export async function getHistoryForEntry(entryId: string): Promise<HistoryItem[]
   return (data ?? []) as HistoryItem[];
 }
 
-export async function insertHistory(history: Pick<HistoryItem, 'entry_id' | 'logged_date' | 'notes'>): Promise<string> {
+export async function insertHistory(
+  history: Pick<HistoryItem, 'entry_id' | 'logged_date' | 'notes'> &
+    Partial<Pick<HistoryItem, 'price' | 'currency'>>
+): Promise<string> {
   const userId = await requireUserId();
   const { data, error } = await supabase
     .from('entry_logs')
@@ -310,7 +320,7 @@ export async function insertHistory(history: Pick<HistoryItem, 'entry_id' | 'log
 
 export async function updateHistory(
   id: string,
-  updates: Partial<Pick<HistoryItem, 'logged_date' | 'notes'>>
+  updates: Partial<Pick<HistoryItem, 'logged_date' | 'notes' | 'price' | 'currency'>>
 ): Promise<void> {
   const { error } = await supabase
     .from('entry_logs')
@@ -325,7 +335,11 @@ export async function deleteHistory(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void> {
+export async function logEntryAgain(
+  entry: Entry,
+  loggedAt: Date,
+  options: Partial<Pick<HistoryItem, 'price' | 'currency'>> = {}
+): Promise<void> {
   const history = await getHistoryForEntry(entry.id);
   const isSubscription = isSubscriptionEntry(entry);
   const latestLogDate = getLatestLogDate(entry, history);
@@ -339,11 +353,22 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
     ? getSubscriptionCompletedCount(entry, history, shouldInsertHistory ? historyDate : undefined)
     : getCompletedCountForLog(history, nextEntryDate, shouldInsertHistory ? historyDate : undefined);
 
+  const existingSubscriptionLog = isSubscription ? findHistoryForDay(history, historyDate) : null;
+  const logPrice = typeof options.price === 'number' ? options.price : isSubscription ? entry.price : null;
+  const logCurrency = typeof options.currency === 'string' ? options.currency : isSubscription ? String(entry.metadata.currency ?? '') || null : null;
+
   if (shouldInsertHistory) {
     await insertHistory({
       entry_id: entry.id,
       logged_date: historyDate.toISOString(),
       notes: '',
+      price: logPrice,
+      currency: logCurrency,
+    });
+  } else if (existingSubscriptionLog) {
+    await updateHistory(existingSubscriptionLog.id, {
+      price: logPrice,
+      currency: logCurrency,
     });
   }
 
@@ -351,6 +376,7 @@ export async function logEntryAgain(entry: Entry, loggedAt: Date): Promise<void>
     ...(isSubscription
       ? {
           next_due_date: getNextDueDateForLog(entry, loggedAt),
+          price: logPrice,
         }
       : shouldPromoteLog
       ? {

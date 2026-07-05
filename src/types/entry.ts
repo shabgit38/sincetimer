@@ -33,6 +33,8 @@ export interface HistoryItem {
   user_id: string;
   logged_date: string;
   notes: string;
+  price: number | null;
+  currency: string | null;
   created_at: string;
 }
 

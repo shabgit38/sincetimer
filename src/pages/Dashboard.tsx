@@ -378,6 +378,11 @@ function getLatestCompletedPlanSessionDate(sessions: PlanSession[]) {
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 }
 
+function isPlanSessionActionable(session: PlanSession) {
+  const summary = computeTimeSummary(new Date().toISOString(), session.session_date);
+  return summary.isOverdue || summary.nextDueIn === 0;
+}
+
 function getDueCopy(entry: Entry) {
   const summary = computeTimeSummary(entry.entry_date, entry.next_due_date);
   if (!entry.next_due_date) {
@@ -434,7 +439,9 @@ function CompactDashboardListItem({
   onToggleFavorite,
   onMarkDone,
   doneDate,
+  donePrice,
   onDoneDateChange,
+  onDonePriceChange,
   onSetPlanSessionStatus,
   favoriteSaving,
   entryDoneSaving,
@@ -450,7 +457,9 @@ function CompactDashboardListItem({
   onToggleFavorite: () => void;
   onMarkDone: () => void;
   doneDate: string;
+  donePrice: string;
   onDoneDateChange: (date: string) => void;
+  onDonePriceChange: (price: string) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSaving: boolean;
   entryDoneSaving: boolean;
@@ -461,19 +470,21 @@ function CompactDashboardListItem({
   accent?: "amber" | "neutral";
 }) {
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
+  const isSubscription = entry.category.toLocaleLowerCase() === "subscription";
   const isPlan = isPlanEntry(entry);
   const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
   const planLastDoneDate = isPlan ? getLatestCompletedPlanSessionDate(planSessions) : null;
   const dueEntry = isPlan ? { ...entry, next_due_date: planSession?.session_date ?? null } : entry;
   const due = getDueCopy(dueEntry);
+  const canActOnPlanSession = Boolean(planSession && isPlanSessionActionable(planSession));
   const completedCount = getNumberMetadata(entry, "completed_count");
   const durationDate = isPlan && planLastDoneDate ? planLastDoneDate : entry.entry_date;
   const durationLabel = isPlan ? (planLastDoneDate ? "since last done" : "since start") : "since last logged";
   const borderClass = accent === "amber" ? "border-amber-200/70 dark:border-amber-300/15" : "border-stone-200 dark:border-white/10";
 
   return (
-    <li className={`border-b py-2 last:border-b-0 ${borderClass}`}>
-      <div className="flex items-center gap-3">
+    <li className={`border-b py-3 last:border-b-0 sm:py-2 ${borderClass}`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         {showFavoriteStar ? (
           <button
             type="button"
@@ -491,23 +502,22 @@ function CompactDashboardListItem({
         ) : null}
 
         <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h4 className="truncate text-base font-medium leading-snug text-stone-950 dark:text-stone-50">{entry.title}</h4>
-            <span className="shrink-0 text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
-              {getEntryAreaCategoryLabel(entry)}
-            </span>
-            <span className="shrink-0 text-lg font-semibold tracking-tight text-stone-950 dark:text-stone-50">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+            <h4 className="min-w-0 max-w-full break-words text-base font-medium leading-snug text-stone-950 sm:truncate dark:text-stone-50">
+              {entry.title}
+            </h4>
+            <span className="text-lg font-semibold tracking-tight text-stone-950 dark:text-stone-50">
               {formatShortDuration(durationDate)}
             </span>
-            <span className="shrink-0 text-xs text-stone-500 dark:text-stone-400">{durationLabel}</span>
+            <span className="text-xs text-stone-500 dark:text-stone-400">{durationLabel}</span>
           </div>
         </button>
 
-        <div className="flex shrink-0 items-center justify-end gap-1.5 text-[11px]">
+        <div className={`flex flex-wrap items-center gap-1.5 text-[11px] sm:shrink-0 sm:justify-end ${showFavoriteStar ? "pl-10 sm:pl-0" : ""}`}>
           <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone)}`}>
             {due.label}
           </span>
-          {completedCount > 0 ? (
+          {completedCount > 0 && !isPurchase ? (
             <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
               {completedCount} done
             </span>
@@ -517,7 +527,7 @@ function CompactDashboardListItem({
               {formatMoney(entry.price, entry.metadata.currency)}
             </span>
           ) : null}
-          {isPlan && planSession ? (
+          {isPlan && planSession && canActOnPlanSession ? (
             <>
               <Button
                 size="sm"
@@ -548,6 +558,9 @@ function CompactDashboardListItem({
               Done
             </Button>
           ) : null}
+          <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-medium text-stone-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-stone-400">
+            {getEntryAreaCategoryLabel(entry)}
+          </span>
         </div>
       </div>
       {actionExpanded && due.tone === "overdue" && !isPlan ? (
@@ -559,10 +572,22 @@ function CompactDashboardListItem({
             className="h-8 rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
             aria-label={`Done date for ${entry.title}`}
           />
+          {isSubscription ? (
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={donePrice}
+              onChange={(event) => onDonePriceChange(event.target.value)}
+              className="h-8 w-24 rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 focus:border-stone-500 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
+              aria-label={`Price for ${entry.title}`}
+              placeholder="Price"
+            />
+          ) : null}
           <Button
             size="sm"
             className="h-8 px-3 text-xs"
-            disabled={entryDoneSaving || !doneDate}
+            disabled={entryDoneSaving || !doneDate || (isSubscription && !donePrice)}
             onClick={onMarkDone}
           >
             Save Done
@@ -580,7 +605,9 @@ function CompactDashboardList({
   onToggleFavorite,
   onMarkDone,
   doneDates,
+  donePrices,
   onDoneDateChange,
+  onDonePriceChange,
   onSetPlanSessionStatus,
   favoriteSavingIds,
   entryDoneSavingIds,
@@ -596,7 +623,9 @@ function CompactDashboardList({
   onToggleFavorite: (entry: Entry) => void;
   onMarkDone: (entry: Entry) => void;
   doneDates: Record<string, string>;
+  donePrices: Record<string, string>;
   onDoneDateChange: (entryId: string, date: string) => void;
+  onDonePriceChange: (entryId: string, price: string) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
@@ -623,7 +652,9 @@ function CompactDashboardList({
             onToggleFavorite={() => onToggleFavorite(entry)}
             onMarkDone={() => onMarkDone(entry)}
             doneDate={doneDates[entry.id] ?? getDateInputValue()}
+            donePrice={donePrices[entry.id] ?? (entry.price !== null ? String(entry.price) : "")}
             onDoneDateChange={(date) => onDoneDateChange(entry.id, date)}
+            onDonePriceChange={(price) => onDonePriceChange(entry.id, price)}
             onSetPlanSessionStatus={onSetPlanSessionStatus}
             favoriteSaving={favoriteSavingIds.has(entry.id)}
             entryDoneSaving={entryDoneSavingIds.has(entry.id)}
@@ -718,7 +749,9 @@ type EntrySectionProps = {
   onToggleFavorite: (entry: Entry) => void;
   onMarkDone: (entry: Entry) => void;
   doneDates: Record<string, string>;
+  donePrices: Record<string, string>;
   onDoneDateChange: (entryId: string, date: string) => void;
+  onDonePriceChange: (entryId: string, price: string) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
@@ -736,7 +769,9 @@ function EntrySection({
   onToggleFavorite,
   onMarkDone,
   doneDates,
+  donePrices,
   onDoneDateChange,
+  onDonePriceChange,
   onSetPlanSessionStatus,
   favoriteSavingIds,
   entryDoneSavingIds,
@@ -773,7 +808,9 @@ function EntrySection({
           onToggleFavorite={onToggleFavorite}
           onMarkDone={onMarkDone}
           doneDates={doneDates}
+          donePrices={donePrices}
           onDoneDateChange={onDoneDateChange}
+          onDonePriceChange={onDonePriceChange}
           onSetPlanSessionStatus={onSetPlanSessionStatus}
           favoriteSavingIds={favoriteSavingIds}
           entryDoneSavingIds={entryDoneSavingIds}
@@ -793,7 +830,9 @@ function EntrySection({
           onToggleFavorite={onToggleFavorite}
           onMarkDone={onMarkDone}
           doneDates={doneDates}
+          donePrices={donePrices}
           onDoneDateChange={onDoneDateChange}
+          onDonePriceChange={onDonePriceChange}
           onSetPlanSessionStatus={onSetPlanSessionStatus}
           favoriteSavingIds={favoriteSavingIds}
           entryDoneSavingIds={entryDoneSavingIds}
@@ -822,6 +861,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
   const [entryDoneSavingIds, setEntryDoneSavingIds] = useState<Set<string>>(() => new Set());
   const [doneDates, setDoneDates] = useState<Record<string, string>>({});
+  const [donePrices, setDonePrices] = useState<Record<string, string>>({});
   const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(() => new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
@@ -932,6 +972,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   const handleSetPlanSessionStatus = async (session: PlanSession, status: PlanSessionStatus) => {
     if (planSessionSavingIds.has(session.id)) return;
+    if ((status === "completed" || status === "missed") && !isPlanSessionActionable(session)) return;
 
     setError(null);
     setPlanSessionSavingIds((current) => new Set(current).add(session.id));
@@ -954,6 +995,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setDoneDates((current) => ({ ...current, [entryId]: date }));
   };
 
+  const handleDonePriceChange = (entryId: string, price: string) => {
+    setDonePrices((current) => ({ ...current, [entryId]: price }));
+  };
+
   const toggleDoneAction = (entryId: string) => {
     setExpandedDoneIds((current) => {
       const next = new Set(current);
@@ -970,12 +1015,33 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     if (entryDoneSavingIds.has(entry.id)) return;
     const doneDate = doneDates[entry.id] ?? getDateInputValue();
     if (!doneDate) return;
+    const isSubscription = entry.category.toLocaleLowerCase() === "subscription";
+    const rawPrice = donePrices[entry.id] ?? (entry.price !== null ? String(entry.price) : "");
+    const parsedPrice = rawPrice.trim() ? Number(rawPrice) : null;
+    if (isSubscription && (parsedPrice === null || !Number.isFinite(parsedPrice) || parsedPrice < 0)) {
+      setError("Enter a valid subscription price.");
+      return;
+    }
 
     setError(null);
     setEntryDoneSavingIds((current) => new Set(current).add(entry.id));
     try {
-      await logEntryAgain(entry, new Date(doneDate));
+      await logEntryAgain(
+        entry,
+        new Date(doneDate),
+        isSubscription
+          ? {
+              price: parsedPrice,
+              currency: typeof entry.metadata.currency === "string" ? entry.metadata.currency : null,
+            }
+          : {}
+      );
       setDoneDates((current) => {
+        const next = { ...current };
+        delete next[entry.id];
+        return next;
+      });
+      setDonePrices((current) => {
         const next = { ...current };
         delete next[entry.id];
         return next;
@@ -1166,11 +1232,15 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 collapsed={collapsedSections.has(group.title)}
                 planSessionsByEntryId={planSessionsByEntryId}
                 onToggle={() => toggleSection(group.title)}
-                onOpen={(entry) => navigate(isPlanEntry(entry) ? "/plans" : `/entry/${entry.id}`)}
+                onOpen={(entry) =>
+                  navigate(isPlanEntry(entry) ? "/plans" : isReadingEntry(entry) ? `/reading?focus=${entry.id}` : `/entry/${entry.id}`)
+                }
                 onToggleFavorite={handleToggleFavorite}
                 onMarkDone={handleMarkEntryDone}
                 doneDates={doneDates}
+                donePrices={donePrices}
                 onDoneDateChange={handleDoneDateChange}
+                onDonePriceChange={handleDonePriceChange}
                 onSetPlanSessionStatus={handleSetPlanSessionStatus}
                 favoriteSavingIds={favoriteSavingIds}
                 entryDoneSavingIds={entryDoneSavingIds}

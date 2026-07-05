@@ -141,11 +141,13 @@ export default function EntryDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logDate, setLogDate] = useState("");
+  const [logPrice, setLogPrice] = useState("");
   const [logError, setLogError] = useState<string | null>(null);
   const [logCompleted, setLogCompleted] = useState(false);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [editHistoryDate, setEditHistoryDate] = useState("");
   const [editHistoryNotes, setEditHistoryNotes] = useState("");
+  const [editHistoryPrice, setEditHistoryPrice] = useState("");
   const [historySavingId, setHistorySavingId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,6 +173,12 @@ export default function EntryDetail() {
     };
     void load();
   }, [entryId]);
+
+  useEffect(() => {
+    if (entry && normalizeCategory(entry.category) === "subscription" && entry.price !== null && !logPrice) {
+      setLogPrice(String(entry.price));
+    }
+  }, [entry, logPrice]);
 
   const timeSummary = useMemo(() => {
     if (!entry) return null;
@@ -202,6 +210,8 @@ export default function EntryDetail() {
         loggedDate: record.logged_date,
         label: record.notes || entry.title,
         notes: record.notes,
+        price: record.price,
+        currency: record.currency,
         isCurrent,
       };
     });
@@ -215,6 +225,8 @@ export default function EntryDetail() {
             loggedDate: entry.entry_date,
             label: entry.title,
             notes: "",
+            price: entry.price,
+            currency: typeof entry.metadata.currency === "string" ? entry.metadata.currency : null,
             isCurrent: true,
           },
           ...loggedEvents,
@@ -230,10 +242,25 @@ export default function EntryDetail() {
       setLogError("Choose a log date first.");
       return;
     }
+    const isSubscriptionEntry = normalizeCategory(entry.category) === "subscription";
+    const parsedLogPrice = logPrice.trim() ? Number(logPrice) : entry.price;
+    if (isSubscriptionEntry && (parsedLogPrice === null || !Number.isFinite(parsedLogPrice) || parsedLogPrice < 0)) {
+      setLogError("Enter a valid subscription price.");
+      return;
+    }
 
     try {
       const loggedAt = new Date(logDate);
-      await logEntryAgain(entry, loggedAt);
+      await logEntryAgain(
+        entry,
+        loggedAt,
+        isSubscriptionEntry
+          ? {
+              price: parsedLogPrice,
+              currency: typeof entry.metadata.currency === "string" ? entry.metadata.currency : null,
+            }
+          : {}
+      );
       const [updated, historyRecords] = await Promise.all([
         getEntryById(entryId),
         getHistoryForEntry(entryId),
@@ -241,6 +268,9 @@ export default function EntryDetail() {
       setEntry(updated);
       setHistory(historyRecords);
       setLogDate("");
+      if (updated && updated.price !== null && normalizeCategory(updated.category) === "subscription") {
+        setLogPrice(String(updated.price));
+      }
       setLogCompleted(true);
       window.setTimeout(() => setLogCompleted(false), 1200);
     } catch (saveError) {
@@ -268,10 +298,15 @@ export default function EntryDetail() {
 
     const isSubscriptionEntry = normalizeCategory(entry.category) === "subscription";
     const nextEntryDate = isSubscriptionEntry ? entry.entry_date : latest.toISOString();
+    const latestRecord = historyRecords
+      .filter((record) => typeof record.price === "number")
+      .sort((a, b) => new Date(b.logged_date).getTime() - new Date(a.logged_date).getTime())[0];
 
     await updateEntry(entryId, {
       ...(isSubscriptionEntry
-        ? {}
+        ? {
+            price: latestRecord?.price ?? entry.price,
+          }
         : {
             entry_date: nextEntryDate,
           }),
@@ -285,11 +320,12 @@ export default function EntryDetail() {
     });
   };
 
-  const startEditingHistory = (record: { historyId: string | null; loggedDate: string; notes: string }) => {
+  const startEditingHistory = (record: { historyId: string | null; loggedDate: string; notes: string; price: number | null }) => {
     if (!record.historyId) return;
     setEditingHistoryId(record.historyId);
     setEditHistoryDate(parseISO(record.loggedDate).toISOString().slice(0, 10));
     setEditHistoryNotes(record.notes);
+    setEditHistoryPrice(record.price !== null ? String(record.price) : "");
   };
 
   const handleSaveHistory = async (historyId: string) => {
@@ -300,9 +336,22 @@ export default function EntryDetail() {
     setHistorySavingId(historyId);
     setLogError(null);
     try {
+      const isSubscriptionEntry = entry ? normalizeCategory(entry.category) === "subscription" : false;
+      const parsedEditPrice = editHistoryPrice.trim() ? Number(editHistoryPrice) : null;
+      if (isSubscriptionEntry && (parsedEditPrice === null || !Number.isFinite(parsedEditPrice) || parsedEditPrice < 0)) {
+        setLogError("Enter a valid subscription price.");
+        setHistorySavingId(null);
+        return;
+      }
       await updateHistory(historyId, {
         logged_date: new Date(editHistoryDate).toISOString(),
         notes: editHistoryNotes.trim(),
+        ...(isSubscriptionEntry
+          ? {
+              price: parsedEditPrice,
+              currency: typeof entry?.metadata.currency === "string" ? entry.metadata.currency : null,
+            }
+          : {}),
       });
       const historyRecords = entryId ? await getHistoryForEntry(entryId) : [];
       await syncEntryFromHistory(historyRecords);
@@ -758,6 +807,18 @@ export default function EntryDetail() {
               className="h-10 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
               aria-label="Log date"
             />
+            {isSubscription ? (
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={logPrice}
+                onChange={(event) => setLogPrice(event.target.value)}
+                className="h-10 w-28 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+                aria-label="Subscription price"
+                placeholder="Price"
+              />
+            ) : null}
             <Button onClick={handleLogAgain}>Log Again</Button>
           </div>
         </div>
@@ -775,13 +836,24 @@ export default function EntryDetail() {
                 className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-200 bg-stone-50 px-4 py-3"
               >
                 {editingHistoryId === record.historyId && record.historyId ? (
-                  <div className="grid flex-1 gap-2 md:grid-cols-[12rem_minmax(0,1fr)_auto] md:items-center">
+                  <div className={`grid flex-1 gap-2 md:items-center ${isSubscription ? "md:grid-cols-[12rem_8rem_minmax(0,1fr)_auto]" : "md:grid-cols-[12rem_minmax(0,1fr)_auto]"}`}>
                     <input
                       type="date"
                       value={editHistoryDate}
                       onChange={(event) => setEditHistoryDate(event.target.value)}
                       className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
                     />
+                    {isSubscription ? (
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editHistoryPrice}
+                        onChange={(event) => setEditHistoryPrice(event.target.value)}
+                        className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
+                        placeholder="Price"
+                      />
+                    ) : null}
                     <input
                       value={editHistoryNotes}
                       onChange={(event) => setEditHistoryNotes(event.target.value)}
@@ -816,6 +888,11 @@ export default function EntryDetail() {
                       <p className="text-xs text-stone-500">
                         {record.label}
                       </p>
+                      {isSubscription ? (
+                        <p className="mt-1 text-xs font-medium text-stone-700">
+                          {record.price !== null ? formatMoney(record.price, record.currency ?? entry.metadata.currency) : "Price not recorded"}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xs text-stone-500">{format(parseISO(record.loggedDate), "PPP p")}</p>

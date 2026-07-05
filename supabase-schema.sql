@@ -55,8 +55,16 @@ create table if not exists public.entry_logs (
   user_id uuid not null references auth.users(id) on delete cascade,
   logged_date timestamptz not null,
   notes text not null default '',
+  price numeric(12, 2),
+  currency text,
   created_at timestamptz not null default now()
 );
+
+alter table public.entry_logs
+  add column if not exists price numeric(12, 2);
+
+alter table public.entry_logs
+  add column if not exists currency text;
 
 create table if not exists public.plan_sessions (
   id uuid primary key default gen_random_uuid(),
