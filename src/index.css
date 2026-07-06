@@ -7,24 +7,24 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 220 37% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 220 37% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 3.9%;
+    --popover-foreground: 220 37% 12%;
+    --primary: 35 100% 68%;
+    --primary-foreground: 220 37% 12%;
+    --secondary: 203 100% 86%;
+    --secondary-foreground: 220 37% 12%;
+    --muted: 35 100% 92%;
+    --muted-foreground: 218 17% 38%;
+    --accent: 203 100% 76%;
+    --accent-foreground: 220 37% 12%;
+    --destructive: 0 100% 75%;
+    --destructive-foreground: 220 37% 12%;
+    --border: 220 37% 12%;
+    --input: 220 37% 12%;
+    --ring: 203 100% 76%;
     --radius: 0.8rem;
   }
 
@@ -110,7 +110,116 @@ body {
 
 input[type="checkbox"],
 input[type="radio"] {
-  accent-color: rgb(28 25 23);
+  accent-color: rgb(255 188 94);
+}
+
+html:not(.dark) .bg-white {
+  background-color: rgb(255 255 255 / 0.92);
+}
+
+html:not(.dark) .bg-stone-950,
+html:not(.dark) .bg-stone-900 {
+  background-color: rgb(255 188 94);
+}
+
+html:not(.dark) .hover\:bg-stone-800:hover,
+html:not(.dark) .hover\:bg-stone-900:hover,
+html:not(.dark) .hover\:bg-stone-950:hover {
+  background-color: rgb(255 202 131);
+}
+
+html:not(.dark) .bg-amber-50,
+html:not(.dark) .bg-amber-100 {
+  background-color: rgb(255 216 164 / 0.58);
+}
+
+html:not(.dark) .bg-rose-50,
+html:not(.dark) .bg-rose-100 {
+  background-color: rgb(255 181 178 / 0.48);
+}
+
+html:not(.dark) .bg-rose-200 {
+  background-color: rgb(255 155 153 / 0.66);
+}
+
+html:not(.dark) .border-stone-200,
+html:not(.dark) .border-stone-300,
+html:not(.dark) .border-stone-400 {
+  border-color: rgb(21 24 41 / 0.72);
+}
+
+html:not(.dark) .border-b,
+html:not(.dark) .border-t {
+  border-color: rgb(21 24 41 / 0.16);
+}
+
+html:not(.dark) .border-amber-100,
+html:not(.dark) .border-amber-200,
+html:not(.dark) .border-amber-300,
+html:not(.dark) .hover\:border-amber-300:hover,
+html:not(.dark) .hover\:border-amber-400:hover {
+  border-color: rgb(255 188 94 / 0.9);
+}
+
+html:not(.dark) .border-rose-200,
+html:not(.dark) .border-rose-300,
+html:not(.dark) .border-rose-400 {
+  border-color: rgb(255 128 128 / 0.78);
+}
+
+html:not(.dark) .text-white {
+  color: rgb(21 24 41);
+}
+
+html:not(.dark) .text-stone-950,
+html:not(.dark) .text-stone-900,
+html:not(.dark) .text-stone-800,
+html:not(.dark) .text-stone-700 {
+  color: rgb(21 24 41);
+}
+
+html:not(.dark) .text-stone-600,
+html:not(.dark) .text-stone-500,
+html:not(.dark) .text-stone-400 {
+  color: rgb(75 84 105);
+}
+
+html:not(.dark) .text-amber-600,
+html:not(.dark) .text-amber-700,
+html:not(.dark) .text-amber-800 {
+  color: rgb(132 76 12);
+}
+
+html:not(.dark) .text-rose-600,
+html:not(.dark) .text-rose-700,
+html:not(.dark) .text-rose-800 {
+  color: rgb(149 42 48);
+}
+
+html:not(.dark) .hover\:bg-stone-50:hover,
+html:not(.dark) .hover\:bg-stone-100:hover {
+  background-color: rgb(185 228 255 / 0.36);
+}
+
+html:not(.dark) .hover\:border-stone-300:hover,
+html:not(.dark) .hover\:border-stone-400:hover,
+html:not(.dark) .hover\:border-stone-500:hover {
+  border-color: rgb(135 209 255);
+}
+
+html:not(.dark) input,
+html:not(.dark) select,
+html:not(.dark) textarea {
+  border-color: rgb(21 24 41 / 0.72);
+  background-color: rgb(255 255 255 / 0.94);
+  color: rgb(21 24 41);
+}
+
+html:not(.dark) input:focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  border-color: rgb(135 209 255);
+  box-shadow: 0 0 0 3px rgb(185 228 255 / 0.52);
 }
 
 .dark input[type="checkbox"],

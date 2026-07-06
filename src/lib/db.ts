@@ -303,6 +303,19 @@ export async function getHistoryForEntry(entryId: string): Promise<HistoryItem[]
   return (data ?? []) as HistoryItem[];
 }
 
+export async function getHistoryForEntries(entryIds: string[]): Promise<HistoryItem[]> {
+  if (entryIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('entry_logs')
+    .select(historySelect)
+    .in('entry_id', entryIds)
+    .order('logged_date', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as HistoryItem[];
+}
+
 export async function insertHistory(
   history: Pick<HistoryItem, 'entry_id' | 'logged_date' | 'notes'> &
     Partial<Pick<HistoryItem, 'price' | 'currency'>>
@@ -321,13 +334,17 @@ export async function insertHistory(
 export async function updateHistory(
   id: string,
   updates: Partial<Pick<HistoryItem, 'logged_date' | 'notes' | 'price' | 'currency'>>
-): Promise<void> {
-  const { error } = await supabase
+): Promise<HistoryItem> {
+  const { data, error } = await supabase
     .from('entry_logs')
     .update(updates)
-    .eq('id', id);
+    .eq('id', id)
+    .select(historySelect)
+    .maybeSingle();
 
   if (error) throw error;
+  if (!data) throw new Error('No history record was updated. Check that you are signed in as the owner of this log.');
+  return data as HistoryItem;
 }
 
 export async function deleteHistory(id: string): Promise<void> {

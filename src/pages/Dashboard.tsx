@@ -9,6 +9,7 @@ import {
   getAllEntries,
   getAreas,
   getCategories,
+  getHistoryForEntries,
   insertArea,
   insertCategory,
   logEntryAgain,
@@ -17,7 +18,7 @@ import {
   updateEntry,
 } from "@/lib/db";
 import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
-import type { Entry, EntryOption } from "@/types/entry";
+import type { Entry, EntryOption, HistoryItem } from "@/types/entry";
 import type { PlanSession, PlanSessionStatus } from "@/types/plan";
 
 type SortOption = "created" | "overdue" | "area";
@@ -358,6 +359,20 @@ function isReadingEntry(entry: Entry) {
   return entry.category.toLocaleLowerCase() === "reading";
 }
 
+function isSubscriptionEntry(entry: Entry) {
+  return entry.category.trim().toLocaleLowerCase().replace(/[_-]+/g, " ") === "subscription";
+}
+
+function getLatestLogDatesByEntryId(history: HistoryItem[]) {
+  return history.reduce<Record<string, string>>((latestByEntryId, record) => {
+    const current = latestByEntryId[record.entry_id];
+    if (!current || new Date(record.logged_date) > new Date(current)) {
+      latestByEntryId[record.entry_id] = record.logged_date;
+    }
+    return latestByEntryId;
+  }, {});
+}
+
 function getReadingStatus(entry: Entry) {
   return typeof entry.metadata.reading_status === "string" ? entry.metadata.reading_status : "to_read";
 }
@@ -462,6 +477,7 @@ function getToneClasses(tone: string) {
 function CompactDashboardListItem({
   entry,
   planSessions = [],
+  latestSubscriptionLogDate,
   onOpen,
   onToggleFavorite,
   onMarkDone,
@@ -479,6 +495,7 @@ function CompactDashboardListItem({
 }: {
   entry: Entry;
   planSessions?: PlanSession[];
+  latestSubscriptionLogDate?: string;
   onOpen: () => void;
   onToggleFavorite: () => void;
   onMarkDone: () => void;
@@ -495,7 +512,7 @@ function CompactDashboardListItem({
   accent?: "amber" | "neutral";
 }) {
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
-  const isSubscription = entry.category.toLocaleLowerCase() === "subscription";
+  const isSubscription = isSubscriptionEntry(entry);
   const isPlan = isPlanEntry(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
@@ -504,8 +521,18 @@ function CompactDashboardListItem({
   const due = getDueCopy(dueEntry);
   const canActOnPlanSession = Boolean(planSession && isPlanSessionActionable(planSession));
   const completedCount = getNumberMetadata(entry, "completed_count");
-  const durationDate = isPlan && planLastDoneDate ? planLastDoneDate : entry.entry_date;
-  const durationLabel = isPlan ? (planLastDoneDate ? "since last done" : "since start") : "since last logged";
+  const durationDate = isSubscription
+    ? latestSubscriptionLogDate ?? entry.entry_date
+    : isPlan && planLastDoneDate
+      ? planLastDoneDate
+      : entry.entry_date;
+  const durationLabel = isSubscription
+    ? "since latest payment"
+    : isPlan
+      ? planLastDoneDate
+        ? "since last done"
+        : "since start"
+      : "since last logged";
   const borderClass = accent === "amber" ? "border-amber-200/70 dark:border-amber-300/15" : "border-stone-200 dark:border-white/10";
 
   return (
@@ -631,6 +658,7 @@ function CompactDashboardListItem({
 function CompactDashboardList({
   entries,
   planSessionsByEntryId,
+  latestSubscriptionLogDates,
   onOpen,
   onToggleFavorite,
   onMarkDone,
@@ -648,6 +676,7 @@ function CompactDashboardList({
 }: {
   entries: Entry[];
   planSessionsByEntryId: Map<string, PlanSession[]>;
+  latestSubscriptionLogDates: Record<string, string>;
   onOpen: (entry: Entry) => void;
   onToggleFavorite: (entry: Entry) => void;
   onMarkDone: (entry: Entry) => void;
@@ -665,8 +694,8 @@ function CompactDashboardList({
 }) {
   const shellClass =
     accent === "amber"
-      ? "border-amber-200 bg-amber-50/80 dark:border-amber-300/25 dark:bg-amber-200/10"
-      : "border-stone-200 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]";
+      ? "border-[#87d1ff] bg-amber-50/80 dark:border-amber-300/25 dark:bg-amber-200/10"
+      : "border-[#87d1ff] bg-white/70 dark:border-white/10 dark:bg-white/[0.04]";
 
   return (
     <div className="p-4">
@@ -676,6 +705,7 @@ function CompactDashboardList({
             key={entry.id}
             entry={entry}
             planSessions={planSessionsByEntryId.get(entry.id) ?? []}
+            latestSubscriptionLogDate={latestSubscriptionLogDates[entry.id]}
             onOpen={() => onOpen(entry)}
             onToggleFavorite={() => onToggleFavorite(entry)}
             onMarkDone={() => onMarkDone(entry)}
@@ -746,7 +776,7 @@ function ReadingDashboardColumns({ entries, onOpen }: { entries: Entry[]; onOpen
   const links = sortReading(entries.filter((entry) => getStringMetadata(entry, "reading_url")));
 
   const renderColumn = (items: Entry[], empty: string) => (
-    <section className="rounded-xl border border-stone-200 bg-white/70 px-4 py-2 shadow-sm dark:border-sky-300/20 dark:bg-sky-950/20">
+    <section className="rounded-xl border border-[#87d1ff] bg-white/70 px-4 py-2 shadow-sm dark:border-sky-300/20 dark:bg-sky-950/20">
       {items.length === 0 ? (
         <p className="py-2 text-sm text-stone-500 dark:text-stone-400">{empty}</p>
       ) : (
@@ -771,6 +801,7 @@ type EntrySectionProps = {
   group: EntryGroup;
   collapsed: boolean;
   planSessionsByEntryId: Map<string, PlanSession[]>;
+  latestSubscriptionLogDates: Record<string, string>;
   onToggle: () => void;
   onOpen: (entry: Entry) => void;
   onToggleFavorite: (entry: Entry) => void;
@@ -791,6 +822,7 @@ function EntrySection({
   group,
   collapsed,
   planSessionsByEntryId,
+  latestSubscriptionLogDates,
   onToggle,
   onOpen,
   onToggleFavorite,
@@ -831,6 +863,7 @@ function EntrySection({
         <CompactDashboardList
           entries={group.entries}
           planSessionsByEntryId={planSessionsByEntryId}
+          latestSubscriptionLogDates={latestSubscriptionLogDates}
           onOpen={onOpen}
           onToggleFavorite={onToggleFavorite}
           onMarkDone={onMarkDone}
@@ -852,6 +885,7 @@ function EntrySection({
         <CompactDashboardList
           entries={group.entries}
           planSessionsByEntryId={planSessionsByEntryId}
+          latestSubscriptionLogDates={latestSubscriptionLogDates}
           onOpen={onOpen}
           onToggleFavorite={onToggleFavorite}
           onMarkDone={onMarkDone}
@@ -875,6 +909,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [planSessions, setPlanSessions] = useState<PlanSession[]>([]);
+  const [latestSubscriptionLogDates, setLatestSubscriptionLogDates] = useState<Record<string, string>>({});
   const [areas, setAreas] = useState<EntryOption[]>([]);
   const [categories, setCategories] = useState<EntryOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -898,14 +933,17 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setLoading(true);
     setError(null);
     try {
-      const [entryData, planSessionData, areaData, categoryData] = await Promise.all([
-        getAllEntries(),
+      const entryData = await getAllEntries();
+      const subscriptionIds = entryData.filter(isSubscriptionEntry).map((entry) => entry.id);
+      const [planSessionData, areaData, categoryData, subscriptionHistory] = await Promise.all([
         getAllPlanSessions(),
         getAreas(),
         getCategories(),
+        getHistoryForEntries(subscriptionIds),
       ]);
       setEntries(entryData);
       setPlanSessions(planSessionData);
+      setLatestSubscriptionLogDates(getLatestLogDatesByEntryId(subscriptionHistory));
       setAreas(areaData);
       setCategories(categoryData);
     } catch (loadError) {
@@ -921,14 +959,17 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   }, [loadDashboard]);
 
   const refreshData = async () => {
-    const [entryData, planSessionData, areaData, categoryData] = await Promise.all([
-      getAllEntries(),
+    const entryData = await getAllEntries();
+    const subscriptionIds = entryData.filter(isSubscriptionEntry).map((entry) => entry.id);
+    const [planSessionData, areaData, categoryData, subscriptionHistory] = await Promise.all([
       getAllPlanSessions(),
       getAreas(),
       getCategories(),
+      getHistoryForEntries(subscriptionIds),
     ]);
     setEntries(entryData);
     setPlanSessions(planSessionData);
+    setLatestSubscriptionLogDates(getLatestLogDatesByEntryId(subscriptionHistory));
     setAreas(areaData);
     setCategories(categoryData);
   };
@@ -1306,6 +1347,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 group={group}
                 collapsed={collapsedSections.has(group.title)}
                 planSessionsByEntryId={planSessionsByEntryId}
+                latestSubscriptionLogDates={latestSubscriptionLogDates}
                 onToggle={() => toggleSection(group.title)}
                 onOpen={(entry) =>
                   navigate(isPlanEntry(entry) ? "/plans" : isReadingEntry(entry) ? `/reading?focus=${entry.id}` : `/entry/${entry.id}`)

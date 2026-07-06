@@ -191,6 +191,11 @@ export default function EntryDetail() {
     return getRoutineSummary(entry, history);
   }, [entry, history]);
 
+  const latestEventDate = useMemo(() => {
+    if (!entry) return null;
+    return getLatestEventDate(entry, history);
+  }, [entry, history]);
+
   const totalSpend = useMemo(() => {
     if (!entry || normalizeCategory(entry.category) !== "purchase" || entry.price === null) return null;
     const count = 1 + history.length;
@@ -199,9 +204,10 @@ export default function EntryDetail() {
 
   const historyEvents = useMemo(() => {
     if (!entry) return [];
-    const currentTime = new Date(entry.entry_date).getTime();
-    const hasCurrentHistoryRecord = history.some(
-      (record) => new Date(record.logged_date).getTime() === currentTime
+    const entryTime = new Date(entry.entry_date).getTime();
+    const currentTime = getLatestEventDate(entry, history).getTime();
+    const hasEntryDateHistoryRecord = history.some(
+      (record) => new Date(record.logged_date).getTime() === entryTime
     );
     const loggedEvents = history.map((record) => {
       const isCurrent = new Date(record.logged_date).getTime() === currentTime;
@@ -213,11 +219,12 @@ export default function EntryDetail() {
         notes: record.notes,
         price: record.price,
         currency: record.currency,
+        priceSource: "log",
         isCurrent,
       };
     });
 
-    const events = hasCurrentHistoryRecord
+    const events = hasEntryDateHistoryRecord
       ? loggedEvents
       : [
           {
@@ -228,7 +235,8 @@ export default function EntryDetail() {
             notes: "",
             price: entry.price,
             currency: typeof entry.metadata.currency === "string" ? entry.metadata.currency : null,
-            isCurrent: true,
+            priceSource: "entry",
+            isCurrent: entryTime === currentTime,
           },
           ...loggedEvents,
         ];
@@ -344,7 +352,7 @@ export default function EntryDetail() {
         setHistorySavingId(null);
         return;
       }
-      await updateHistory(historyId, {
+      const updatedHistory = await updateHistory(historyId, {
         logged_date: new Date(editHistoryDate).toISOString(),
         notes: editHistoryNotes.trim(),
         ...(isSubscriptionEntry
@@ -354,13 +362,14 @@ export default function EntryDetail() {
             }
           : {}),
       });
+      setHistory((current) => current.map((record) => (record.id === historyId ? updatedHistory : record)));
       const historyRecords = entryId ? await getHistoryForEntry(entryId) : [];
       await syncEntryFromHistory(historyRecords);
       await reloadEntryAndHistory();
       setEditingHistoryId(null);
     } catch (saveError) {
       console.error(saveError);
-      setLogError("Unable to update this history record.");
+      setLogError(saveError instanceof Error ? saveError.message : "Unable to update this history record.");
     } finally {
       setHistorySavingId(null);
     }
@@ -563,15 +572,17 @@ export default function EntryDetail() {
         </div>
         <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
-            {isGoal || isSubscription ? "Time since start" : isPurchase ? "Days owned" : isRoutine || isHealthRecord ? "Time since" : "Time summary"}
+            {isSubscription ? "Time since payment" : isGoal ? "Time since start" : isPurchase ? "Days owned" : isRoutine || isHealthRecord ? "Time since" : "Time summary"}
           </p>
           <p className="mt-2 text-lg font-semibold dark:text-stone-50">
-            {isRoutine && routineSummary
+            {isSubscription && latestEventDate
+              ? formatYearMonthDayDuration(latestEventDate).replace(/ ago$/, "")
+              : isRoutine && routineSummary
               ? formatYearMonthDayDuration(routineSummary.lastDone).replace(/ ago$/, "")
               : formatYearMonthDayDuration(entry.entry_date).replace(/ ago$/, "")}
           </p>
           <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-            {isGoal || isSubscription ? "since start" : isPurchase ? "since purchase" : isHealthRecord || isRoutine ? "since last done" : "since last logged"}
+            {isSubscription ? "since latest payment" : isGoal ? "since start" : isPurchase ? "since purchase" : isHealthRecord || isRoutine ? "since last done" : "since last logged"}
           </p>
         </div>
       </div>
@@ -866,7 +877,8 @@ export default function EntryDetail() {
                         value={editHistoryPrice}
                         onChange={(event) => setEditHistoryPrice(event.target.value)}
                         className="h-9 rounded-lg border border-stone-300 bg-white px-3 text-sm text-stone-700"
-                        placeholder="Price"
+                        aria-label="Log price"
+                        placeholder="Log price"
                       />
                     ) : null}
                     <input
@@ -898,12 +910,18 @@ export default function EntryDetail() {
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                         <p className="text-sm font-medium text-stone-800 dark:text-stone-100">
-                        {formatYearMonthDayDuration(record.loggedDate)}
-                        {record.isCurrent ? <span className="ml-2 text-xs font-normal text-emerald-700">Current</span> : null}
+                          {format(parseISO(record.loggedDate), "PPP")}
+                          {record.isCurrent ? <span className="ml-2 text-xs font-normal text-emerald-700">Current</span> : null}
+                        </p>
+                        <p className="text-xs text-stone-500 dark:text-stone-400">
+                          {formatYearMonthDayDuration(record.loggedDate)}
                         </p>
                         {isSubscription ? (
                           <p className="text-xs font-medium text-stone-700 dark:text-stone-300">
-                            {record.price !== null ? formatMoney(record.price, record.currency ?? entry.metadata.currency) : "Price not recorded"}
+                            <span className="text-stone-400 dark:text-stone-500">
+                              {record.priceSource === "entry" ? "Entry price: " : "Log price: "}
+                            </span>
+                            {record.price !== null ? formatMoney(record.price, record.currency ?? entry.metadata.currency) : "Not recorded"}
                           </p>
                         ) : null}
                       </div>
