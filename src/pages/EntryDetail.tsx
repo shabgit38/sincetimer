@@ -1,6 +1,6 @@
 import { addDays, differenceInCalendarDays, format, isAfter, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -890,18 +890,24 @@ export default function EntryDetail() {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
+                        className="w-8 !px-0"
                         disabled={historySavingId === record.historyId}
                         onClick={() => void handleSaveHistory(record.historyId!)}
+                        title="Save history changes"
+                        aria-label="Save history changes"
                       >
-                        Save
+                        <SaveIcon className="h-4 w-4" />
                       </Button>
                       <Button
                         size="sm"
+                        className="w-8 !px-0"
                         variant="outline"
                         disabled={historySavingId === record.historyId}
                         onClick={() => setEditingHistoryId(null)}
+                        title="Cancel history editing"
+                        aria-label="Cancel history editing"
                       >
-                        Cancel
+                        <X className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>

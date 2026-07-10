@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Menu, Moon, Search, Settings as SettingsIcon, Sun, X } from 'lucide-react';
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import type { Session } from '@supabase/supabase-js';
 import Dashboard from './pages/Dashboard';
 import AddEntry from './pages/AddEntry';
@@ -14,12 +14,14 @@ import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { Button } from './components/ui/button';
 
 export default function App() {
+  const location = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(isSupabaseConfigured);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOpenLocationKey, setMenuOpenLocationKey] = useState<string | null>(null);
+  const menuOpen = menuOpenLocationKey === location.key;
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -111,7 +113,7 @@ export default function App() {
                 className="w-9 px-0"
                 aria-label="Open navigation menu"
                 aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((current) => !current)}
+                onClick={() => setMenuOpenLocationKey(menuOpen ? null : location.key)}
               >
                 <Menu className="h-4 w-4" />
               </Button>
@@ -119,7 +121,7 @@ export default function App() {
                 <div className="absolute right-0 top-11 z-20 grid min-w-36 gap-1 rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-stone-950">
                   <NavLink
                     to="/plans"
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => setMenuOpenLocationKey(null)}
                     className={({ isActive }) =>
                       `rounded-lg px-3 py-2 text-sm font-medium transition ${
                         isActive
@@ -132,7 +134,7 @@ export default function App() {
                   </NavLink>
                   <NavLink
                     to="/reading"
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => setMenuOpenLocationKey(null)}
                     className={({ isActive }) =>
                       `rounded-lg px-3 py-2 text-sm font-medium transition ${
                         isActive
@@ -145,7 +147,7 @@ export default function App() {
                   </NavLink>
                   <NavLink
                     to="/finplanner"
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => setMenuOpenLocationKey(null)}
                     className={({ isActive }) =>
                       `rounded-lg px-3 py-2 text-sm font-medium transition ${
                         isActive

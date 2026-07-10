@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, Plus, Star } from "lucide-react";
+import { ChevronDown, ExternalLink, MessageSquarePlus, Plus, Save as SaveIcon, Star, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import type { PlanSession, PlanSessionStatus } from "@/types/plan";
 
 type SortOption = "created" | "overdue" | "area";
 type ManagedKind = "area" | "category";
+type ReadingStatus = "to_read" | "reading" | "done";
 
 type DashboardProps = {
   searchQuery?: string;
@@ -100,20 +101,23 @@ function EditableOptionButton({ active, option, onSelect, onRename }: EditableOp
           className="h-8 w-32 rounded-lg border border-stone-300 bg-white px-2 text-sm text-stone-700 outline-none"
           autoFocus
         />
-        <Button size="sm" type="submit" disabled={saving}>
-          Save
+        <Button size="sm" className="w-8 !px-0" type="submit" disabled={saving} title="Save renamed item" aria-label="Save renamed item">
+          <SaveIcon className="h-4 w-4" />
         </Button>
         <Button
           size="sm"
+          className="w-8 !px-0"
           variant="ghost"
           type="button"
           disabled={saving}
+          title="Cancel renaming"
+          aria-label="Cancel renaming"
           onClick={() => {
             setName(option.name);
             setEditing(false);
           }}
         >
-          Cancel
+          <X className="h-4 w-4" />
         </Button>
       </form>
     );
@@ -134,7 +138,7 @@ function EditableOptionButton({ active, option, onSelect, onRename }: EditableOp
       <Button
         variant={active ? "default" : "outline"}
         size="sm"
-        className={`w-8 rounded-l-none border-l-0 px-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 ${
+        className={`w-8 rounded-l-none border-l-0 px-0 opacity-40 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
           active ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
         }`}
         onClick={() => setEditing(true)}
@@ -187,20 +191,23 @@ function AddOptionControl({ active, onCancel, onSave }: AddOptionControlProps) {
         className="h-8 w-36 rounded-lg border border-stone-300 bg-white px-2 text-sm text-stone-700 outline-none"
         autoFocus
       />
-      <Button size="sm" type="submit" disabled={saving || !name.trim()}>
-        Save
+      <Button size="sm" className="w-8 !px-0" type="submit" disabled={saving || !name.trim()} title="Save new item" aria-label="Save new item">
+        <SaveIcon className="h-4 w-4" />
       </Button>
       <Button
         size="sm"
+        className="w-8 !px-0"
         variant="ghost"
         type="button"
         disabled={saving}
+        title="Cancel adding item"
+        aria-label="Cancel adding item"
         onClick={() => {
           setName("");
           onCancel();
         }}
       >
-        Cancel
+        <X className="h-4 w-4" />
       </Button>
     </form>
   );
@@ -373,8 +380,10 @@ function getLatestLogDatesByEntryId(history: HistoryItem[]) {
   }, {});
 }
 
-function getReadingStatus(entry: Entry) {
-  return typeof entry.metadata.reading_status === "string" ? entry.metadata.reading_status : "to_read";
+function getReadingStatus(entry: Entry): ReadingStatus {
+  return entry.metadata.reading_status === "reading" || entry.metadata.reading_status === "done"
+    ? entry.metadata.reading_status
+    : "to_read";
 }
 
 function getReadingStatusRank(entry: Entry) {
@@ -664,11 +673,13 @@ function CompactDashboardListItem({
           ) : null}
           <Button
             size="sm"
-            className="h-8 px-3 text-xs"
+            className="h-8 w-8 !px-0"
             disabled={entryDoneSaving || !doneDate || (isSubscription && !donePrice)}
             onClick={onMarkDone}
+            title="Save completed entry"
+            aria-label="Save completed entry"
           >
-            Save Done
+            <SaveIcon className="h-4 w-4" />
           </Button>
         </div>
       ) : null}
@@ -756,14 +767,43 @@ function CompactDashboardList({
   );
 }
 
-function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
+function ReadingDashboardListItem({
+  entry,
+  onOpen,
+  onStatusChange,
+  onSaveNotes,
+  statusSaving,
+  notesSaving,
+}: {
+  entry: Entry;
+  onOpen: () => void;
+  onStatusChange: (entry: Entry, status: ReadingStatus) => void;
+  onSaveNotes: (entry: Entry, notes: string) => Promise<void>;
+  statusSaving: boolean;
+  notesSaving: boolean;
+}) {
   const topic = getStringMetadata(entry, "reading_topic");
   const url = getStringMetadata(entry, "reading_url");
   const status = getReadingStatus(entry);
-  const statusLabel = status === "reading" ? "Reading" : status === "done" ? "Done" : "To read";
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(entry.notes ?? "");
+
+  const openNotes = () => {
+    setNotesDraft(entry.notes ?? "");
+    setNotesOpen(true);
+  };
+
+  const saveNotes = async () => {
+    try {
+      await onSaveNotes(entry, notesDraft);
+      setNotesOpen(false);
+    } catch {
+      // Keep the pop-up open so the user can retry.
+    }
+  };
 
   return (
-    <li className="border-b border-[#ffb5b2]/35 py-2 last:border-b-0 dark:border-[#ffb5b2]/35">
+    <li className="relative border-b border-[#ffb5b2]/35 py-2 last:border-b-0 dark:border-[#ffb5b2]/35">
       <div className="flex items-start justify-between gap-3">
         <button type="button" className="min-w-0 text-left" onClick={onOpen}>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -773,9 +813,6 @@ function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () 
                 {topic}
               </span>
             ) : null}
-            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${getReadingStatusChipClass(status)}`}>
-              {statusLabel}
-            </span>
           </div>
         </button>
         {url ? (
@@ -791,11 +828,76 @@ function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () 
           </a>
         ) : null}
       </div>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className={`inline-flex h-7 items-center rounded-full px-2 text-[11px] font-medium ${getReadingStatusChipClass(status)}`}>
+          {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            className="grid h-8 w-8 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-400 hover:bg-stone-100 hover:text-stone-950 dark:border-white/20 dark:text-stone-300 dark:hover:border-white/35 dark:hover:bg-white/[0.08] dark:hover:text-white"
+            onClick={openNotes}
+            aria-label={`${entry.notes ? "Edit" : "Add"} notes for ${entry.title}`}
+            title={entry.notes ? "Edit notes" : "Add notes"}
+          >
+            <MessageSquarePlus className="h-4 w-4" />
+          </button>
+          {status !== "done" ? (
+            <select
+              className="h-8 cursor-pointer rounded-lg border border-stone-300 bg-white px-2 py-0 text-xs text-stone-700 outline-none transition hover:border-stone-400 focus:border-stone-500 focus:ring-2 focus:ring-stone-200 disabled:cursor-wait disabled:opacity-70 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:hover:border-white/35 dark:focus:border-stone-300 dark:focus:ring-white/10"
+              value=""
+              disabled={statusSaving}
+              onChange={(event) => {
+                if (event.target.value) onStatusChange(entry, event.target.value as ReadingStatus);
+              }}
+              aria-label={`Update reading status for ${entry.title}`}
+            >
+              <option value="" disabled>Update status</option>
+              <option value="to_read">To read</option>
+              <option value="reading">Reading</option>
+              <option value="done">Done</option>
+            </select>
+          ) : null}
+        </div>
+      </div>
+      {notesOpen ? (
+        <div className="absolute right-0 top-full z-20 mt-1 w-72 rounded-xl border border-stone-200 bg-white p-2 shadow-xl dark:border-white/15 dark:bg-stone-950">
+          <textarea
+            className="min-h-24 w-full resize-y rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 outline-none focus:border-stone-500 focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-300 dark:focus:ring-white/10"
+            value={notesDraft}
+            onChange={(event) => setNotesDraft(event.target.value)}
+            placeholder="Add notes, highlights, or learnings"
+            autoFocus
+          />
+          <div className="mt-2 flex justify-end gap-1.5">
+            <button
+              type="button"
+              className="grid h-8 w-8 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:bg-stone-100 disabled:opacity-50 dark:border-white/20 dark:text-stone-300 dark:hover:bg-white/[0.08]"
+              onClick={() => setNotesOpen(false)}
+              disabled={notesSaving}
+              aria-label="Cancel notes"
+              title="Cancel notes editing"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="grid h-8 w-8 place-items-center rounded-lg bg-stone-950 text-white transition hover:bg-stone-800 disabled:opacity-50 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white"
+              onClick={() => void saveNotes()}
+              disabled={notesSaving}
+              aria-label="Save notes"
+              title="Save reading notes"
+            >
+              <SaveIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </li>
   );
 }
 
-function ReadingDashboardColumns({ entries, onOpen }: { entries: Entry[]; onOpen: (entry: Entry) => void }) {
+function ReadingDashboardColumns({ entries, onOpen, onStatusChange, onSaveNotes, statusSavingIds, notesSavingIds }: { entries: Entry[]; onOpen: (entry: Entry) => void; onStatusChange: (entry: Entry, status: ReadingStatus) => void; onSaveNotes: (entry: Entry, notes: string) => Promise<void>; statusSavingIds: Set<string>; notesSavingIds: Set<string> }) {
   const sortReading = (items: Entry[]) =>
     [...items].sort((a, b) => {
       const statusCompare = getReadingStatusRank(a) - getReadingStatusRank(b);
@@ -814,7 +916,7 @@ function ReadingDashboardColumns({ entries, onOpen }: { entries: Entry[]; onOpen
       ) : (
         <ul>
           {items.map((entry) => (
-            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} />
+            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} onStatusChange={onStatusChange} onSaveNotes={onSaveNotes} statusSaving={statusSavingIds.has(entry.id)} notesSaving={notesSavingIds.has(entry.id)} />
           ))}
         </ul>
       )}
@@ -843,9 +945,13 @@ type EntrySectionProps = {
   onDoneDateChange: (entryId: string, date: string) => void;
   onDonePriceChange: (entryId: string, price: string) => void;
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  onSetReadingStatus: (entry: Entry, status: ReadingStatus) => void;
+  onSaveReadingNotes: (entry: Entry, notes: string) => Promise<void>;
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
   planSessionSavingIds: Set<string>;
+  readingStatusSavingIds: Set<string>;
+  readingNotesSavingIds: Set<string>;
   expandedDoneIds: Set<string>;
   onToggleDoneAction: (entryId: string) => void;
 };
@@ -864,9 +970,13 @@ function EntrySection({
   onDoneDateChange,
   onDonePriceChange,
   onSetPlanSessionStatus,
+  onSetReadingStatus,
+  onSaveReadingNotes,
   favoriteSavingIds,
   entryDoneSavingIds,
   planSessionSavingIds,
+  readingStatusSavingIds,
+  readingNotesSavingIds,
   expandedDoneIds,
   onToggleDoneAction,
 }: EntrySectionProps) {
@@ -877,7 +987,7 @@ function EntrySection({
   const tone = sectionToneClasses[toneName];
 
   return (
-    <section className={`overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm ${tone.shell}`}>
+    <section className={`${isReadingSection ? "overflow-visible" : "overflow-hidden"} rounded-2xl border border-stone-200 bg-white shadow-sm ${tone.shell}`}>
       <button
         type="button"
         className={`flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition ${tone.header}`}
@@ -913,7 +1023,7 @@ function EntrySection({
           accent="favorite"
         />
       ) : isReadingSection ? (
-        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} />
+        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} onStatusChange={onSetReadingStatus} onSaveNotes={onSaveReadingNotes} statusSavingIds={readingStatusSavingIds} notesSavingIds={readingNotesSavingIds} />
       ) : (
         <CompactDashboardList
           entries={group.entries}
@@ -958,6 +1068,8 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [doneDates, setDoneDates] = useState<Record<string, string>>({});
   const [donePrices, setDonePrices] = useState<Record<string, string>>({});
   const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
+  const [readingStatusSavingIds, setReadingStatusSavingIds] = useState<Set<string>>(() => new Set());
+  const [readingNotesSavingIds, setReadingNotesSavingIds] = useState<Set<string>>(() => new Set());
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(() => new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(["Upcoming", "Unscheduled"])
@@ -1087,6 +1199,57 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       setPlanSessionSavingIds((current) => {
         const next = new Set(current);
         next.delete(session.id);
+        return next;
+      });
+    }
+  };
+
+  const handleSetReadingStatus = async (entry: Entry, status: ReadingStatus) => {
+    if (readingStatusSavingIds.has(entry.id) || status === getReadingStatus(entry)) return;
+
+    setError(null);
+    setReadingStatusSavingIds((current) => new Set(current).add(entry.id));
+    const now = new Date().toISOString();
+    try {
+      await updateEntry(entry.id, {
+        metadata: {
+          ...entry.metadata,
+          reading_status: status,
+          reading_started_date:
+            status === "reading" ? getStringMetadata(entry, "reading_started_date") || now : null,
+          reading_completed_date:
+            status === "done" ? getStringMetadata(entry, "reading_completed_date") || now : null,
+        },
+      });
+      await refreshData();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update this reading status.");
+    } finally {
+      setReadingStatusSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
+        return next;
+      });
+    }
+  };
+
+  const handleSaveReadingNotes = async (entry: Entry, notes: string) => {
+    if (readingNotesSavingIds.has(entry.id)) return;
+
+    setError(null);
+    setReadingNotesSavingIds((current) => new Set(current).add(entry.id));
+    try {
+      await updateEntry(entry.id, { notes: notes.trim() || null });
+      await refreshData();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update these reading notes.");
+      throw saveError;
+    } finally {
+      setReadingNotesSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
         return next;
       });
     }
@@ -1393,9 +1556,13 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 onDoneDateChange={handleDoneDateChange}
                 onDonePriceChange={handleDonePriceChange}
                 onSetPlanSessionStatus={handleSetPlanSessionStatus}
+                onSetReadingStatus={handleSetReadingStatus}
+                onSaveReadingNotes={handleSaveReadingNotes}
                 favoriteSavingIds={favoriteSavingIds}
                 entryDoneSavingIds={entryDoneSavingIds}
                 planSessionSavingIds={planSessionSavingIds}
+                readingStatusSavingIds={readingStatusSavingIds}
+                readingNotesSavingIds={readingNotesSavingIds}
                 expandedDoneIds={expandedDoneIds}
                 onToggleDoneAction={toggleDoneAction}
               />

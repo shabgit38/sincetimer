@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ExternalLink, Pencil, Save as SaveIcon, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -19,10 +19,6 @@ type ReadingEditDraft = {
   priority: string;
   favorite: boolean;
   archived: boolean;
-  attachmentPhoto: string;
-  attachmentPdf: string;
-  attachmentUrl: string;
-  attachmentNotes: string;
 };
 
 const inputClass =
@@ -89,17 +85,7 @@ function getReadingDraft(entry: Entry): ReadingEditDraft {
     priority: priority ? String(priority) : "",
     favorite: entry.metadata.favorite === true,
     archived: entry.metadata.archived === true,
-    attachmentPhoto: getStringMetadata(entry, "attachment_photo"),
-    attachmentPdf: getStringMetadata(entry, "attachment_pdf"),
-    attachmentUrl: getStringMetadata(entry, "attachment_url"),
-    attachmentNotes: getStringMetadata(entry, "attachment_notes"),
   };
-}
-
-function statusLabel(status: ReadingStatus) {
-  if (status === "to_read") return "To read";
-  if (status === "reading") return "Reading";
-  return "Done";
 }
 
 function getReadingStatusRank(status: ReadingStatus) {
@@ -122,12 +108,14 @@ function ReadingListItem({
   entry,
   onStatusChange,
   onStartEdit,
+  statusSaving,
   focused,
   itemRef,
 }: {
   entry: Entry;
   onStatusChange: (entry: Entry, status: ReadingStatus) => void;
   onStartEdit: (entry: Entry) => void;
+  statusSaving: boolean;
   focused: boolean;
   itemRef: (node: HTMLDivElement | null) => void;
 }) {
@@ -179,21 +167,27 @@ function ReadingListItem({
           >
             <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
           </Button>
-          <select
-            className={`${inputClass} h-8 py-0`}
-            value={status}
-            onChange={(event) => onStatusChange(entry, event.target.value as ReadingStatus)}
-            aria-label={`Reading status for ${entry.title}`}
-          >
-            <option value="to_read">To read</option>
-            <option value="reading">Reading</option>
-            <option value="done">Done</option>
-          </select>
+          <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusChipClass(status)}`}>
+            {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
+          </span>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5 text-[11px]">
-          <span className={`rounded-full px-2.5 py-1 font-medium ${statusChipClass(status)}`}>
-            {statusLabel(status)}
-          </span>
+          {status !== "done" ? (
+            <select
+              className={`${inputClass} h-8 cursor-pointer py-0 disabled:cursor-wait disabled:opacity-70`}
+              value=""
+              onChange={(event) => {
+                if (event.target.value) onStatusChange(entry, event.target.value as ReadingStatus);
+              }}
+              disabled={statusSaving}
+              aria-label={`Reading status for ${entry.title}`}
+            >
+              <option value="" disabled>Update status</option>
+              <option value="to_read">To read</option>
+              <option value="reading">Reading</option>
+              <option value="done">Done</option>
+            </select>
+          ) : null}
           {priority ? (
             <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
               Priority {priority}
@@ -255,7 +249,7 @@ function ReadingEditForm({
           </select>
         </label>
         <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
-          Entry date
+          Saved date
           <input
             className={inputClass}
             type="date"
@@ -263,15 +257,17 @@ function ReadingEditForm({
             onChange={(event) => onChange({ ...draft, entryDate: event.target.value })}
           />
         </label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
-          Completed date
-          <input
-            className={inputClass}
-            type="date"
-            value={draft.completedDate}
-            onChange={(event) => onChange({ ...draft, completedDate: event.target.value })}
-          />
-        </label>
+        {draft.status === "done" ? (
+          <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
+            Completed date
+            <input
+              className={inputClass}
+              type="date"
+              value={draft.completedDate}
+              onChange={(event) => onChange({ ...draft, completedDate: event.target.value })}
+            />
+          </label>
+        ) : null}
         <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
           Priority
           <input
@@ -297,29 +293,13 @@ function ReadingEditForm({
         <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300">
           <input type="checkbox" checked={draft.archived} onChange={(event) => onChange({ ...draft, archived: event.target.checked })} /> Archived
         </label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
-          Attachment photo
-          <input className={inputClass} value={draft.attachmentPhoto} onChange={(event) => onChange({ ...draft, attachmentPhoto: event.target.value })} />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
-          Attachment PDF
-          <input className={inputClass} value={draft.attachmentPdf} onChange={(event) => onChange({ ...draft, attachmentPdf: event.target.value })} />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
-          Attachment URL
-          <input className={inputClass} value={draft.attachmentUrl} onChange={(event) => onChange({ ...draft, attachmentUrl: event.target.value })} />
-        </label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
-          Attachment notes
-          <input className={inputClass} value={draft.attachmentNotes} onChange={(event) => onChange({ ...draft, attachmentNotes: event.target.value })} />
-        </label>
       </div>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <Button size="sm" variant="outline" onClick={onCancel} disabled={saving}>
-          Cancel
+        <Button size="sm" className="w-8 !px-0" variant="outline" onClick={onCancel} disabled={saving} title="Cancel reading changes" aria-label="Cancel reading changes">
+          <X className="h-4 w-4" />
         </Button>
-        <Button size="sm" onClick={onSave} disabled={saving}>
-          {saving ? "Saving..." : "Save"}
+        <Button size="sm" className="w-8 !px-0" onClick={onSave} disabled={saving} title="Save reading changes" aria-label="Save reading changes">
+          <SaveIcon className="h-4 w-4" />
         </Button>
       </div>
     </div>
@@ -455,14 +435,29 @@ export default function Reading() {
     }
   };
 
-  const handleStatusChange = (entry: Entry, nextStatus: ReadingStatus) => {
-    setEditingId(entry.id);
-    const draft = getReadingDraft(entry);
-    setEditDraft({
-      ...draft,
-      status: nextStatus,
-      completedDate: nextStatus === "done" ? draft.completedDate || getDateInputValue() : "",
-    });
+  const handleStatusChange = async (entry: Entry, nextStatus: ReadingStatus) => {
+    if (savingEntryId === entry.id || nextStatus === getReadingStatus(entry)) return;
+    setError(null);
+    setSavingEntryId(entry.id);
+    const now = new Date().toISOString();
+    try {
+      await updateEntry(entry.id, {
+        metadata: {
+          ...entry.metadata,
+          reading_status: nextStatus,
+          reading_started_date:
+            nextStatus === "reading" ? getStringMetadata(entry, "reading_started_date") || now : null,
+          reading_completed_date:
+            nextStatus === "done" ? getStringMetadata(entry, "reading_completed_date") || now : null,
+        },
+      });
+      await loadReading();
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update this reading status.");
+    } finally {
+      setSavingEntryId(null);
+    }
   };
 
   const startEditing = (entry: Entry) => {
@@ -523,10 +518,6 @@ export default function Reading() {
           tags: trimmedTopic ? [trimmedTopic] : [],
           favorite: editDraft.favorite,
           archived: editDraft.archived,
-          attachment_photo: editDraft.attachmentPhoto.trim() || null,
-          attachment_pdf: editDraft.attachmentPdf.trim() || null,
-          attachment_url: editDraft.attachmentUrl.trim() || null,
-          attachment_notes: editDraft.attachmentNotes.trim() || null,
         },
         notes: trimmedNotes || null,
       });
@@ -581,6 +572,7 @@ export default function Reading() {
                       entry={entry}
                       onStatusChange={handleStatusChange}
                       onStartEdit={startEditing}
+                      statusSaving={savingEntryId === entry.id}
                       focused={focusedId === entry.id}
                       itemRef={setItemRef(entry.id)}
                     />
@@ -614,6 +606,7 @@ export default function Reading() {
                       entry={entry}
                       onStatusChange={handleStatusChange}
                       onStartEdit={startEditing}
+                      statusSaving={savingEntryId === entry.id}
                       focused={focusedId === entry.id}
                       itemRef={setItemRef(entry.id)}
                     />
@@ -654,7 +647,7 @@ export default function Reading() {
             <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={favorite} onChange={(event) => setFavorite(event.target.checked)} /> Favorite</label>
             <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={archived} onChange={(event) => setArchived(event.target.checked)} /> Archived</label>
           </div>
-          <Button className="w-full" type="submit" disabled={saving}>{saving ? "Saving..." : "Save Reading Entry"}</Button>
+          <Button className="w-10 !px-0" type="submit" disabled={saving} title="Save new reading entry" aria-label="Save new reading entry"><SaveIcon className="h-4 w-4" /></Button>
         </form>
       </div>
     </section>

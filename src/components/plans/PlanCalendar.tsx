@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getVisiblePlanSessions } from "@/lib/plans";
@@ -74,7 +74,6 @@ export default function PlanCalendar({
               <span className="shrink-0 rounded-full border border-stone-200 px-2 py-0.5 text-[11px] font-medium capitalize text-stone-500 dark:border-white/10 dark:text-stone-400">
                 {session.status}
               </span>
-              <p className="min-w-0 truncate text-xs text-stone-500 dark:text-stone-400">{session.title}</p>
             </div>
             {isEditing ? (
               <div className="mt-3 grid gap-2">
@@ -105,8 +104,10 @@ export default function PlanCalendar({
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    className="h-7 flex-1 px-2 text-xs"
+                    className="h-7 w-7 !px-0"
                     disabled={updatingId === session.id || !editDate}
+                    title="Save plan session changes"
+                    aria-label="Save plan session changes"
                     onClick={() => {
                       onUpdateSession(session, {
                         session_date: new Date(editDate).toISOString(),
@@ -116,16 +117,18 @@ export default function PlanCalendar({
                       setEditingId(null);
                     }}
                   >
-                    Save
+                    <SaveIcon className="h-4 w-4" />
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 flex-1 px-2 text-xs"
+                    className="h-7 w-7 !px-0"
                     disabled={updatingId === session.id}
                     onClick={() => setEditingId(null)}
+                    title="Cancel plan session editing"
+                    aria-label="Cancel plan session editing"
                   >
-                    Cancel
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
               </div>

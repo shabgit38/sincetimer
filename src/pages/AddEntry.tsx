@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays } from "date-fns";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Save as SaveIcon, X } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -70,11 +70,11 @@ function getRepeatIntervalDays(value: number, unit: RepeatUnit) {
 }
 
 const inputClass =
-  "h-11 rounded-xl border border-stone-400 bg-white px-4 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-300 dark:focus:ring-white/10";
+  "h-11 w-full min-w-0 rounded-xl border border-stone-400 bg-white px-4 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-300 dark:focus:ring-white/10";
 const requiredInputClass =
   "border-rose-400 bg-rose-50/60 focus:border-rose-500 focus:ring-rose-100 dark:border-rose-400/70 dark:bg-rose-950/20 dark:focus:border-rose-300 dark:focus:ring-rose-500/20";
 const textareaClass =
-  "rounded-xl border border-stone-400 bg-white px-4 py-3 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-300 dark:focus:ring-white/10";
+  "w-full min-w-0 rounded-xl border border-stone-400 bg-white px-4 py-3 text-sm text-stone-700 focus:border-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-200 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:placeholder:text-stone-500 dark:focus:border-stone-300 dark:focus:ring-white/10";
 const sectionPanelClass =
   "grid gap-4 rounded-2xl border border-stone-300 bg-stone-50 p-4 dark:border-white/15 dark:bg-white/[0.04]";
 const inlinePanelClass =
@@ -418,6 +418,18 @@ export default function AddEntry() {
       return;
     }
 
+    const warrantyDate = new Date(`${nextDueDate}T00:00:00.000Z`);
+    if (
+      isPurchase &&
+      nextDueDate &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(nextDueDate) ||
+        Number.isNaN(warrantyDate.getTime()) ||
+        warrantyDate.toISOString().slice(0, 10) !== nextDueDate)
+    ) {
+      setError("Warranty Ends must use a valid YYYY-MM-DD date.");
+      return;
+    }
+
     let priceValue: number | null = null;
     if (hasCost && price.trim()) {
       const parsed = Number(price);
@@ -735,8 +747,8 @@ export default function AddEntry() {
             </div>
           </div>
 
-          <div className={`grid gap-4 ${isRoutine ? "md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5" : isGoal || isSubscription || isPurchase || isPlan ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
-            <div className="grid gap-2">
+          <div className="grid gap-4 md:grid-cols-12">
+            <div className={`grid gap-2 ${isReading ? "md:col-span-5" : "md:col-span-6"}`}>
               <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="title">
                 {requiredLabel(titleLabel)}
               </label>
@@ -748,7 +760,22 @@ export default function AddEntry() {
                 placeholder={titlePlaceholder}
               />
             </div>
-            <div className="grid gap-2">
+            {isReading ? (
+              <div className="grid gap-2 md:col-span-4">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingUrl">
+                  Link
+                </label>
+                <input
+                  id="readingUrl"
+                  type="url"
+                  value={readingUrl}
+                  onChange={(event) => setReadingUrl(event.target.value)}
+                  className={inputClass}
+                  placeholder="https://..."
+                />
+              </div>
+            ) : null}
+            <div className="grid gap-2 md:col-span-3">
               <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="entryDate">
                 {requiredLabel(entryDateLabel)}
               </label>
@@ -760,8 +787,22 @@ export default function AddEntry() {
                 className={`${inputClass} ${requiredClass(entryDateMissing)}`}
               />
             </div>
-            {hasRepeatInterval ? (
-              <div className="grid gap-2">
+            {isPlan ? (
+              <div className="grid gap-2 md:col-span-3">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planEndDate">
+                  {requiredLabel("End Date")}
+                </label>
+                <input
+                  id="planEndDate"
+                  type="date"
+                  value={planEndDate}
+                  onChange={(event) => setPlanEndDate(event.target.value)}
+                  className={`${inputClass} ${requiredClass(planEndDateMissing)}`}
+                />
+              </div>
+            ) : null}
+            {hasRepeatInterval && !isRoutine ? (
+              <div className="grid gap-2 md:col-span-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">
                   {isRoutine ? "Repeat Every" : "Repeat Interval"}
                 </label>
@@ -777,59 +818,35 @@ export default function AddEntry() {
                 />
               </div>
             ) : null}
-            {isRoutine ? (
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatUnit">
-                  Unit
-                </label>
-                <select
-                  id="repeatUnit"
-                  value={repeatUnit}
-                  onChange={(event) => setRepeatUnit(event.target.value as RepeatUnit)}
-                  className={inputClass}
-                >
-                  <option value="days">Days</option>
-                  <option value="weeks">Weeks</option>
-                  <option value="months">Months</option>
-                </select>
-              </div>
-            ) : null}
-            {!isPlan && !isReading ? (
-              <div className="grid gap-2">
+            {!isPlan && !isReading && !isRoutine && !isHealthRecord ? (
+              <div className="grid gap-2 md:col-span-3">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">
                   {nextDueLabel}
                 </label>
                 <input
                   id="nextDueDate"
-                  type="date"
+                  type={isPurchase ? "text" : "date"}
                   value={renewalDateValue}
                   onChange={(event) => setNextDueDate(event.target.value)}
                   disabled={(hasRepeatInterval && Boolean(repeatIntervalDays.trim())) || (isSubscription && billingCycle !== "custom")}
                   className={inputClass}
-                />
-              </div>
-            ) : null}
-            {isRoutine || isSubscription ? (
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">
-                  {isSubscription ? "Reminder before renewal (days)" : "Reminder Before"}
-                </label>
-                <input
-                  id="reminderBeforeDays"
-                  type="number"
-                  value={reminderBeforeDays}
-                  onChange={(event) => setReminderBeforeDays(event.target.value)}
-                  className={inputClass}
-                  placeholder={isSubscription ? "Days before renewal" : "Days before due"}
-                  min="0"
-                  step="1"
+                  placeholder={isPurchase ? "YYYY-MM-DD" : undefined}
                 />
               </div>
             ) : null}
           </div>
 
-          {isPlan ? (
+          {isRoutine ? (
             <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">Repeat Every</label><input id="repeatIntervalDays" type="number" value={repeatIntervalDays} onChange={(event) => setRepeatIntervalDays(event.target.value)} className={inputClass} min="1" step="1" /></div>
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatUnit">Unit</label><select id="repeatUnit" value={repeatUnit} onChange={(event) => setRepeatUnit(event.target.value as RepeatUnit)} className={inputClass}><option value="days">Days</option><option value="weeks">Weeks</option><option value="months">Months</option></select></div>
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">Reminder Before</label><input id="reminderBeforeDays" type="number" value={reminderBeforeDays} onChange={(event) => setReminderBeforeDays(event.target.value)} className={inputClass} min="0" step="1" /></div>
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">Next Due Date</label><input id="nextDueDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} disabled={Boolean(repeatIntervalDays.trim())} className={inputClass} /></div>
+            </div>
+          ) : null}
+
+          {isPlan ? (
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-3`}>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planType">
                   Plan Type
@@ -844,18 +861,6 @@ export default function AddEntry() {
                   <option value="habit">Habit</option>
                   <option value="practice">Practice</option>
                 </select>
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planEndDate">
-                  {requiredLabel("End Date")}
-                </label>
-                <input
-                  id="planEndDate"
-                  type="date"
-                  value={planEndDate}
-                  onChange={(event) => setPlanEndDate(event.target.value)}
-                  className={`${inputClass} ${requiredClass(planEndDateMissing)}`}
-                />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planScheduleMode">
@@ -952,7 +957,7 @@ export default function AddEntry() {
                   <option value="completed">Completed</option>
                 </select>
               </div>
-              <div className="grid gap-2 md:col-span-2 xl:col-span-3">
+              <div className="grid gap-2 md:col-span-3 xl:col-span-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
                   Topics
                 </label>
@@ -964,11 +969,23 @@ export default function AddEntry() {
                   placeholder="One topic per line..."
                 />
               </div>
+              <div className="grid gap-2 md:col-span-3 xl:col-span-3">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="notes">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  className={`min-h-[96px] ${textareaClass}`}
+                  placeholder="Optional details..."
+                />
+              </div>
             </div>
           ) : null}
 
           {isGoal ? (
-            <div className={`${sectionPanelClass} md:grid-cols-[1fr_160px]`}>
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="goalStatus">
                   Status
@@ -1001,7 +1018,7 @@ export default function AddEntry() {
                   step="1"
                 />
               </div>
-              <div className="grid gap-2 md:col-span-2">
+              <div className="grid gap-2 md:col-span-2 xl:col-span-1">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="goalMilestones">
                   Milestones
                 </label>
@@ -1013,11 +1030,27 @@ export default function AddEntry() {
                   placeholder="One milestone per line..."
                 />
               </div>
+              <div className="grid gap-2 md:col-span-2 xl:col-span-1">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="notes">
+                  Notes
+                </label>
+                <textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  className={`min-h-[96px] ${textareaClass}`}
+                  placeholder="Optional details..."
+                />
+              </div>
             </div>
           ) : null}
 
           {isSubscription ? (
-            <div className={`${sectionPanelClass} md:grid-cols-[1fr_160px]`}>
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-3`}>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">Reminder Before</label>
+                <input id="reminderBeforeDays" type="number" value={reminderBeforeDays} onChange={(event) => setReminderBeforeDays(event.target.value)} className={inputClass} placeholder="Days" min="0" step="1" />
+              </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="billingCycle">
                   Billing Cycle
@@ -1056,20 +1089,7 @@ export default function AddEntry() {
           ) : null}
 
           {isReading ? (
-            <div className={`${sectionPanelClass} md:grid-cols-[minmax(0,1fr)_180px_140px]`}>
-              <div className="grid gap-2 md:col-span-3">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingUrl">
-                  Link
-                </label>
-                <input
-                  id="readingUrl"
-                  type="url"
-                  value={readingUrl}
-                  onChange={(event) => setReadingUrl(event.target.value)}
-                  className={inputClass}
-                  placeholder="https://..."
-                />
-              </div>
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingTopic">
                   Topic
@@ -1137,7 +1157,7 @@ export default function AddEntry() {
             </div>
           ) : null}
 
-          {hasCost ? (
+          {hasCost && !isPurchase ? (
             <div className="grid gap-4 md:grid-cols-[1fr_180px]">
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="price">
@@ -1175,7 +1195,15 @@ export default function AddEntry() {
           ) : null}
 
           {isPurchase ? (
-            <div className={`${sectionPanelClass} md:grid-cols-2`}>
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="price">Cost</label>
+                <input id="price" type="number" value={price} onChange={(event) => setPrice(event.target.value)} className={inputClass} placeholder="0.00" min="0" step="0.01" />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="currency">Currency</label>
+                <select id="currency" value={currency} onChange={(event) => setCurrency(event.target.value as CurrencyCode)} className={inputClass}>{currencyOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}</select>
+              </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="seller">
                   Seller
@@ -1204,7 +1232,11 @@ export default function AddEntry() {
           ) : null}
 
           {isHealthRecord ? (
-            <div className={`${sectionPanelClass} md:grid-cols-2`}>
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-3`}>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">Next Due Date</label>
+                <input id="nextDueDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} disabled={Boolean(repeatIntervalDays.trim())} className={inputClass} />
+              </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="doctor">
                   Doctor
@@ -1232,13 +1264,13 @@ export default function AddEntry() {
             </div>
           ) : null}
 
-          <div className={sectionPanelClass}>
+          <div className={`order-[20] ${sectionPanelClass}`}>
             <div>
               <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Universal fields</p>
-              <p className="text-xs text-stone-500 dark:text-stone-400">Tags and visibility controls apply to every entry.</p>
+              <p className="text-xs text-stone-500 dark:text-stone-400">Tags, visibility, and reminders apply to every entry.</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-[1fr_160px_160px]">
-              <div className="grid gap-2">
+            <div className={`grid gap-4 md:grid-cols-2 ${reminderEnabled ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
+              <div className="grid min-w-0 gap-2 md:col-span-2 lg:col-span-1">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="tags">
                   Tags
                 </label>
@@ -1268,10 +1300,36 @@ export default function AddEntry() {
                   className="h-4 w-4"
                 />
               </label>
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
+                <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Reminder</span>
+                <span className="relative inline-flex cursor-pointer items-center">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={reminderEnabled}
+                    onChange={(event) => setReminderEnabled(event.target.checked)}
+                  />
+                  <span className="peer h-6 w-11 rounded-full border border-stone-300 bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:border-stone-900 peer-checked:bg-stone-900 peer-checked:after:translate-x-5 dark:border-white/20 dark:bg-stone-700 dark:after:bg-stone-100 dark:peer-checked:border-stone-100 dark:peer-checked:bg-stone-100 dark:peer-checked:after:bg-stone-950" />
+                </span>
+              </label>
+              {reminderEnabled ? (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderTime">
+                    Reminder Time
+                  </label>
+                  <input
+                    id="reminderTime"
+                    type="time"
+                    value={reminderTime}
+                    onChange={(event) => setReminderTime(event.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
+          <div className="order-[30] rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
             <button
               type="button"
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
@@ -1289,7 +1347,7 @@ export default function AddEntry() {
               />
             </button>
             {attachmentsOpen ? (
-              <div className="grid gap-4 border-t border-stone-200 p-4 dark:border-white/10 md:grid-cols-2">
+              <div className="grid gap-4 border-t border-stone-200 p-4 dark:border-white/10 md:grid-cols-2 xl:grid-cols-4">
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentPhoto">
                     Photo
@@ -1314,7 +1372,7 @@ export default function AddEntry() {
                     placeholder="PDF URL or file reference"
                   />
                 </div>
-                <div className="grid gap-2 md:col-span-2">
+                <div className="grid gap-2">
                   <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentUrl">
                     URL
                   </label>
@@ -1326,7 +1384,7 @@ export default function AddEntry() {
                     placeholder="https://..."
                   />
                 </div>
-                <div className="grid gap-2 md:col-span-2">
+                <div className="grid gap-2">
                   <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentNotes">
                     Attachment Notes
                   </label>
@@ -1342,7 +1400,8 @@ export default function AddEntry() {
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
+          {!isPlan && !isGoal ? (
+          <div className="order-[10] rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
             <button
               type="button"
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
@@ -1371,54 +1430,24 @@ export default function AddEntry() {
               </div>
             ) : null}
           </div>
-
-          <div className="rounded-2xl border border-stone-300 bg-stone-50 p-4 dark:border-white/15 dark:bg-white/[0.04]">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Reminder</p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Enable push notifications in Settings to receive reminders on registered devices.
-                </p>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  className="peer sr-only"
-                  checked={reminderEnabled}
-                  onChange={(event) => setReminderEnabled(event.target.checked)}
-                />
-                <div className="peer h-6 w-11 rounded-full border border-stone-300 bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:border-stone-900 peer-checked:bg-stone-900 peer-checked:after:translate-x-5 dark:border-white/20 dark:bg-stone-700 dark:after:bg-stone-100 dark:peer-checked:border-stone-100 dark:peer-checked:bg-stone-100 dark:peer-checked:after:bg-stone-950" />
-              </label>
-            </div>
-            {reminderEnabled ? (
-              <div className="mt-4 grid gap-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderTime">
-                  Reminder Time
-                </label>
-                <input
-                  id="reminderTime"
-                  type="time"
-                  value={reminderTime}
-                  onChange={(event) => setReminderTime(event.target.value)}
-                  className={inputClass}
-                />
-              </div>
-            ) : null}
-          </div>
+          ) : null}
 
           {error ? <p className="text-sm text-rose-600">{error}</p> : null}
 
-          <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={!canSubmit || saving}>
-              {saving ? "Saving..." : isEditing ? "Save Changes" : "Save Entry"}
+          <div className="order-[40] flex flex-wrap gap-3">
+            <Button className="w-10 !px-0" type="submit" disabled={!canSubmit || saving} title={isEditing ? "Save entry changes" : "Save new entry"} aria-label={isEditing ? "Save entry changes" : "Save new entry"}>
+              <SaveIcon className="h-4 w-4" />
             </Button>
             <Button
               type="button"
+              className="w-10 !px-0"
               variant="outline"
               onClick={() => navigate("/")}
               disabled={saving}
+              title="Cancel entry editing"
+              aria-label="Cancel entry editing"
             >
-              Cancel
+              <X className="h-4 w-4" />
             </Button>
           </div>
         </form>
