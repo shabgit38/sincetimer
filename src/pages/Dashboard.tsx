@@ -224,44 +224,44 @@ const sectionToneClasses: Record<
   }
 > = {
   favorite: {
-    shell: "dark:border-amber-400/35 dark:bg-[#2a2212]/80",
-    header: "dark:border-amber-400/25 dark:bg-amber-400/10 dark:hover:bg-amber-400/15",
+    shell: "!border-amber-400/35 dark:!border-amber-400/35 dark:bg-[#2a2212]/80",
+    header: "!border-amber-400/35 !bg-amber-400/35 dark:!border-amber-400/25 dark:!bg-amber-400/10 dark:hover:!bg-amber-400/15",
     count: "dark:border-amber-300/30 dark:bg-amber-300/10 dark:text-amber-100",
     chevron: "dark:text-amber-200",
   },
   reading: {
-    shell: "dark:border-sky-400/35 dark:bg-[#102433]/82",
-    header: "dark:border-sky-400/25 dark:bg-sky-400/10 dark:hover:bg-sky-400/15",
-    count: "dark:border-sky-300/30 dark:bg-sky-300/10 dark:text-sky-100",
-    chevron: "dark:text-sky-200",
+    shell: "!border-[#ff8080]/50 dark:!border-[#ffb5b2]/35 dark:bg-rose-950/10",
+    header: "!border-[#ff8080]/50 !bg-[#ff8080]/50 dark:!border-[#ffb5b2]/50 dark:!bg-[#ffb5b2]/10 dark:hover:!bg-[#ffb5b2]/15",
+    count: "!border-[#ff8080] bg-[#ffb5b2]/15 text-rose-800 dark:!border-[#ffb5b2]/50 dark:bg-[#ffb5b2]/15 dark:text-rose-100",
+    chevron: "text-rose-600 dark:text-rose-200",
   },
   overdue: {
-    shell: "dark:border-rose-400/30 dark:bg-rose-950/20",
-    header: "dark:border-rose-400/20 dark:bg-rose-400/8 dark:hover:bg-rose-400/12",
+    shell: "!border-rose-400/30 dark:!border-rose-400/30 dark:bg-rose-950/20",
+    header: "!border-rose-400/30 !bg-rose-400/30 dark:!border-rose-400/20 dark:!bg-rose-400/8 dark:hover:!bg-rose-400/12",
     count: "dark:border-rose-300/25 dark:bg-rose-300/10 dark:text-rose-100",
     chevron: "dark:text-rose-200",
   },
   today: {
-    shell: "dark:border-emerald-400/30 dark:bg-emerald-950/15",
-    header: "dark:border-emerald-400/20 dark:bg-emerald-400/8 dark:hover:bg-emerald-400/12",
+    shell: "!border-emerald-400/30 dark:!border-emerald-400/30 dark:bg-emerald-950/15",
+    header: "!border-emerald-400/30 !bg-emerald-400/30 dark:!border-emerald-400/20 dark:!bg-emerald-400/8 dark:hover:!bg-emerald-400/12",
     count: "dark:border-emerald-300/25 dark:bg-emerald-300/10 dark:text-emerald-100",
     chevron: "dark:text-emerald-200",
   },
   soon: {
-    shell: "dark:border-orange-400/28 dark:bg-orange-950/15",
-    header: "dark:border-orange-400/20 dark:bg-orange-400/8 dark:hover:bg-orange-400/12",
+    shell: "!border-orange-400/30 dark:!border-orange-400/28 dark:bg-orange-950/15",
+    header: "!border-orange-400/30 !bg-orange-400/30 dark:!border-orange-400/20 dark:!bg-orange-400/8 dark:hover:!bg-orange-400/12",
     count: "dark:border-orange-300/25 dark:bg-orange-300/10 dark:text-orange-100",
     chevron: "dark:text-orange-200",
   },
   recent: {
-    shell: "dark:border-violet-400/25 dark:bg-violet-950/12",
-    header: "dark:border-violet-400/18 dark:bg-violet-400/8 dark:hover:bg-violet-400/12",
+    shell: "!border-violet-400/30 dark:!border-violet-400/25 dark:bg-violet-950/12",
+    header: "!border-violet-400/30 !bg-violet-400/30 dark:!border-violet-400/18 dark:!bg-violet-400/8 dark:hover:!bg-violet-400/12",
     count: "dark:border-violet-300/20 dark:bg-violet-300/10 dark:text-violet-100",
     chevron: "dark:text-violet-200",
   },
   neutral: {
-    shell: "dark:border-white/10 dark:bg-white/[0.04]",
-    header: "dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]",
+    shell: "!border-stone-400/30 dark:!border-white/10 dark:bg-white/[0.04]",
+    header: "!border-stone-400/30 !bg-stone-400/30 dark:!border-white/10 dark:!bg-white/[0.04] dark:hover:!bg-white/[0.07]",
     count: "dark:border-white/10 dark:text-stone-300",
     chevron: "dark:text-stone-400",
   },
@@ -272,7 +272,7 @@ function getSectionTone(title: string): SectionTone {
   if (title === "Reading list") return "reading";
   if (title === "Overdue") return "overdue";
   if (title === "Today") return "today";
-  if (title === "Due soon") return "soon";
+  if (title === "Due soon" || title === "Upcoming") return "soon";
   if (title === "Recently completed") return "recent";
   return "neutral";
 }
@@ -384,6 +384,16 @@ function getReadingStatusRank(entry: Entry) {
   return 2;
 }
 
+function getReadingStatusChipClass(status: string) {
+  if (status === "done") {
+    return "border border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-300/70 dark:bg-emerald-300 dark:text-emerald-950";
+  }
+  if (status === "reading") {
+    return "border border-sky-300 bg-sky-100 text-sky-900 dark:border-sky-300/70 dark:bg-sky-300 dark:text-sky-950";
+  }
+  return "border border-stone-300 bg-stone-100 text-stone-800 dark:border-white/20 dark:bg-white/[0.12] dark:text-stone-100";
+}
+
 function compareEntryAreaCategoryTitle(a: Entry, b: Entry) {
   return (
     a.area.localeCompare(b.area) ||
@@ -467,7 +477,10 @@ function getDueCopy(entry: Entry) {
   };
 }
 
-function getToneClasses(tone: string) {
+function getToneClasses(tone: string, favoriteLightTone = false) {
+  if (favoriteLightTone && tone === "normal") {
+    return "border-amber-100 bg-amber-50/70 text-amber-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300";
+  }
   if (tone === "overdue") return "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200";
   if (tone === "today") return "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-200";
   if (tone === "soon") return "border-amber-100 bg-amber-50/70 text-amber-700 dark:border-amber-500/20 dark:bg-amber-950/20 dark:text-amber-200";
@@ -509,7 +522,7 @@ function CompactDashboardListItem({
   planSessionSaving: boolean;
   actionExpanded: boolean;
   onToggleAction: () => void;
-  accent?: "amber" | "neutral";
+  accent?: SectionTone;
 }) {
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
   const isSubscription = isSubscriptionEntry(entry);
@@ -533,7 +546,15 @@ function CompactDashboardListItem({
         ? "since last done"
         : "since start"
       : "since last logged";
-  const borderClass = accent === "amber" ? "border-amber-200/70 dark:border-amber-300/15" : "border-stone-200 dark:border-white/10";
+  const borderClass = {
+    favorite: "!border-amber-400/35 dark:!border-amber-400/25",
+    reading: "!border-[#ff8080]/50 dark:!border-[#ffb5b2]/35",
+    overdue: "!border-rose-400/30 dark:!border-white/10",
+    today: "!border-emerald-400/30 dark:!border-white/10",
+    soon: "!border-orange-400/30 dark:!border-white/10",
+    recent: "!border-violet-400/30 dark:!border-white/10",
+    neutral: "!border-stone-400/30 dark:!border-white/10",
+  }[accent];
 
   return (
     <li className={`border-b py-3 last:border-b-0 sm:py-2 ${borderClass}`}>
@@ -570,7 +591,7 @@ function CompactDashboardListItem({
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:shrink-0 sm:justify-end">
           {entry.next_due_date || isPlan ? (
-            <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone)}`}>
+            <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone, accent === "favorite")}`}>
               {due.label}
             </span>
           ) : null}
@@ -615,7 +636,7 @@ function CompactDashboardListItem({
               Done
             </Button>
           ) : null}
-          <span className="rounded-full border border-stone-200 bg-stone-50 px-2 py-0.5 text-[10px] font-medium text-stone-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-stone-400">
+          <span className="rounded-full border border-transparent bg-stone-50 px-2 py-0.5 text-[10px] font-medium text-stone-500 dark:border-white/10 dark:bg-white/[0.05] dark:text-stone-400">
             {getEntryAreaCategoryLabel(entry)}
           </span>
         </div>
@@ -690,12 +711,17 @@ function CompactDashboardList({
   planSessionSavingIds: Set<string>;
   expandedDoneIds: Set<string>;
   onToggleDoneAction: (entryId: string) => void;
-  accent?: "amber" | "neutral";
+  accent?: SectionTone;
 }) {
-  const shellClass =
-    accent === "amber"
-      ? "border-[#87d1ff] bg-amber-50/80 dark:border-amber-300/25 dark:bg-amber-200/10"
-      : "border-[#87d1ff] bg-white/70 dark:border-white/10 dark:bg-white/[0.04]";
+  const shellClass = {
+    favorite: "!border-amber-400/35 bg-amber-50/80 dark:!border-amber-400/25 dark:bg-amber-200/10",
+    reading: "!border-[#ff8080]/50 bg-white/70 dark:!border-[#ffb5b2]/35 dark:bg-rose-950/10",
+    overdue: "!border-rose-400/30 bg-white/70 dark:!border-white/10 dark:bg-white/[0.04]",
+    today: "!border-emerald-400/30 bg-white/70 dark:!border-white/10 dark:bg-white/[0.04]",
+    soon: "!border-orange-400/30 bg-white/70 dark:!border-white/10 dark:bg-white/[0.04]",
+    recent: "!border-violet-400/30 bg-white/70 dark:!border-white/10 dark:bg-white/[0.04]",
+    neutral: "!border-stone-400/30 bg-white/70 dark:!border-white/10 dark:bg-white/[0.04]",
+  }[accent];
 
   return (
     <div className="p-4">
@@ -733,18 +759,23 @@ function CompactDashboardList({
 function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () => void }) {
   const topic = getStringMetadata(entry, "reading_topic");
   const url = getStringMetadata(entry, "reading_url");
+  const status = getReadingStatus(entry);
+  const statusLabel = status === "reading" ? "Reading" : status === "done" ? "Done" : "To read";
 
   return (
-    <li className="border-b border-stone-200 py-2 last:border-b-0 dark:border-sky-300/15">
+    <li className="border-b border-[#ffb5b2]/35 py-2 last:border-b-0 dark:border-[#ffb5b2]/35">
       <div className="flex items-start justify-between gap-3">
         <button type="button" className="min-w-0 text-left" onClick={onOpen}>
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h4 className="line-clamp-1 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h4>
             {topic ? (
-              <span className="inline-flex rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-sky-300/10 dark:text-sky-100">
+              <span className="inline-flex rounded-full bg-[#ffb5b2]/15 px-2 py-0.5 text-[11px] font-medium text-rose-700 dark:bg-[#ffb5b2]/15 dark:text-rose-100">
                 {topic}
               </span>
             ) : null}
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium ${getReadingStatusChipClass(status)}`}>
+              {statusLabel}
+            </span>
           </div>
         </button>
         {url ? (
@@ -752,7 +783,7 @@ function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () 
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-sky-300/30 dark:text-sky-100 dark:hover:border-sky-200/60 dark:hover:text-white"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#ffb5b2]/65 text-rose-700 transition hover:border-[#ffb5b2] hover:bg-[#ffb5b2]/10 hover:text-rose-900 dark:border-[#ffb5b2]/65 dark:text-rose-100 dark:hover:border-[#ffb5b2] dark:hover:bg-[#ffb5b2]/10 dark:hover:text-white"
             aria-label={`Open ${entry.title}`}
             onClick={(event) => event.stopPropagation()}
           >
@@ -767,16 +798,17 @@ function ReadingDashboardListItem({ entry, onOpen }: { entry: Entry; onOpen: () 
 function ReadingDashboardColumns({ entries, onOpen }: { entries: Entry[]; onOpen: (entry: Entry) => void }) {
   const sortReading = (items: Entry[]) =>
     [...items].sort((a, b) => {
-      const topicCompare = (getStringMetadata(a, "reading_topic") || "General").localeCompare(
-        getStringMetadata(b, "reading_topic") || "General"
-      );
-      return topicCompare || a.title.localeCompare(b.title);
+      const statusCompare = getReadingStatusRank(a) - getReadingStatusRank(b);
+      if (statusCompare !== 0) return statusCompare;
+      const priorityA = getNumberMetadata(a, "reading_priority") || Number.POSITIVE_INFINITY;
+      const priorityB = getNumberMetadata(b, "reading_priority") || Number.POSITIVE_INFINITY;
+      return priorityA - priorityB;
     });
   const notes = sortReading(entries.filter((entry) => !getStringMetadata(entry, "reading_url")));
   const links = sortReading(entries.filter((entry) => getStringMetadata(entry, "reading_url")));
 
   const renderColumn = (items: Entry[], empty: string) => (
-    <section className="rounded-xl border border-[#87d1ff] bg-white/70 px-4 py-2 shadow-sm dark:border-sky-300/20 dark:bg-sky-950/20">
+    <section className="rounded-xl border border-[#ff8080]/50 bg-white/70 px-4 py-2 shadow-sm dark:border-[#ffb5b2]/35 dark:bg-rose-950/10">
       {items.length === 0 ? (
         <p className="py-2 text-sm text-stone-500 dark:text-stone-400">{empty}</p>
       ) : (
@@ -841,13 +873,14 @@ function EntrySection({
   if (group.entries.length === 0) return null;
   const isFavoriteSection = group.title === "Favorites";
   const isReadingSection = group.title === "Reading list";
-  const tone = sectionToneClasses[getSectionTone(group.title)];
+  const toneName = getSectionTone(group.title);
+  const tone = sectionToneClasses[toneName];
 
   return (
     <section className={`overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm ${tone.shell}`}>
       <button
         type="button"
-        className={`flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition hover:bg-stone-100 ${tone.header}`}
+        className={`flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition ${tone.header}`}
         onClick={onToggle}
         aria-expanded={!collapsed}
       >
@@ -877,7 +910,7 @@ function EntrySection({
           planSessionSavingIds={planSessionSavingIds}
           expandedDoneIds={expandedDoneIds}
           onToggleDoneAction={onToggleDoneAction}
-          accent="amber"
+          accent="favorite"
         />
       ) : isReadingSection ? (
         <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} />
@@ -899,6 +932,7 @@ function EntrySection({
           planSessionSavingIds={planSessionSavingIds}
           expandedDoneIds={expandedDoneIds}
           onToggleDoneAction={onToggleDoneAction}
+          accent={toneName}
         />
       )}
     </section>

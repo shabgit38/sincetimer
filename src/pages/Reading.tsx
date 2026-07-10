@@ -347,10 +347,6 @@ export default function Reading() {
   const [completedDate, setCompletedDate] = useState("");
   const [favorite, setFavorite] = useState(false);
   const [archived, setArchived] = useState(false);
-  const [attachmentPhoto, setAttachmentPhoto] = useState("");
-  const [attachmentPdf, setAttachmentPdf] = useState("");
-  const [attachmentUrl, setAttachmentUrl] = useState("");
-  const [attachmentNotes, setAttachmentNotes] = useState("");
 
   const loadReading = async () => {
     setLoading(true);
@@ -379,10 +375,9 @@ export default function Reading() {
       [...items].sort((a, b) => {
         const statusCompare = getReadingStatusRank(getReadingStatus(a)) - getReadingStatusRank(getReadingStatus(b));
         if (statusCompare !== 0) return statusCompare;
-        const topicCompare = (getStringMetadata(a, "reading_topic") || "General").localeCompare(
-          getStringMetadata(b, "reading_topic") || "General"
-        );
-        return topicCompare || a.title.localeCompare(b.title);
+        const priorityA = getNumberMetadata(a, "reading_priority") || Number.POSITIVE_INFINITY;
+        const priorityB = getNumberMetadata(b, "reading_priority") || Number.POSITIVE_INFINITY;
+        return priorityA - priorityB;
       });
 
     return {
@@ -434,10 +429,6 @@ export default function Reading() {
           tags: trimmedTopic ? [trimmedTopic] : [],
           favorite,
           archived,
-          attachment_photo: attachmentPhoto.trim() || null,
-          attachment_pdf: attachmentPdf.trim() || null,
-          attachment_url: attachmentUrl.trim() || null,
-          attachment_notes: attachmentNotes.trim() || null,
         },
         price: null,
         notes: trimmedNotes || null,
@@ -455,10 +446,6 @@ export default function Reading() {
       setCompletedDate("");
       setFavorite(false);
       setArchived(false);
-      setAttachmentPhoto("");
-      setAttachmentPdf("");
-      setAttachmentUrl("");
-      setAttachmentNotes("");
       await loadReading();
     } catch (saveError) {
       console.error(saveError);
@@ -570,35 +557,16 @@ export default function Reading() {
         </div>
       </div>
 
-      <form className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-2 lg:grid-cols-4" onSubmit={handleAdd}>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Area<input className={inputClass} value="Personal" disabled /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Category<input className={inputClass} value="Reading" disabled /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Saved date<input className={inputClass} type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} required /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Status<select className={inputClass} value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}><option value="to_read">To read</option><option value="reading">Reading</option><option value="done">Done</option></select></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2">Title *<input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title or research question" required /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2">Link<input className={inputClass} type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Topic<input className={inputClass} value={topic} onChange={(event) => setTopic(event.target.value)} /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Priority<input className={inputClass} type="number" value={priority} onChange={(event) => setPriority(event.target.value)} min="1" max="5" /></label>
-        {status === "done" ? <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Completed date<input className={inputClass} type="date" value={completedDate} onChange={(event) => setCompletedDate(event.target.value)} /></label> : null}
-        <label className="flex items-center gap-2 self-end pb-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={favorite} onChange={(event) => setFavorite(event.target.checked)} /> Favorite</label>
-        <label className="flex items-center gap-2 self-end pb-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={archived} onChange={(event) => setArchived(event.target.checked)} /> Archived</label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Photo attachment<input className={inputClass} value={attachmentPhoto} onChange={(event) => setAttachmentPhoto(event.target.value)} /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">PDF attachment<input className={inputClass} value={attachmentPdf} onChange={(event) => setAttachmentPdf(event.target.value)} /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">URL attachment<input className={inputClass} type="url" value={attachmentUrl} onChange={(event) => setAttachmentUrl(event.target.value)} /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Attachment notes<input className={inputClass} value={attachmentNotes} onChange={(event) => setAttachmentNotes(event.target.value)} /></label>
-        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2 lg:col-span-4">Notes / highlights / learnings<textarea className={`${textareaClass} min-h-20`} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Why this matters, highlights, or what to research next" /></label>
-        <div className="flex items-center justify-between gap-3 md:col-span-2 lg:col-span-4"><p className="text-xs text-stone-500">Reminders are off by default.</p><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Reading Entry"}</Button></div>
-      </form>
-
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div> : null}
 
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_300px]">
       {loading ? (
-        <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-8 text-sm text-stone-500 dark:border-white/10 dark:bg-white/[0.04]">Loading reading list...</div>
+        <div className="rounded-2xl border border-dashed border-[#ff8080] bg-white p-8 text-sm text-stone-500 dark:border-[#ff8080] dark:bg-white/[0.04] xl:col-span-2">Loading reading list...</div>
       ) : entries.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-8 text-sm text-stone-500 dark:border-white/10 dark:bg-white/[0.04]">No reading links yet.</div>
+        <div className="rounded-2xl border border-dashed border-[#ff8080] bg-white p-8 text-sm text-stone-500 dark:border-[#ff8080] dark:bg-white/[0.04] xl:col-span-2">No reading links yet.</div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-2">
-          <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <>
+          <section className="rounded-2xl border border-[#ff8080] bg-white p-4 shadow-sm dark:border-[#ff8080] dark:bg-white/[0.04]">
             <div className="mb-2 flex items-center gap-2">
               <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Topics without links</h3>
               <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">{columns.notes.length}</span>
@@ -631,7 +599,7 @@ export default function Reading() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <section className="rounded-2xl border border-[#ff8080] bg-white p-4 shadow-sm dark:border-[#ff8080] dark:bg-white/[0.04]">
             <div className="mb-2 flex items-center gap-2">
               <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Topics with links</h3>
               <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">{columns.links.length}</span>
@@ -663,8 +631,32 @@ export default function Reading() {
               </ul>
             )}
           </section>
-        </div>
+        </>
       )}
+        <form className="grid gap-3 rounded-2xl border border-[#ff8080] bg-white p-4 shadow-sm dark:border-[#ff8080] dark:bg-white/[0.04]" onSubmit={handleAdd}>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+            <span className="rounded-full bg-stone-100 px-2.5 py-1 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300">Area: Personal</span>
+            <span className="rounded-full bg-stone-100 px-2.5 py-1 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300">Category: Reading</span>
+          </div>
+          <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Title *<input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title or research question" required /></label>
+          <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Link<input className={inputClass} type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." /></label>
+          <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-3">
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Topic<input className={`${inputClass} h-9 min-w-0 w-full`} value={topic} onChange={(event) => setTopic(event.target.value)} /></label>
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Priority<input className={`${inputClass} h-9 min-w-0 w-full px-2 text-center`} type="number" value={priority} onChange={(event) => setPriority(event.target.value)} placeholder="1–5" min="1" max="5" step="1" /></label>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Status<select className={`${inputClass} h-9`} value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}><option value="to_read">To read</option><option value="reading">Reading</option><option value="done">Done</option></select></label>
+            <label className="grid min-w-0 gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Saved date<input className={`${inputClass} h-9 min-w-0 w-full px-1.5 text-xs`} type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} required /></label>
+          </div>
+          {status === "done" ? <label className="grid min-w-0 gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Completed date<input className={`${inputClass} h-9 min-w-0 w-full px-1.5 text-xs`} type="date" value={completedDate} onChange={(event) => setCompletedDate(event.target.value)} /></label> : null}
+          <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Notes / highlights / learnings<textarea className={`${textareaClass} min-h-32`} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Why this matters, highlights, or what to research next" /></label>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={favorite} onChange={(event) => setFavorite(event.target.checked)} /> Favorite</label>
+            <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={archived} onChange={(event) => setArchived(event.target.checked)} /> Archived</label>
+          </div>
+          <Button className="w-full" type="submit" disabled={saving}>{saving ? "Saving..." : "Save Reading Entry"}</Button>
+        </form>
+      </div>
     </section>
   );
 }
