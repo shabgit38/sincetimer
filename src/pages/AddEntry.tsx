@@ -144,6 +144,7 @@ export default function AddEntry() {
   const [readingTopic, setReadingTopic] = useState("");
   const [readingStatus, setReadingStatus] = useState<ReadingStatus>("to_read");
   const [readingPriority, setReadingPriority] = useState("");
+  const [readingCompletedDate, setReadingCompletedDate] = useState("");
   const [planType, setPlanType] = useState<PlanType>("learning");
   const [planEndDate, setPlanEndDate] = useState("");
   const [planScheduleMode, setPlanScheduleMode] = useState<PlanScheduleMode>("days");
@@ -232,8 +233,6 @@ export default function AddEntry() {
     ? "Target Date"
     : isSubscription
       ? "Renewal Date"
-      : isReading
-        ? "Read By"
       : isPurchase
         ? "Warranty Ends"
         : "Next Due Date";
@@ -247,6 +246,14 @@ export default function AddEntry() {
       ? getNextSubscriptionRenewalIso(entryDate, getBillingCycle(billingCycle))?.slice(0, 10) ?? ""
       : "";
   const renewalDateValue = isSubscription && billingCycle !== "custom" ? calculatedSubscriptionRenewalDate : nextDueDate;
+
+  useEffect(() => {
+    if (!isEditing && isReading) {
+      const personalArea = areas.find((option) => normalizeCategory(option.name) === "personal")?.name;
+      if (personalArea) setArea(personalArea);
+      setReminderEnabled(false);
+    }
+  }, [areas, isEditing, isReading]);
 
   useEffect(() => {
     const load = async () => {
@@ -311,6 +318,11 @@ export default function AddEntry() {
           setReadingPriority(
             typeof entry.metadata.reading_priority === "number"
               ? String(entry.metadata.reading_priority)
+              : ""
+          );
+          setReadingCompletedDate(
+            typeof entry.metadata.reading_completed_date === "string"
+              ? entry.metadata.reading_completed_date.slice(0, 10)
               : ""
           );
           setPlanType(
@@ -511,7 +523,9 @@ export default function AddEntry() {
     const subscriptionStartDate = shouldPreserveSubscriptionStartDate
       ? existingEntry!.entry_date
       : entryDate;
-    const nextDueDateIso = isPlan
+    const nextDueDateIso = isReading
+      ? null
+      : isPlan
       ? existingEntry?.next_due_date ?? entryDateIso
       : isSubscription
         ? billingCycle === "custom"
@@ -548,6 +562,16 @@ export default function AddEntry() {
         reading_topic: isReading && readingTopic.trim() ? readingTopic.trim() : null,
         reading_status: isReading ? readingStatus : null,
         reading_priority: isReading ? readingPriorityValue : null,
+        reading_started_date:
+          isReading && readingStatus === "reading"
+            ? (existingEntry?.metadata.reading_started_date as string | undefined) ?? new Date().toISOString()
+            : null,
+        reading_completed_date:
+          isReading && readingStatus === "done"
+            ? readingCompletedDate
+              ? new Date(`${readingCompletedDate}T00:00:00`).toISOString()
+              : (existingEntry?.metadata.reading_completed_date as string | undefined) ?? new Date().toISOString()
+            : null,
         plan_type: isPlan ? planType : null,
         plan_status: isPlan ? planStatus : null,
         start_date: isPlan ? entryDate : null,
@@ -770,7 +794,7 @@ export default function AddEntry() {
                 </select>
               </div>
             ) : null}
-            {!isPlan ? (
+            {!isPlan && !isReading ? (
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">
                   {nextDueLabel}
@@ -1065,7 +1089,14 @@ export default function AddEntry() {
                 <select
                   id="readingStatus"
                   value={readingStatus}
-                  onChange={(event) => setReadingStatus(event.target.value as ReadingStatus)}
+                  onChange={(event) => {
+                    const nextStatus = event.target.value as ReadingStatus;
+                    setReadingStatus(nextStatus);
+                    if (nextStatus === "reading" || nextStatus === "done") setNotesOpen(true);
+                    if (nextStatus === "done" && !readingCompletedDate) {
+                      setReadingCompletedDate(new Date().toISOString().slice(0, 10));
+                    }
+                  }}
                   className={inputClass}
                 >
                   <option value="to_read">To read</option>
@@ -1089,6 +1120,20 @@ export default function AddEntry() {
                   step="1"
                 />
               </div>
+              {readingStatus === "done" ? (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="readingCompletedDate">
+                    Completed Date
+                  </label>
+                  <input
+                    id="readingCompletedDate"
+                    type="date"
+                    value={readingCompletedDate}
+                    onChange={(event) => setReadingCompletedDate(event.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -1321,7 +1366,7 @@ export default function AddEntry() {
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   className={`min-h-[120px] w-full ${textareaClass}`}
-                  placeholder="Optional details..."
+                  placeholder={isReading ? "Highlights, learnings, or optional details..." : "Optional details..."}
                 />
               </div>
             ) : null}

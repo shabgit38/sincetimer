@@ -17,6 +17,12 @@ type ReadingEditDraft = {
   completedDate: string;
   notes: string;
   priority: string;
+  favorite: boolean;
+  archived: boolean;
+  attachmentPhoto: string;
+  attachmentPdf: string;
+  attachmentUrl: string;
+  attachmentNotes: string;
 };
 
 const inputClass =
@@ -53,13 +59,17 @@ function getIsoFromDateInput(value: string) {
   return value ? new Date(`${value}T00:00:00`).toISOString() : null;
 }
 
-function getDaysSinceLogged(entry: Entry) {
-  const logged = new Date(entry.entry_date);
+function getDaysSince(dateValue: string) {
+  const logged = new Date(dateValue);
   if (Number.isNaN(logged.getTime())) return null;
   const today = new Date();
   const start = new Date(logged.getFullYear(), logged.getMonth(), logged.getDate());
   const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 86_400_000));
+}
+
+function getReadingStartedDate(entry: Entry) {
+  return getStringMetadata(entry, "reading_started_date");
 }
 
 function getCompletedDate(entry: Entry) {
@@ -77,21 +87,13 @@ function getReadingDraft(entry: Entry): ReadingEditDraft {
     completedDate: getCompletedDate(entry) ? getDateInputValue(getCompletedDate(entry)) : "",
     notes: entry.notes ?? "",
     priority: priority ? String(priority) : "",
+    favorite: entry.metadata.favorite === true,
+    archived: entry.metadata.archived === true,
+    attachmentPhoto: getStringMetadata(entry, "attachment_photo"),
+    attachmentPdf: getStringMetadata(entry, "attachment_pdf"),
+    attachmentUrl: getStringMetadata(entry, "attachment_url"),
+    attachmentNotes: getStringMetadata(entry, "attachment_notes"),
   };
-}
-
-function getUrlTitle(url: string) {
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname
-      .split("/")
-      .filter(Boolean)
-      .at(-1)
-      ?.replace(/[-_]+/g, " ")
-      .replace(/\b\w/g, (letter) => letter.toUpperCase()) || parsed.hostname;
-  } catch {
-    return url;
-  }
 }
 
 function statusLabel(status: ReadingStatus) {
@@ -133,7 +135,12 @@ function ReadingListItem({
   const topic = getStringMetadata(entry, "reading_topic") || "General";
   const status = getReadingStatus(entry);
   const priority = getNumberMetadata(entry, "reading_priority");
-  const daysSinceLogged = getDaysSinceLogged(entry);
+  const readingStartedDate = getReadingStartedDate(entry);
+  const elapsedDays = status === "reading" && readingStartedDate
+    ? getDaysSince(readingStartedDate)
+    : status === "to_read"
+      ? getDaysSince(entry.entry_date)
+      : null;
   const completedDate = getCompletedDate(entry);
 
   return (
@@ -172,26 +179,16 @@ function ReadingListItem({
           >
             <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
           </Button>
-          {status !== "reading" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 rounded-full border-sky-300 px-2.5 py-1 text-[11px] font-medium hover:bg-sky-50 dark:border-sky-300/70 dark:hover:bg-sky-400/10"
-              onClick={() => onStatusChange(entry, "reading")}
-            >
-              Mark Reading
-            </Button>
-          ) : null}
-          {status !== "done" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-6 rounded-full border-emerald-300 px-2.5 py-1 text-[11px] font-medium hover:bg-emerald-50 dark:border-emerald-300/70 dark:hover:bg-emerald-400/10"
-              onClick={() => onStatusChange(entry, "done")}
-            >
-              Mark Done
-            </Button>
-          ) : null}
+          <select
+            className={`${inputClass} h-8 py-0`}
+            value={status}
+            onChange={(event) => onStatusChange(entry, event.target.value as ReadingStatus)}
+            aria-label={`Reading status for ${entry.title}`}
+          >
+            <option value="to_read">To read</option>
+            <option value="reading">Reading</option>
+            <option value="done">Done</option>
+          </select>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5 text-[11px]">
           <span className={`rounded-full px-2.5 py-1 font-medium ${statusChipClass(status)}`}>
@@ -202,9 +199,13 @@ function ReadingListItem({
               Priority {priority}
             </span>
           ) : null}
-          <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
-            {daysSinceLogged === null ? "Logged date unknown" : `${daysSinceLogged} days since logged`}
-          </span>
+          {status !== "done" ? (
+            <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
+              {elapsedDays === null
+                ? "Date unknown"
+                : `${elapsedDays} days since ${status === "reading" ? "reading" : "created"}`}
+            </span>
+          ) : null}
           {completedDate ? (
             <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
               Completed {getDateInputValue(completedDate)}
@@ -283,12 +284,34 @@ function ReadingEditForm({
           />
         </label>
         <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2">
-          Notes
+          Notes / highlights / learnings
           <textarea
             className={`${textareaClass} min-h-20`}
             value={draft.notes}
             onChange={(event) => onChange({ ...draft, notes: event.target.value })}
           />
+        </label>
+        <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300">
+          <input type="checkbox" checked={draft.favorite} onChange={(event) => onChange({ ...draft, favorite: event.target.checked })} /> Favorite
+        </label>
+        <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300">
+          <input type="checkbox" checked={draft.archived} onChange={(event) => onChange({ ...draft, archived: event.target.checked })} /> Archived
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
+          Attachment photo
+          <input className={inputClass} value={draft.attachmentPhoto} onChange={(event) => onChange({ ...draft, attachmentPhoto: event.target.value })} />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
+          Attachment PDF
+          <input className={inputClass} value={draft.attachmentPdf} onChange={(event) => onChange({ ...draft, attachmentPdf: event.target.value })} />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
+          Attachment URL
+          <input className={inputClass} value={draft.attachmentUrl} onChange={(event) => onChange({ ...draft, attachmentUrl: event.target.value })} />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
+          Attachment notes
+          <input className={inputClass} value={draft.attachmentNotes} onChange={(event) => onChange({ ...draft, attachmentNotes: event.target.value })} />
         </label>
       </div>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
@@ -319,6 +342,15 @@ export default function Reading() {
   const [topic, setTopic] = useState("");
   const [notes, setNotes] = useState("");
   const [priority, setPriority] = useState("");
+  const [status, setStatus] = useState<ReadingStatus>("to_read");
+  const [entryDate, setEntryDate] = useState(() => getDateInputValue());
+  const [completedDate, setCompletedDate] = useState("");
+  const [favorite, setFavorite] = useState(false);
+  const [archived, setArchived] = useState(false);
+  const [attachmentPhoto, setAttachmentPhoto] = useState("");
+  const [attachmentPdf, setAttachmentPdf] = useState("");
+  const [attachmentUrl, setAttachmentUrl] = useState("");
+  const [attachmentNotes, setAttachmentNotes] = useState("");
 
   const loadReading = async () => {
     setLoading(true);
@@ -366,8 +398,12 @@ export default function Reading() {
     const trimmedTitle = title.trim();
     const trimmedTopic = topic.trim();
     const trimmedNotes = notes.trim();
-    if (!trimmedUrl && !trimmedTitle && !trimmedTopic && !trimmedNotes) {
-      setError("Add a title, topic, note, or link first.");
+    if (!trimmedTitle) {
+      setError("Title is required.");
+      return;
+    }
+    if (!entryDate) {
+      setError("Saved date is required.");
       return;
     }
 
@@ -381,21 +417,27 @@ export default function Reading() {
     try {
       const nowIso = new Date().toISOString();
       const payload: EntryPayload = {
-        title: trimmedTitle || (trimmedUrl ? getUrlTitle(trimmedUrl) : trimmedTopic || "Research note"),
+        title: trimmedTitle,
         area: "personal",
         category: "reading",
-        entry_date: nowIso,
+        entry_date: getIsoFromDateInput(entryDate) ?? nowIso,
         next_due_date: null,
         repeat_interval_days: null,
         metadata: {
           reading_url: trimmedUrl || null,
           reading_topic: trimmedTopic || null,
-          reading_status: "to_read",
+          reading_status: status,
           reading_priority: parsedPriority,
+          reading_started_date: status === "reading" ? nowIso : null,
+          reading_completed_date: status === "done" ? getIsoFromDateInput(completedDate) ?? nowIso : null,
           completed_count: 0,
           tags: trimmedTopic ? [trimmedTopic] : [],
-          favorite: false,
-          archived: false,
+          favorite,
+          archived,
+          attachment_photo: attachmentPhoto.trim() || null,
+          attachment_pdf: attachmentPdf.trim() || null,
+          attachment_url: attachmentUrl.trim() || null,
+          attachment_notes: attachmentNotes.trim() || null,
         },
         price: null,
         notes: trimmedNotes || null,
@@ -408,6 +450,15 @@ export default function Reading() {
       setTopic("");
       setNotes("");
       setPriority("");
+      setStatus("to_read");
+      setEntryDate(getDateInputValue());
+      setCompletedDate("");
+      setFavorite(false);
+      setArchived(false);
+      setAttachmentPhoto("");
+      setAttachmentPdf("");
+      setAttachmentUrl("");
+      setAttachmentNotes("");
       await loadReading();
     } catch (saveError) {
       console.error(saveError);
@@ -417,27 +468,14 @@ export default function Reading() {
     }
   };
 
-  const handleStatusChange = async (entry: Entry, status: ReadingStatus) => {
-    setError(null);
-    setSavingEntryId(entry.id);
-    try {
-      const completedDate = status === "done" ? new Date().toISOString() : null;
-      await updateEntry(entry.id, {
-        next_due_date: null,
-        repeat_interval_days: null,
-        metadata: {
-          ...entry.metadata,
-          reading_status: status,
-          reading_completed_date: completedDate,
-        },
-      });
-      await loadReading();
-    } catch (saveError) {
-      console.error(saveError);
-      setError("Unable to update reading status.");
-    } finally {
-      setSavingEntryId(null);
-    }
+  const handleStatusChange = (entry: Entry, nextStatus: ReadingStatus) => {
+    setEditingId(entry.id);
+    const draft = getReadingDraft(entry);
+    setEditDraft({
+      ...draft,
+      status: nextStatus,
+      completedDate: nextStatus === "done" ? draft.completedDate || getDateInputValue() : "",
+    });
   };
 
   const startEditing = (entry: Entry) => {
@@ -475,7 +513,13 @@ export default function Reading() {
 
     setSavingEntryId(entry.id);
     try {
+      const statusChanged = editDraft.status !== getReadingStatus(entry);
       const completedDate = editDraft.status === "done" ? getIsoFromDateInput(editDraft.completedDate) ?? new Date().toISOString() : null;
+      const startedDate = editDraft.status === "reading"
+        ? statusChanged
+          ? new Date().toISOString()
+          : getReadingStartedDate(entry) || new Date().toISOString()
+        : null;
       await updateEntry(entry.id, {
         title: trimmedTitle,
         entry_date: getIsoFromDateInput(editDraft.entryDate) ?? entry.entry_date,
@@ -488,7 +532,14 @@ export default function Reading() {
           reading_status: editDraft.status,
           reading_priority: parsedPriority,
           reading_completed_date: completedDate,
+          reading_started_date: startedDate,
           tags: trimmedTopic ? [trimmedTopic] : [],
+          favorite: editDraft.favorite,
+          archived: editDraft.archived,
+          attachment_photo: editDraft.attachmentPhoto.trim() || null,
+          attachment_pdf: editDraft.attachmentPdf.trim() || null,
+          attachment_url: editDraft.attachmentUrl.trim() || null,
+          attachment_notes: editDraft.attachmentNotes.trim() || null,
         },
         notes: trimmedNotes || null,
       });
@@ -519,13 +570,24 @@ export default function Reading() {
         </div>
       </div>
 
-      <form className="grid gap-3 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:grid-cols-[minmax(0,1fr)_180px_100px_auto]" onSubmit={handleAdd}>
-        <input className={inputClass} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="Optional link" aria-label="Reading URL" />
-        <input className={inputClass} value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="Topic" aria-label="Topic" />
-        <input className={inputClass} type="number" value={priority} onChange={(event) => setPriority(event.target.value)} placeholder="1-5" min="1" max="5" aria-label="Priority" />
-        <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Note"}</Button>
-        <input className={`${inputClass} lg:col-span-2`} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title or research question" aria-label="Title" />
-        <textarea className={`${textareaClass} min-h-20 lg:col-span-2`} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Notes, why this matters, or what to research next" aria-label="Notes" />
+      <form className="grid gap-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04] md:grid-cols-2 lg:grid-cols-4" onSubmit={handleAdd}>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Area<input className={inputClass} value="Personal" disabled /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Category<input className={inputClass} value="Reading" disabled /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Saved date<input className={inputClass} type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} required /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Status<select className={inputClass} value={status} onChange={(event) => setStatus(event.target.value as ReadingStatus)}><option value="to_read">To read</option><option value="reading">Reading</option><option value="done">Done</option></select></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2">Title *<input className={inputClass} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Title or research question" required /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2">Link<input className={inputClass} type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Topic<input className={inputClass} value={topic} onChange={(event) => setTopic(event.target.value)} /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Priority<input className={inputClass} type="number" value={priority} onChange={(event) => setPriority(event.target.value)} min="1" max="5" /></label>
+        {status === "done" ? <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Completed date<input className={inputClass} type="date" value={completedDate} onChange={(event) => setCompletedDate(event.target.value)} /></label> : null}
+        <label className="flex items-center gap-2 self-end pb-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={favorite} onChange={(event) => setFavorite(event.target.checked)} /> Favorite</label>
+        <label className="flex items-center gap-2 self-end pb-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={archived} onChange={(event) => setArchived(event.target.checked)} /> Archived</label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Photo attachment<input className={inputClass} value={attachmentPhoto} onChange={(event) => setAttachmentPhoto(event.target.value)} /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">PDF attachment<input className={inputClass} value={attachmentPdf} onChange={(event) => setAttachmentPdf(event.target.value)} /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">URL attachment<input className={inputClass} type="url" value={attachmentUrl} onChange={(event) => setAttachmentUrl(event.target.value)} /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Attachment notes<input className={inputClass} value={attachmentNotes} onChange={(event) => setAttachmentNotes(event.target.value)} /></label>
+        <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300 md:col-span-2 lg:col-span-4">Notes / highlights / learnings<textarea className={`${textareaClass} min-h-20`} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Why this matters, highlights, or what to research next" /></label>
+        <div className="flex items-center justify-between gap-3 md:col-span-2 lg:col-span-4"><p className="text-xs text-stone-500">Reminders are off by default.</p><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save Reading Entry"}</Button></div>
       </form>
 
       {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div> : null}
