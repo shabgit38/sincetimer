@@ -44,7 +44,31 @@ async function requireUserId() {
   return data.user.id;
 }
 
+function getTodayStartIso() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString();
+}
+
+async function markOverdueScheduledSessionsMissed(entryId?: string): Promise<void> {
+  const nowIso = new Date().toISOString();
+  let query = supabase
+    .from("plan_sessions")
+    .update({ status: "missed", updated_at: nowIso })
+    .eq("status", "scheduled")
+    .lt("session_date", getTodayStartIso());
+
+  if (entryId) query = query.eq("entry_id", entryId);
+
+  const { data, error } = await query.select("entry_id");
+  if (error) throw error;
+
+  const affectedEntryIds = [...new Set((data ?? []).map((session) => session.entry_id))];
+  await Promise.all(affectedEntryIds.map((affectedEntryId) => refreshPlanNextDueDate(affectedEntryId, nowIso)));
+}
+
 export async function getPlanSessions(entryId: string): Promise<PlanSession[]> {
+  await markOverdueScheduledSessionsMissed(entryId);
   const { data, error } = await supabase
     .from("plan_sessions")
     .select(planSessionSelect)
@@ -56,6 +80,7 @@ export async function getPlanSessions(entryId: string): Promise<PlanSession[]> {
 }
 
 export async function getAllPlanSessions(): Promise<PlanSession[]> {
+  await markOverdueScheduledSessionsMissed();
   const { data, error } = await supabase
     .from("plan_sessions")
     .select(planSessionSelect)
@@ -116,7 +141,8 @@ export async function replaceScheduledPlanSessions(entryId: string, sessions: Ne
     .from("plan_sessions")
     .delete()
     .eq("entry_id", entryId)
-    .eq("status", "scheduled");
+    .eq("status", "scheduled")
+    .gte("session_date", getTodayStartIso());
 
   if (deleteError) throw deleteError;
 

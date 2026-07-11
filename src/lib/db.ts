@@ -11,7 +11,6 @@ const defaultCategoryNames = [
   'subscription',
   'appointment',
   'health record',
-  'plan',
   'Learning',
   'Habit',
   'Practice',

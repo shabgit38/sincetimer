@@ -107,6 +107,38 @@ function getPlanScheduleConfig(metadata: Record<string, unknown>): PlanScheduleC
   return { mode: "days", interval: 1, weekdays: [] };
 }
 
+function getStoredPlanType(entry: Entry): PlanType {
+  const category = normalizeCategory(entry.category);
+  if (category === "habit" || category === "practice") return category;
+  if (entry.metadata.plan_type === "habit" || entry.metadata.plan_type === "practice") {
+    return entry.metadata.plan_type;
+  }
+  return "learning";
+}
+
+function getStoredPlanTopics(metadata: Record<string, unknown>) {
+  return Array.isArray(metadata.topics)
+    ? metadata.topics.filter((topic): topic is string => typeof topic === "string").map((topic) => topic.trim()).filter(Boolean)
+    : [];
+}
+
+function hasPlanScheduleChanged(
+  entry: Entry,
+  planType: PlanType,
+  startDate: string,
+  endDate: string,
+  schedule: PlanScheduleConfig,
+  topics: string[]
+) {
+  return (
+    entry.entry_date.slice(0, 10) !== startDate ||
+    (typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "") !== endDate ||
+    getStoredPlanType(entry) !== planType ||
+    JSON.stringify(getPlanScheduleConfig(entry.metadata)) !== JSON.stringify(schedule) ||
+    JSON.stringify(getStoredPlanTopics(entry.metadata)) !== JSON.stringify(topics)
+  );
+}
+
 export default function AddEntry() {
   const navigate = useNavigate();
   const params = useParams();
@@ -176,6 +208,7 @@ export default function AddEntry() {
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
   const isPlan = isPlanAreaCategory(area, category);
+  const returnPath = isPlan ? "/plans" : "/";
   const isReading = normalizedCategory === "reading";
   const hasRepeatInterval = isRoutine || isHealthRecord;
   const hasCost = isPurchase || isSubscription;
@@ -316,14 +349,7 @@ export default function AddEntry() {
               ? entry.metadata.reading_completed_date.slice(0, 10)
               : ""
           );
-          const storedPlanType = normalizeCategory(entry.category);
-          setPlanType(
-            storedPlanType === "habit" || storedPlanType === "practice"
-              ? storedPlanType
-              : entry.metadata.plan_type === "habit" || entry.metadata.plan_type === "practice"
-                ? entry.metadata.plan_type
-                : "learning"
-          );
+          setPlanType(getStoredPlanType(entry));
           setPlanEndDate(typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "");
           const scheduleConfig = getPlanScheduleConfig(entry.metadata);
           setPlanScheduleMode(scheduleConfig.mode);
@@ -620,6 +646,17 @@ export default function AddEntry() {
       }
 
       if (isPlan && savedEntryId) {
+        const shouldRegeneratePlanSessions =
+          !isEditing ||
+          !existingEntry ||
+          hasPlanScheduleChanged(
+            existingEntry,
+            planType,
+            entryDate,
+            planEndDate,
+            planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] },
+            planTopicValues
+          );
         const sessions = generatePlanSessions({
           entryId: savedEntryId,
           title: title.trim(),
@@ -629,11 +666,12 @@ export default function AddEntry() {
           schedule: planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] },
           topics: planTopicValues,
         });
-        if (isEditing) {
-          const now = new Date();
-          const futureSessions = sessions.filter((session) => new Date(session.session_date) >= now);
+        if (isEditing && shouldRegeneratePlanSessions) {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const futureSessions = sessions.filter((session) => new Date(session.session_date) >= today);
           await replaceScheduledPlanSessions(savedEntryId, futureSessions);
-        } else {
+        } else if (!isEditing) {
           await replacePlanSessions(savedEntryId, sessions);
           await updateEntry(savedEntryId, {
             next_due_date: sessions[0]?.session_date ?? entryDateIso,
@@ -641,7 +679,7 @@ export default function AddEntry() {
         }
       }
       setEntries(await getAllEntries());
-      navigate("/");
+      navigate(returnPath);
     } catch (saveError) {
       console.error(saveError);
       setError("Unable to save entry. Please try again.");
@@ -692,8 +730,8 @@ export default function AddEntry() {
               Capture what happened and the next action date.
             </p>
           </div>
-          <Button variant="outline" type="button" onClick={() => navigate("/")}>
-            Back to Dashboard
+          <Button variant="outline" type="button" onClick={() => navigate(returnPath)}>
+            {isPlan ? "Back to Plans" : "Back to Dashboard"}
           </Button>
         </div>
 
