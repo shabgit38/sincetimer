@@ -141,7 +141,7 @@ function ReadingListItem({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">{topic}</p>
-          <h3 className="mt-1 text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
+          <h3 className="mt-1 break-words text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
         </div>
         {url ? (
           <a
@@ -155,7 +155,7 @@ function ReadingListItem({
           </a>
         ) : null}
       </div>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"
@@ -171,7 +171,7 @@ function ReadingListItem({
             {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
           </span>
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-1.5 text-[11px]">
+        <div className="flex w-full flex-wrap items-center justify-start gap-1.5 text-[11px] sm:w-auto sm:justify-end">
           {status !== "done" ? (
             <select
               className={`${inputClass} h-8 cursor-pointer py-0 disabled:cursor-wait disabled:opacity-70`}

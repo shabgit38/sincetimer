@@ -564,10 +564,10 @@ function CompactDashboardListItem({
 
   return (
     <li className={`border-b py-3 last:border-b-0 sm:py-2 ${borderClass}`}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="relative flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <button
           type="button"
-          className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-60 ${
+          className={`absolute right-0 top-0 grid h-7 w-7 shrink-0 place-items-center rounded-lg border transition disabled:cursor-not-allowed disabled:opacity-60 sm:static ${
             isFavorite
               ? "border-amber-300 bg-amber-50 text-amber-600 shadow-[0_0_0_1px_rgb(245_158_11_/_0.18)] hover:border-amber-400 hover:bg-amber-100 dark:border-amber-300/75 dark:bg-amber-200/18 dark:text-amber-300 dark:shadow-[0_0_0_1px_rgb(251_191_36_/_0.25)] dark:hover:border-amber-100 dark:hover:bg-amber-200/24 dark:hover:text-amber-200"
               : "border-stone-200 bg-stone-50 text-stone-400 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-stone-500 dark:hover:border-amber-300/60 dark:hover:bg-amber-300/10 dark:hover:text-amber-200"
@@ -583,7 +583,7 @@ function CompactDashboardListItem({
           <Star className={`h-3.5 w-3.5 ${isFavorite ? "fill-current" : ""}`} />
         </button>
 
-        <button type="button" className="min-w-0 flex-1 text-left" onClick={onOpen}>
+        <button type="button" className="min-w-0 flex-1 pr-9 text-left sm:pr-0" onClick={onOpen}>
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
             <h4 className="min-w-0 max-w-full break-words text-base font-medium leading-snug text-stone-950 sm:truncate dark:text-stone-50">
               {entry.title}
@@ -1051,6 +1051,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [planSessions, setPlanSessions] = useState<PlanSession[]>([]);
   const [latestSubscriptionLogDates, setLatestSubscriptionLogDates] = useState<Record<string, string>>({});
+  const [latestCompletionDates, setLatestCompletionDates] = useState<Record<string, string>>({});
   const [areas, setAreas] = useState<EntryOption[]>([]);
   const [categories, setCategories] = useState<EntryOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1077,16 +1078,18 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setError(null);
     try {
       const entryData = await getAllEntries();
-      const subscriptionIds = entryData.filter(isSubscriptionEntry).map((entry) => entry.id);
-      const [planSessionData, areaData, categoryData, subscriptionHistory] = await Promise.all([
+      const entryIds = entryData.map((entry) => entry.id);
+      const [planSessionData, areaData, categoryData, entryHistory] = await Promise.all([
         getAllPlanSessions(),
         getAreas(),
         getCategories(),
-        getHistoryForEntries(subscriptionIds),
+        getHistoryForEntries(entryIds),
       ]);
       setEntries(entryData);
       setPlanSessions(planSessionData);
-      setLatestSubscriptionLogDates(getLatestLogDatesByEntryId(subscriptionHistory));
+      const latestLogDates = getLatestLogDatesByEntryId(entryHistory);
+      setLatestSubscriptionLogDates(latestLogDates);
+      setLatestCompletionDates(latestLogDates);
       setAreas(areaData);
       setCategories(categoryData);
     } catch (loadError) {
@@ -1103,16 +1106,18 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   const refreshData = async () => {
     const entryData = await getAllEntries();
-    const subscriptionIds = entryData.filter(isSubscriptionEntry).map((entry) => entry.id);
-    const [planSessionData, areaData, categoryData, subscriptionHistory] = await Promise.all([
+    const entryIds = entryData.map((entry) => entry.id);
+    const [planSessionData, areaData, categoryData, entryHistory] = await Promise.all([
       getAllPlanSessions(),
       getAreas(),
       getCategories(),
-      getHistoryForEntries(subscriptionIds),
+      getHistoryForEntries(entryIds),
     ]);
     setEntries(entryData);
     setPlanSessions(planSessionData);
-    setLatestSubscriptionLogDates(getLatestLogDatesByEntryId(subscriptionHistory));
+    const latestLogDates = getLatestLogDatesByEntryId(entryHistory);
+    setLatestSubscriptionLogDates(latestLogDates);
+    setLatestCompletionDates(latestLogDates);
     setAreas(areaData);
     setCategories(categoryData);
   };
@@ -1406,8 +1411,18 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         dueSoon.push(entry);
       } else if (dueDate) {
         upcoming.push(entry);
-      } else if (getNumberMetadata(entry, "completed_count") > 0 && summary.daysPassed <= 14) {
-        recentlyCompleted.push(entry);
+      } else if (getNumberMetadata(entry, "completed_count") > 0) {
+        const planCompletedDate = isPlanEntry(entry)
+          ? getLatestCompletedPlanSessionDate(planSessionsByEntryId.get(entry.id) ?? [])
+          : null;
+        const latestCompletedDate = planCompletedDate ?? latestCompletionDates[entry.id] ?? null;
+        if (latestCompletedDate) {
+          const completedDaysAgo = Math.floor((Date.now() - new Date(latestCompletedDate).getTime()) / 86_400_000);
+          if (completedDaysAgo >= 0 && completedDaysAgo <= 14) recentlyCompleted.push(entry);
+          else unscheduled.push(entry);
+        } else {
+          unscheduled.push(entry);
+        }
       } else {
         unscheduled.push(entry);
       }
@@ -1455,7 +1470,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         entries: sortDashboardGroup("Unscheduled", unscheduled),
       },
     ];
-  }, [filteredEntries, planSessionsByEntryId]);
+  }, [filteredEntries, latestCompletionDates, planSessionsByEntryId]);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
