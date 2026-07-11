@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { isPlanEntry } from "@/lib/entryClassification";
 import type { Entry } from "@/types/entry";
 import type { NewPlanSession, PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
 
@@ -69,7 +70,7 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
     supabase
       .from("entries")
       .select(planEntrySelect)
-      .ilike("category", "plan")
+      .ilike("area", "plan")
       .order("created_at", { ascending: false }),
     getAllPlanSessions(),
   ]);
@@ -82,10 +83,12 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
     sessionGroups.set(session.entry_id, group);
   });
 
-  return ((entries ?? []) as Entry[]).map((entry) => ({
-    entry,
-    sessions: sessionGroups.get(entry.id) ?? [],
-  }));
+  return ((entries ?? []) as Entry[])
+    .filter(isPlanEntry)
+    .map((entry) => ({
+      entry,
+      sessions: sessionGroups.get(entry.id) ?? [],
+    }));
 }
 
 export async function replacePlanSessions(entryId: string, sessions: NewPlanSession[]): Promise<void> {

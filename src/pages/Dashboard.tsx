@@ -18,6 +18,7 @@ import {
   updateEntry,
 } from "@/lib/db";
 import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
+import { isPlanEntry } from "@/lib/entryClassification";
 import type { Entry, EntryOption, HistoryItem } from "@/types/entry";
 import type { PlanSession, PlanSessionStatus } from "@/types/plan";
 
@@ -345,10 +346,6 @@ function getDateInputValue(date: Date = new Date()) {
   return localDate.toISOString().slice(0, 10);
 }
 
-function isPlanEntry(entry: Entry) {
-  return typeof entry.metadata.plan_type === "string";
-}
-
 function getPlanTypeLabel(value: unknown) {
   if (value === "habit") return "Habit";
   if (value === "practice") return "Practice";
@@ -357,7 +354,7 @@ function getPlanTypeLabel(value: unknown) {
 
 function getEntryAreaCategoryLabel(entry: Entry) {
   if (isPlanEntry(entry)) {
-    return `Plan / ${getPlanTypeLabel(entry.metadata.plan_type)}`;
+    return `Plan / ${entry.category.toLocaleLowerCase() === "plan" ? getPlanTypeLabel(entry.metadata.plan_type) : formatOptionLabel(entry.category)}`;
   }
   return `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`;
 }

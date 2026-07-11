@@ -16,6 +16,7 @@ import {
 } from "@/lib/db";
 import { generatePlanSessions } from "@/lib/planScheduler";
 import { replacePlanSessions, replaceScheduledPlanSessions } from "@/lib/plans";
+import { isPlanAreaCategory } from "@/lib/entryClassification";
 import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import type { Entry, EntryOption } from "@/types/entry";
@@ -51,16 +52,6 @@ function getPlanTypeLabel(value: PlanType) {
   if (value === "habit") return "Habit";
   if (value === "practice") return "Practice";
   return "Learning";
-}
-
-function isPlanAreaCategory(areaValue: string, categoryValue: string) {
-  const normalizedArea = normalizeCategory(areaValue);
-  const normalizedCategory = normalizeCategory(categoryValue);
-  return (
-    normalizedCategory === "plan" ||
-    (normalizedArea === "plan" &&
-      (normalizedCategory === "learning" || normalizedCategory === "habit" || normalizedCategory === "practice"))
-  );
 }
 
 function getRepeatIntervalDays(value: number, unit: RepeatUnit) {
@@ -325,10 +316,13 @@ export default function AddEntry() {
               ? entry.metadata.reading_completed_date.slice(0, 10)
               : ""
           );
+          const storedPlanType = normalizeCategory(entry.category);
           setPlanType(
-            entry.metadata.plan_type === "habit" || entry.metadata.plan_type === "practice"
-              ? entry.metadata.plan_type
-              : "learning"
+            storedPlanType === "habit" || storedPlanType === "practice"
+              ? storedPlanType
+              : entry.metadata.plan_type === "habit" || entry.metadata.plan_type === "practice"
+                ? entry.metadata.plan_type
+                : "learning"
           );
           setPlanEndDate(typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "");
           const scheduleConfig = getPlanScheduleConfig(entry.metadata);
@@ -584,7 +578,6 @@ export default function AddEntry() {
               ? new Date(`${readingCompletedDate}T00:00:00`).toISOString()
               : (existingEntry?.metadata.reading_completed_date as string | undefined) ?? new Date().toISOString()
             : null,
-        plan_type: isPlan ? planType : null,
         plan_status: isPlan ? planStatus : null,
         start_date: isPlan ? entryDate : null,
         end_date: isPlan ? planEndDate : null,
