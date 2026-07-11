@@ -363,13 +363,15 @@ export default function AddEntry() {
           return;
         }
 
-        const categoryFromQuery = requestedCategory
-          ? categoryOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedCategory))?.name
-          : "";
-        const areaFromQuery =
-          requestedCategory && normalizeCategory(requestedCategory) === "plan"
-            ? areaOptions.find((option) => normalizeCategory(option.name) === "plan")?.name
+        const isRequestedPlan = requestedCategory && normalizeCategory(requestedCategory) === "plan";
+        const categoryFromQuery = isRequestedPlan
+          ? categoryOptions.find((option) => normalizeCategory(option.name) === "learning")?.name ?? "Learning"
+          : requestedCategory
+            ? categoryOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedCategory))?.name
             : "";
+        const areaFromQuery = isRequestedPlan
+          ? areaOptions.find((option) => normalizeCategory(option.name) === "plan")?.name
+          : "";
         setArea((current) => current || areaFromQuery || areaOptions[0]?.name || "");
         setCategory((current) => current || categoryFromQuery || categoryOptions[0]?.name || "");
       } catch (loadError) {
