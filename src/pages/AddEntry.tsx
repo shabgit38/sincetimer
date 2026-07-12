@@ -145,6 +145,7 @@ export default function AddEntry() {
   const [searchParams] = useSearchParams();
   const entryId = params.id ?? null;
   const isEditing = Boolean(entryId);
+  const requestedArea = searchParams.get("area");
   const requestedCategory = searchParams.get("category");
 
   const [title, setTitle] = useState("");
@@ -280,6 +281,13 @@ export default function AddEntry() {
   }, [areas, isEditing, isReading]);
 
   useEffect(() => {
+    if (!isEditing && isPlan) {
+      setReminderEnabled(true);
+      setReminderTime("05:00");
+    }
+  }, [isEditing, isPlan]);
+
+  useEffect(() => {
     const load = async () => {
       try {
         const [areaOptions, categoryOptions, entryRecords, entry] = await Promise.all([
@@ -395,7 +403,9 @@ export default function AddEntry() {
           : requestedCategory
             ? categoryOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedCategory))?.name
             : "";
-        const areaFromQuery = "";
+        const areaFromQuery = requestedArea
+          ? areaOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedArea))?.name
+          : "";
         setArea((current) => current || areaFromQuery || areaOptions[0]?.name || "");
         setCategory((current) => current || categoryFromQuery || categoryOptions[0]?.name || "");
       } catch (loadError) {
@@ -404,7 +414,7 @@ export default function AddEntry() {
       }
     };
     void load();
-  }, [entryId, isEditing, requestedCategory]);
+  }, [entryId, isEditing, requestedArea, requestedCategory]);
 
   const canSubmit = useMemo(
     () =>

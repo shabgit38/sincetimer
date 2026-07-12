@@ -340,6 +340,14 @@ function formatShortDuration(entryDate: string) {
     .replace(/\bdays?\b/g, "dys");
 }
 
+function getAddEntryPath(area: string, category: string) {
+  const params = new URLSearchParams();
+  if (area !== "all") params.set("area", area);
+  if (category !== "all") params.set("category", category);
+  const query = params.toString();
+  return query ? `/add?${query}` : "/add";
+}
+
 function formatCompletedDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -783,6 +791,7 @@ function CompactDashboardList({
 function ReadingDashboardListItem({
   entry,
   onOpen,
+  onToggleFavorite,
   onStatusChange,
   onSaveNotes,
   statusSaving,
@@ -790,6 +799,7 @@ function ReadingDashboardListItem({
 }: {
   entry: Entry;
   onOpen: () => void;
+  onToggleFavorite: () => void;
   onStatusChange: (entry: Entry, status: ReadingStatus) => void;
   onSaveNotes: (entry: Entry, notes: string) => Promise<void>;
   statusSaving: boolean;
@@ -798,6 +808,7 @@ function ReadingDashboardListItem({
   const topic = getStringMetadata(entry, "reading_topic");
   const url = getStringMetadata(entry, "reading_url");
   const status = getReadingStatus(entry);
+  const isFavorite = getBooleanMetadata(entry, "favorite");
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState(entry.notes ?? "");
 
@@ -846,6 +857,15 @@ function ReadingDashboardListItem({
           {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
         </span>
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            className={`grid h-8 w-8 place-items-center rounded-lg border transition ${isFavorite ? "border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-300/50 dark:bg-amber-300/10 dark:text-amber-200" : "border-stone-300 text-stone-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/20 dark:text-stone-400 dark:hover:border-amber-300/50 dark:hover:text-amber-200"}`}
+            onClick={onToggleFavorite}
+            aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Star className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+          </button>
           <button
             type="button"
             className="grid h-8 w-8 place-items-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-400 hover:bg-stone-100 hover:text-stone-950 dark:border-white/20 dark:text-stone-300 dark:hover:border-white/35 dark:hover:bg-white/[0.08] dark:hover:text-white"
@@ -910,7 +930,7 @@ function ReadingDashboardListItem({
   );
 }
 
-function ReadingDashboardColumns({ entries, onOpen, onStatusChange, onSaveNotes, statusSavingIds, notesSavingIds }: { entries: Entry[]; onOpen: (entry: Entry) => void; onStatusChange: (entry: Entry, status: ReadingStatus) => void; onSaveNotes: (entry: Entry, notes: string) => Promise<void>; statusSavingIds: Set<string>; notesSavingIds: Set<string> }) {
+function ReadingDashboardColumns({ entries, onOpen, onToggleFavorite, onStatusChange, onSaveNotes, favoriteSavingIds, statusSavingIds, notesSavingIds }: { entries: Entry[]; onOpen: (entry: Entry) => void; onToggleFavorite: (entry: Entry) => void; onStatusChange: (entry: Entry, status: ReadingStatus) => void; onSaveNotes: (entry: Entry, notes: string) => Promise<void>; favoriteSavingIds: Set<string>; statusSavingIds: Set<string>; notesSavingIds: Set<string> }) {
   const sortReading = (items: Entry[]) =>
     [...items].sort((a, b) => {
       const statusCompare = getReadingStatusRank(a) - getReadingStatusRank(b);
@@ -929,7 +949,7 @@ function ReadingDashboardColumns({ entries, onOpen, onStatusChange, onSaveNotes,
       ) : (
         <ul>
           {items.map((entry) => (
-            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} onStatusChange={onStatusChange} onSaveNotes={onSaveNotes} statusSaving={statusSavingIds.has(entry.id)} notesSaving={notesSavingIds.has(entry.id)} />
+            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} onToggleFavorite={() => onToggleFavorite(entry)} onStatusChange={onStatusChange} onSaveNotes={onSaveNotes} statusSaving={statusSavingIds.has(entry.id) || favoriteSavingIds.has(entry.id)} notesSaving={notesSavingIds.has(entry.id)} />
           ))}
         </ul>
       )}
@@ -996,24 +1016,33 @@ function EntrySection({
   if (group.entries.length === 0) return null;
   const isFavoriteSection = group.title === "Favorites";
   const isReadingSection = group.title === "Reading list";
+  const isPurpleDarkSection = group.title === "Upcoming" || group.title === "Unscheduled";
   const toneName = getSectionTone(group.title);
   const tone = sectionToneClasses[toneName];
+  const purpleDarkShell = isPurpleDarkSection ? "dark:!border-purple-400/30 dark:!bg-purple-950/15" : "";
+  const purpleDarkHeader = isPurpleDarkSection
+    ? "dark:!border-purple-400/25 dark:!bg-purple-400/10 dark:hover:!bg-purple-400/15"
+    : "";
+  const purpleDarkCount = isPurpleDarkSection
+    ? "dark:!border-purple-300/25 dark:!bg-purple-300/10 dark:!text-purple-100"
+    : "";
+  const purpleDarkChevron = isPurpleDarkSection ? "dark:!text-purple-200" : "";
 
   return (
-    <section className={`${isReadingSection ? "overflow-visible" : "overflow-hidden"} rounded-2xl border border-stone-200 bg-white shadow-sm ${tone.shell}`}>
+    <section className={`${isReadingSection ? "overflow-visible" : "overflow-hidden"} rounded-2xl border border-stone-200 bg-white shadow-sm ${tone.shell} ${purpleDarkShell}`}>
       <button
         type="button"
-        className={`flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition ${tone.header}`}
+        className={`flex w-full items-center justify-between gap-4 border-b border-stone-200 bg-stone-50 px-4 py-3 text-left transition ${tone.header} ${purpleDarkHeader}`}
         onClick={onToggle}
         aria-expanded={!collapsed}
       >
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="text-base font-semibold tracking-tight text-stone-950 dark:text-stone-50">{group.title}</h3>
-          <span className={`rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 ${tone.count}`}>
+          <span className={`rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 ${tone.count} ${purpleDarkCount}`}>
             {group.entries.length}
           </span>
         </div>
-        <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition ${tone.chevron} ${collapsed ? "" : "rotate-180"}`} />
+        <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition ${tone.chevron} ${purpleDarkChevron} ${collapsed ? "" : "rotate-180"}`} />
       </button>
       {collapsed ? null : isFavoriteSection ? (
         <CompactDashboardList
@@ -1036,7 +1065,7 @@ function EntrySection({
           accent="favorite"
         />
       ) : isReadingSection ? (
-        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} onStatusChange={onSetReadingStatus} onSaveNotes={onSaveReadingNotes} statusSavingIds={readingStatusSavingIds} notesSavingIds={readingNotesSavingIds} />
+        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onStatusChange={onSetReadingStatus} onSaveNotes={onSaveReadingNotes} favoriteSavingIds={favoriteSavingIds} statusSavingIds={readingStatusSavingIds} notesSavingIds={readingNotesSavingIds} />
       ) : (
         <CompactDashboardList
           entries={group.entries}
@@ -1538,7 +1567,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 : "Add the first memory you want GUIDR to keep for you."}
             </p>
             {searchQuery.trim() ? null : (
-              <Link className="mt-4 inline-flex h-10 items-center rounded-lg bg-stone-950 px-4 text-sm font-medium text-white transition hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white" to="/add">
+              <Link className="mt-4 inline-flex h-10 items-center rounded-lg bg-stone-950 px-4 text-sm font-medium text-white transition hover:bg-stone-800 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white" to={getAddEntryPath(areaFilter, categoryFilter)}>
                 Add your first entry
               </Link>
             )}

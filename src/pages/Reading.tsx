@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Pencil, Save as SaveIcon, X } from "lucide-react";
+import { ExternalLink, Pencil, Save as SaveIcon, Star, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -113,6 +113,7 @@ function statusChipClass(status: ReadingStatus) {
 function ReadingListItem({
   entry,
   onStatusChange,
+  onToggleFavorite,
   onStartEdit,
   statusSaving,
   focused,
@@ -120,6 +121,7 @@ function ReadingListItem({
 }: {
   entry: Entry;
   onStatusChange: (entry: Entry, status: ReadingStatus) => void;
+  onToggleFavorite: (entry: Entry) => void;
   onStartEdit: (entry: Entry) => void;
   statusSaving: boolean;
   focused: boolean;
@@ -136,6 +138,7 @@ function ReadingListItem({
       ? getDaysSince(entry.entry_date)
       : null;
   const completedDate = getCompletedDate(entry);
+  const isFavorite = entry.metadata.favorite === true;
 
   return (
     <div
@@ -149,6 +152,16 @@ function ReadingListItem({
           <p className="text-[11px] uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">{topic}</p>
           <h3 className="mt-1 break-words text-sm font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
         </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            className={`inline-flex h-8 w-8 items-center justify-center rounded-lg border transition ${isFavorite ? "border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-300/50 dark:bg-amber-300/10 dark:text-amber-200" : "border-stone-300 text-stone-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/15 dark:text-stone-400 dark:hover:border-amber-300/50 dark:hover:text-amber-200"}`}
+            onClick={() => onToggleFavorite(entry)}
+            aria-label={isFavorite ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
+            title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Star className={`h-4 w-4 ${isFavorite ? "fill-current" : ""}`} />
+          </button>
         {url ? (
           <a
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-stone-300 text-stone-600 transition hover:border-stone-500 hover:text-stone-950 dark:border-white/15 dark:text-stone-300 dark:hover:border-white/35 dark:hover:text-stone-50"
@@ -160,6 +173,7 @@ function ReadingListItem({
             <ExternalLink className="h-4 w-4" />
           </a>
         ) : null}
+        </div>
       </div>
       <div className="mt-2 flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
@@ -178,8 +192,7 @@ function ReadingListItem({
           </span>
         </div>
         <div className="flex w-full flex-wrap items-center justify-start gap-1.5 text-[11px] sm:w-auto sm:justify-end">
-          {status !== "done" ? (
-            <select
+          <select
               className={`${inputClass} h-8 cursor-pointer py-0 disabled:cursor-wait disabled:opacity-70`}
               value=""
               onChange={(event) => {
@@ -193,7 +206,6 @@ function ReadingListItem({
               <option value="reading">Reading</option>
               <option value="done">Done</option>
             </select>
-          ) : null}
           {priority ? (
             <span className="rounded-full bg-stone-100 px-2.5 py-1 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
               Priority {priority}
@@ -367,8 +379,9 @@ export default function Reading() {
       });
 
     return {
-      notes: sortReading(entries.filter((entry) => !getStringMetadata(entry, "reading_url"))),
-      links: sortReading(entries.filter((entry) => getStringMetadata(entry, "reading_url"))),
+      notes: sortReading(entries.filter((entry) => getReadingStatus(entry) !== "done" && !getStringMetadata(entry, "reading_url"))),
+      links: sortReading(entries.filter((entry) => getReadingStatus(entry) !== "done" && getStringMetadata(entry, "reading_url"))),
+      done: sortReading(entries.filter((entry) => getReadingStatus(entry) === "done")),
     };
   }, [entries]);
 
@@ -460,6 +473,22 @@ export default function Reading() {
     } catch (saveError) {
       console.error(saveError);
       setError("Unable to update this reading status.");
+    } finally {
+      setSavingEntryId(null);
+    }
+  };
+
+  const handleToggleFavorite = async (entry: Entry) => {
+    if (savingEntryId === entry.id) return;
+    setSavingEntryId(entry.id);
+    setError(null);
+    const nextMetadata = { ...entry.metadata, favorite: entry.metadata.favorite !== true };
+    try {
+      await updateEntry(entry.id, { metadata: nextMetadata });
+      setEntries((current) => current.map((item) => item.id === entry.id ? { ...item, metadata: nextMetadata } : item));
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update favorite.");
     } finally {
       setSavingEntryId(null);
     }
@@ -576,6 +605,7 @@ export default function Reading() {
                     <ReadingListItem
                       entry={entry}
                       onStatusChange={handleStatusChange}
+                      onToggleFavorite={handleToggleFavorite}
                       onStartEdit={startEditing}
                       statusSaving={savingEntryId === entry.id}
                       focused={focusedId === entry.id}
@@ -610,6 +640,7 @@ export default function Reading() {
                     <ReadingListItem
                       entry={entry}
                       onStatusChange={handleStatusChange}
+                      onToggleFavorite={handleToggleFavorite}
                       onStartEdit={startEditing}
                       statusSaving={savingEntryId === entry.id}
                       focused={focusedId === entry.id}
@@ -624,6 +655,25 @@ export default function Reading() {
                         onSave={() => void handleSaveEdit(entry)}
                       />
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-emerald-300 bg-white p-4 shadow-sm dark:border-emerald-300/35 dark:bg-emerald-950/10 xl:col-span-2">
+            <div className="mb-2 flex items-center gap-2">
+              <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Done</h3>
+              <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">{columns.done.length}</span>
+            </div>
+            {columns.done.length === 0 ? (
+              <p className="py-4 text-sm text-stone-500 dark:text-stone-400">No completed reading items.</p>
+            ) : (
+              <ul className="space-y-3">
+                {columns.done.map((entry) => (
+                  <li key={entry.id} className="space-y-3">
+                    <ReadingListItem entry={entry} onStatusChange={handleStatusChange} onToggleFavorite={handleToggleFavorite} onStartEdit={startEditing} statusSaving={savingEntryId === entry.id} focused={focusedId === entry.id} itemRef={setItemRef(entry.id)} />
+                    {editingId === entry.id && editDraft ? <ReadingEditForm draft={editDraft} saving={savingEntryId === entry.id} onChange={setEditDraft} onCancel={cancelEditing} onSave={() => void handleSaveEdit(entry)} /> : null}
                   </li>
                 ))}
               </ul>
