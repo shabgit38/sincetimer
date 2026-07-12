@@ -22,9 +22,7 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 - Annual SIP step-up %
 - Existing corpus
 - Expected annual return %
-- First-year annual lumpsum
-- Regular annual lumpsum
-- Lumpsum starts after N years
+- Default annual lumpsum (each projection year remains independently editable)
 - Current monthly expense
 - Inflation %
 - Retirement withdrawal rate %
@@ -40,20 +38,26 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 - Lumpsum corpus
 - Total invested
 - Projected corpus
-- Monthly required
-- Annual required
+- Monthly expense
+- Annual expense
 
 ## Formulas
 
-- `annualSip = monthlySip * 12`
-- `monthlySip` increases each year by the annual SIP step-up percentage.
-- SIP corpus compounds annually with expected return after adding that year's annual SIP.
-- Lumpsum corpus compounds annually with expected return after adding that year's lumpsum.
-- Projected corpus is existing corpus compounded alongside SIP and lumpsum flows.
-- Monthly required amount is current monthly expense inflated by the inflation percentage for each year.
-- Annual required amount is monthly required amount multiplied by 12.
-- Retirement target corpus is annual required amount at retirement divided by withdrawal rate.
+- Table rows represent completed age-to-age investment periods, not future plans.
+- Existing Corpus is a one-time opening balance representing investments made before the first projection period.
+- The age `39` row represents the completed age `39` to `40` period and includes that period's SIPs, year-end lumpsum, and end-of-period corpus.
+- Rows continue through age `57`, which represents the completed age `57` to `58` period. Retirement age `58` is the resulting summary snapshot, not another contribution row.
+- A projection from age `39` to `58` therefore contains `19` investment rows and exactly `19` growth periods.
+- `annualSip = monthlySip * 12` and `monthlySip` increases each investment year by the annual SIP step-up percentage.
+- SIP growth matches Zerodha's SIP convention: `monthlyRate = expectedAnnualReturn / 12` and SIPs are beginning-of-month contributions.
+- The future value of 12 monthly SIPs for one year is `monthlySip * (((1 + monthlyRate)^12 - 1) / monthlyRate) * (1 + monthlyRate)`.
+- The prior corpus compounds for 12 months using `(1 + monthlyRate)^12`.
+- The annual lumpsum is added at year-end after growth, so it receives no return during that same year.
+- Each row's end-of-period corpus is `priorCorpus * (1 + monthlyRate)^12 + SIP future value + year-end lumpsum`.
+- Monthly expense is current monthly expense inflated for each row's starting age; annual expense is monthly expense multiplied by 12.
+- Retirement expense is inflated through the full number of years to retirement, and retirement target corpus is that annual expense divided by withdrawal rate.
 - Surplus or shortfall is projected corpus at retirement minus target corpus.
+- Required SIP estimation uses the same Zerodha beginning-of-month monthly-compounding convention.
 
 ## UI Changes
 
