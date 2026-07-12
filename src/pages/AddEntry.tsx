@@ -208,7 +208,7 @@ export default function AddEntry() {
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
   const isPlan = isPlanAreaCategory(area, category);
-  const returnPath = isPlan ? "/plans" : "/";
+  const returnPath = isPlan ? "/goals" : "/";
   const isReading = normalizedCategory === "reading";
   const hasRepeatInterval = isRoutine || isHealthRecord;
   const hasCost = isPurchase || isSubscription;
@@ -223,7 +223,7 @@ export default function AddEntry() {
         : isPurchase
           ? "Item Name"
           : isPlan
-            ? "Plan Name"
+            ? "Goal Name"
             : "Title";
   const titlePlaceholder = isGoal
     ? "e.g. Learn Spanish"
@@ -389,15 +389,13 @@ export default function AddEntry() {
           return;
         }
 
-        const isRequestedPlan = requestedCategory && normalizeCategory(requestedCategory) === "plan";
+        const isRequestedPlan = requestedCategory && ["goal", "plan"].includes(normalizeCategory(requestedCategory));
         const categoryFromQuery = isRequestedPlan
           ? categoryOptions.find((option) => normalizeCategory(option.name) === "learning")?.name ?? "Learning"
           : requestedCategory
             ? categoryOptions.find((option) => normalizeCategory(option.name) === normalizeCategory(requestedCategory))?.name
             : "";
-        const areaFromQuery = isRequestedPlan
-          ? areaOptions.find((option) => normalizeCategory(option.name) === "plan")?.name
-          : "";
+        const areaFromQuery = "";
         setArea((current) => current || areaFromQuery || areaOptions[0]?.name || "");
         setCategory((current) => current || categoryFromQuery || categoryOptions[0]?.name || "");
       } catch (loadError) {
@@ -513,11 +511,11 @@ export default function AddEntry() {
 
     if (isPlan) {
       if (!planEndDate) {
-        setError("Plan end date is required.");
+        setError("Goal end date is required.");
         return;
       }
       if (new Date(planEndDate) < new Date(entryDate)) {
-        setError("Plan end date must be on or after the start date.");
+        setError("Goal end date must be on or after the start date.");
         return;
       }
 
@@ -572,7 +570,7 @@ export default function AddEntry() {
         : nextDueDate
           ? new Date(nextDueDate).toISOString()
           : null;
-    const payloadArea = isPlan ? "Plan" : area;
+    const payloadArea = area;
     const payloadCategory = isPlan ? getPlanTypeLabel(planType) : category;
 
     setSaving(true);
@@ -618,10 +616,14 @@ export default function AddEntry() {
         warranty_ends: isPurchase && nextDueDate ? nextDueDate : null,
         doctor: isHealthRecord && doctor.trim() ? doctor.trim() : null,
         hospital: isHealthRecord && hospital.trim() ? hospital.trim() : null,
-        completed_count:
-          isEditing && entryId
-            ? entries.find((entry) => entry.id === entryId)?.metadata.completed_count ?? 0
-            : 0,
+        ...(!isReading
+          ? {
+              completed_count:
+                isEditing && entryId
+                  ? entries.find((entry) => entry.id === entryId)?.metadata.completed_count ?? 0
+                  : 0,
+            }
+          : {}),
         tags: tagValues,
         favorite,
         archived,
@@ -731,7 +733,7 @@ export default function AddEntry() {
             </p>
           </div>
           <Button variant="outline" type="button" onClick={() => navigate(returnPath)}>
-            {isPlan ? "Back to Plans" : "Back to Dashboard"}
+            {isPlan ? "Back to Goals" : "Back to Dashboard"}
           </Button>
         </div>
 
@@ -882,7 +884,7 @@ export default function AddEntry() {
             <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-3`}>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planType">
-                  Plan Type
+                  Goal Type
                 </label>
                 <select
                   id="planType"

@@ -8,18 +8,11 @@ export function normalizeEntryClassification(value: string) {
 
 export function isPlanAreaCategory(area: string, category: string) {
   const normalizedCategory = normalizeEntryClassification(category);
-  return (
-    normalizedCategory === "plan" ||
-    (normalizeEntryClassification(area) === "plan" && PLAN_CATEGORIES.has(normalizedCategory))
-  );
+  return PLAN_CATEGORIES.has(normalizedCategory) || normalizeEntryClassification(area) === "plan";
 }
 
 export function isPlanEntry(entry: Entry) {
-  if (isPlanAreaCategory(entry.area, entry.category)) return true;
+  if (entry.metadata.schedule_config && typeof entry.metadata.schedule_config === "object") return true;
 
-  // Compatibility for plan records created before category stored the plan type.
-  return (
-    normalizeEntryClassification(entry.category) === "plan" &&
-    typeof entry.metadata.plan_type === "string"
-  );
+  return normalizeEntryClassification(entry.area) === "plan";
 }

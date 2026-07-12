@@ -120,7 +120,7 @@ export default function App() {
               {menuOpen ? (
                 <div className="absolute right-0 top-11 z-20 grid min-w-36 gap-1 rounded-xl border border-stone-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-stone-950">
                   <NavLink
-                    to="/plans"
+                    to="/goals"
                     onClick={() => setMenuOpenLocationKey(null)}
                     className={({ isActive }) =>
                       `rounded-lg px-3 py-2 text-sm font-medium transition ${
@@ -130,7 +130,7 @@ export default function App() {
                       }`
                     }
                   >
-                    Plans
+                    Goals
                   </NavLink>
                   <NavLink
                     to="/reading"
@@ -229,7 +229,7 @@ export default function App() {
           <Route path="/add" element={<AddEntry />} />
           <Route path="/edit/:id" element={<AddEntry />} />
           <Route path="/entry/:id" element={<EntryDetail />} />
-          <Route path="/plans" element={<Plans />} />
+          <Route path="/goals" element={<Plans />} />
           <Route path="/reading" element={<Reading />} />
           <Route path="/finplanner" element={<FinPlanner />} />
           <Route path="/settings" element={<SettingsPage />} />

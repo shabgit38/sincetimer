@@ -38,6 +38,12 @@ function getNumberMetadata(entry: Entry, key: string) {
   return typeof entry.metadata[key] === "number" ? entry.metadata[key] as number : null;
 }
 
+function withoutCompletedCount(metadata: Record<string, unknown>) {
+  const nextMetadata = { ...metadata };
+  delete nextMetadata.completed_count;
+  return nextMetadata;
+}
+
 function getReadingStatus(entry: Entry): ReadingStatus {
   const status = getStringMetadata(entry, "reading_status");
   if (status === "reading" || status === "done") return status;
@@ -405,7 +411,6 @@ export default function Reading() {
           reading_priority: parsedPriority,
           reading_started_date: status === "reading" ? nowIso : null,
           reading_completed_date: status === "done" ? getIsoFromDateInput(completedDate) ?? nowIso : null,
-          completed_count: 0,
           tags: trimmedTopic ? [trimmedTopic] : [],
           favorite,
           archived,
@@ -443,7 +448,7 @@ export default function Reading() {
     try {
       await updateEntry(entry.id, {
         metadata: {
-          ...entry.metadata,
+          ...withoutCompletedCount(entry.metadata),
           reading_status: nextStatus,
           reading_started_date:
             nextStatus === "reading" ? getStringMetadata(entry, "reading_started_date") || now : null,

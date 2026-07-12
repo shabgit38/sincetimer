@@ -34,10 +34,6 @@ function getPlanCategoryLabel(entry: PlanWithSessions["entry"]) {
     : formatOptionLabel(entry.category);
 }
 
-function getPlanAreaLabel() {
-  return "Plan";
-}
-
 function formatPlanDate(value: unknown) {
   if (typeof value !== "string" || !value) return null;
   const date = parseISO(value);
@@ -105,7 +101,7 @@ export default function Plans() {
       setPlans(await getPlansWithSessions());
     } catch (loadError) {
       console.error(loadError);
-      setError("Unable to load plans.");
+      setError("Unable to load goals.");
     } finally {
       setLoading(false);
     }
@@ -154,7 +150,7 @@ export default function Plans() {
   };
 
   const handleDeleteSession = async (session: PlanSession) => {
-    const confirmed = window.confirm("Delete this plan session? This cannot be undone.");
+    const confirmed = window.confirm("Delete this goal session? This cannot be undone.");
     if (!confirmed) return;
     setUpdatingId(session.id);
     try {
@@ -183,7 +179,7 @@ export default function Plans() {
   if (loading) {
     return (
       <section className="rounded-2xl border border-stone-200 bg-white p-10 text-center text-sm text-stone-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-400">
-        Loading plans...
+        Loading goals...
       </section>
     );
   }
@@ -192,14 +188,14 @@ export default function Plans() {
     <section className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-stone-950 dark:text-stone-50">Plans</h2>
+          <h2 className="text-2xl font-semibold text-stone-950 dark:text-stone-50">Goals</h2>
           <p className="text-sm text-stone-500 dark:text-stone-400">Track repeated learning, habits, and practice sessions.</p>
         </div>
         <Link
-          to="/add?category=plan"
+          to="/add?category=goal"
           className="inline-flex h-10 items-center justify-center rounded-lg bg-stone-100 px-4 text-sm font-medium text-stone-950 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:bg-stone-100 dark:text-stone-950 dark:hover:bg-white"
         >
-          Add Plan
+          Add Goal
         </Link>
       </div>
 
@@ -211,8 +207,8 @@ export default function Plans() {
 
       {planSummaries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-200 bg-white p-10 text-center dark:border-white/10 dark:bg-white/[0.04]">
-          <h3 className="text-lg font-semibold text-stone-950 dark:text-stone-50">No plans yet</h3>
-          <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">Create a Plan entry to generate scheduled sessions.</p>
+          <h3 className="text-lg font-semibold text-stone-950 dark:text-stone-50">No goals yet</h3>
+          <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">Create a Goal to generate scheduled sessions.</p>
         </div>
       ) : (
         <div className="grid gap-5">
@@ -237,7 +233,7 @@ export default function Plans() {
                     />
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
-                        {getPlanAreaLabel()} / {getPlanCategoryLabel(entry)}
+                        {entry.area} / {getPlanCategoryLabel(entry)}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <h3 className="min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>

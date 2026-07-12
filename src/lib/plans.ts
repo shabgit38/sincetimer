@@ -95,7 +95,6 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
     supabase
       .from("entries")
       .select(planEntrySelect)
-      .ilike("area", "plan")
       .order("created_at", { ascending: false }),
     getAllPlanSessions(),
   ]);

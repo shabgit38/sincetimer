@@ -340,6 +340,14 @@ function formatShortDuration(entryDate: string) {
     .replace(/\bdays?\b/g, "dys");
 }
 
+function formatCompletedDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 function getDateInputValue(date: Date = new Date()) {
   const localDate = new Date(date);
   localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
@@ -354,7 +362,7 @@ function getPlanTypeLabel(value: unknown) {
 
 function getEntryAreaCategoryLabel(entry: Entry) {
   if (isPlanEntry(entry)) {
-    return `Plan / ${entry.category.toLocaleLowerCase() === "plan" ? getPlanTypeLabel(entry.metadata.plan_type) : formatOptionLabel(entry.category)}`;
+    return `${formatOptionLabel(entry.area)} / ${entry.category.toLocaleLowerCase() === "plan" ? getPlanTypeLabel(entry.metadata.plan_type) : formatOptionLabel(entry.category)}`;
   }
   return `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`;
 }
@@ -552,6 +560,7 @@ function CompactDashboardListItem({
         ? "since last done"
         : "since start"
       : "since last logged";
+  const latestCompletedDate = isPlan ? planLastDoneDate : latestSubscriptionLogDate ?? null;
   const borderClass = {
     favorite: "!border-amber-400/35 dark:!border-amber-400/25",
     reading: "!border-[#ff8080]/50 dark:!border-[#ffb5b2]/35",
@@ -602,9 +611,16 @@ function CompactDashboardListItem({
             </span>
           ) : null}
           {completedCount > 0 && !isPurchase ? (
-            <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
-              {completedCount} done
-            </span>
+            <>
+              {accent === "neutral" && latestCompletedDate ? (
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
+                  Completed · {formatCompletedDate(latestCompletedDate)}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-500 dark:bg-white/[0.06] dark:text-stone-400">
+                {completedCount} done
+              </span>
+            </>
           ) : null}
           {isPurchase && entry.price !== null ? (
             <span className="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-600 dark:bg-white/[0.06] dark:text-stone-300">
@@ -1051,7 +1067,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [planSessions, setPlanSessions] = useState<PlanSession[]>([]);
   const [latestSubscriptionLogDates, setLatestSubscriptionLogDates] = useState<Record<string, string>>({});
-  const [latestCompletionDates, setLatestCompletionDates] = useState<Record<string, string>>({});
   const [areas, setAreas] = useState<EntryOption[]>([]);
   const [categories, setCategories] = useState<EntryOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1089,7 +1104,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       setPlanSessions(planSessionData);
       const latestLogDates = getLatestLogDatesByEntryId(entryHistory);
       setLatestSubscriptionLogDates(latestLogDates);
-      setLatestCompletionDates(latestLogDates);
       setAreas(areaData);
       setCategories(categoryData);
     } catch (loadError) {
@@ -1117,7 +1131,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     setPlanSessions(planSessionData);
     const latestLogDates = getLatestLogDatesByEntryId(entryHistory);
     setLatestSubscriptionLogDates(latestLogDates);
-    setLatestCompletionDates(latestLogDates);
     setAreas(areaData);
     setCategories(categoryData);
   };
@@ -1196,7 +1209,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       await refreshData();
     } catch (saveError) {
       console.error(saveError);
-      setError("Unable to update this plan session.");
+      setError("Unable to update this goal session.");
     } finally {
       setPlanSessionSavingIds((current) => {
         const next = new Set(current);
@@ -1389,14 +1402,13 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     const upcoming: Entry[] = [];
     const readingList: Entry[] = [];
     const unscheduled: Entry[] = [];
-    const recentlyCompleted: Entry[] = [];
 
     filteredEntries.forEach((entry) => {
       const planSession = getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? []);
       const dueDate = isPlanEntry(entry) ? planSession?.session_date ?? null : entry.next_due_date;
       const summary = computeTimeSummary(entry.entry_date, dueDate);
-      if (isReadingEntry(entry) && getReadingStatus(entry) !== "done") {
-        readingList.push(entry);
+      if (isReadingEntry(entry)) {
+        if (getReadingStatus(entry) !== "done") readingList.push(entry);
         return;
       }
       if (getBooleanMetadata(entry, "favorite")) {
@@ -1411,18 +1423,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         dueSoon.push(entry);
       } else if (dueDate) {
         upcoming.push(entry);
-      } else if (getNumberMetadata(entry, "completed_count") > 0) {
-        const planCompletedDate = isPlanEntry(entry)
-          ? getLatestCompletedPlanSessionDate(planSessionsByEntryId.get(entry.id) ?? [])
-          : null;
-        const latestCompletedDate = planCompletedDate ?? latestCompletionDates[entry.id] ?? null;
-        if (latestCompletedDate) {
-          const completedDaysAgo = Math.floor((Date.now() - new Date(latestCompletedDate).getTime()) / 86_400_000);
-          if (completedDaysAgo >= 0 && completedDaysAgo <= 14) recentlyCompleted.push(entry);
-          else unscheduled.push(entry);
-        } else {
-          unscheduled.push(entry);
-        }
       } else {
         unscheduled.push(entry);
       }
@@ -1460,17 +1460,12 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         entries: sortDashboardGroup("Upcoming", upcoming),
       },
       {
-        title: "Recently completed",
-        description: "Logged again in the last two weeks.",
-        entries: sortDashboardGroup("Recently completed", recentlyCompleted),
-      },
-      {
         title: "Unscheduled",
         description: "Tracked memories without a next due date.",
         entries: sortDashboardGroup("Unscheduled", unscheduled),
       },
     ];
-  }, [filteredEntries, latestCompletionDates, planSessionsByEntryId]);
+  }, [filteredEntries, planSessionsByEntryId]);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
@@ -1559,7 +1554,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 latestSubscriptionLogDates={latestSubscriptionLogDates}
                 onToggle={() => toggleSection(group.title)}
                 onOpen={(entry) =>
-                  navigate(isPlanEntry(entry) ? "/plans" : isReadingEntry(entry) ? `/reading?focus=${entry.id}` : `/entry/${entry.id}`)
+                  navigate(isPlanEntry(entry) ? "/goals" : isReadingEntry(entry) ? `/reading?focus=${entry.id}` : `/entry/${entry.id}`)
                 }
                 onToggleFavorite={handleToggleFavorite}
                 onMarkDone={handleMarkEntryDone}
