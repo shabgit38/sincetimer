@@ -377,11 +377,13 @@ export default function Reading() {
         const priorityB = getNumberMetadata(b, "reading_priority") || Number.POSITIVE_INFINITY;
         return priorityA - priorityB;
       });
+    const sortDone = (items: Entry[]) =>
+      sortReading(items).sort((a, b) => Number(b.metadata.favorite === true) - Number(a.metadata.favorite === true));
 
     return {
       notes: sortReading(entries.filter((entry) => getReadingStatus(entry) !== "done" && !getStringMetadata(entry, "reading_url"))),
       links: sortReading(entries.filter((entry) => getReadingStatus(entry) !== "done" && getStringMetadata(entry, "reading_url"))),
-      done: sortReading(entries.filter((entry) => getReadingStatus(entry) === "done")),
+      done: sortDone(entries.filter((entry) => getReadingStatus(entry) === "done")),
     };
   }, [entries]);
 
