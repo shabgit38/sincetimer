@@ -183,11 +183,6 @@ export default function AddEntry() {
   const [hospital, setHospital] = useState("");
   const [tags, setTags] = useState("");
   const [favorite, setFavorite] = useState(false);
-  const [archived, setArchived] = useState(false);
-  const [attachmentPhoto, setAttachmentPhoto] = useState("");
-  const [attachmentPdf, setAttachmentPdf] = useState("");
-  const [attachmentUrl, setAttachmentUrl] = useState("");
-  const [attachmentNotes, setAttachmentNotes] = useState("");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState<CurrencyCode>("INR");
   const [notes, setNotes] = useState("");
@@ -199,7 +194,6 @@ export default function AddEntry() {
   const [logDates, setLogDates] = useState<Record<string, string>>({});
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [completedLogId, setCompletedLogId] = useState<string | null>(null);
-  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
 
   const normalizedCategory = normalizeCategory(category);
@@ -384,11 +378,6 @@ export default function AddEntry() {
           setHospital(typeof entry.metadata.hospital === "string" ? entry.metadata.hospital : "");
           setTags(Array.isArray(entry.metadata.tags) ? entry.metadata.tags.filter((tag) => typeof tag === "string").join(", ") : "");
           setFavorite(entry.metadata.favorite === true);
-          setArchived(entry.metadata.archived === true);
-          setAttachmentPhoto(typeof entry.metadata.attachment_photo === "string" ? entry.metadata.attachment_photo : "");
-          setAttachmentPdf(typeof entry.metadata.attachment_pdf === "string" ? entry.metadata.attachment_pdf : "");
-          setAttachmentUrl(typeof entry.metadata.attachment_url === "string" ? entry.metadata.attachment_url : "");
-          setAttachmentNotes(typeof entry.metadata.attachment_notes === "string" ? entry.metadata.attachment_notes : "");
           setPrice(entry.price !== null ? String(entry.price) : "");
           setCurrency(getCurrencyCode(entry.metadata.currency));
           setNotes(entry.notes ?? "");
@@ -636,11 +625,6 @@ export default function AddEntry() {
           : {}),
         tags: tagValues,
         favorite,
-        archived,
-        attachment_photo: attachmentPhoto.trim() || null,
-        attachment_pdf: attachmentPdf.trim() || null,
-        attachment_url: attachmentUrl.trim() || null,
-        attachment_notes: attachmentNotes.trim() || null,
         currency: hasCost ? currency : null,
       },
       price: hasCost ? priceValue : null,
@@ -1337,15 +1321,6 @@ export default function AddEntry() {
                 />
               </label>
               <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
-                <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Archived</span>
-                <input
-                  type="checkbox"
-                  checked={archived}
-                  onChange={(event) => setArchived(event.target.checked)}
-                  className="h-4 w-4"
-                />
-              </label>
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-stone-300 bg-white px-4 py-3 dark:border-white/15 dark:bg-white/[0.04]">
                 <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Reminder</span>
                 <span className="relative inline-flex cursor-pointer items-center">
                   <input
@@ -1372,77 +1347,6 @@ export default function AddEntry() {
                 </div>
               ) : null}
             </div>
-          </div>
-
-          <div className="order-[30] rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-              onClick={() => setAttachmentsOpen((current) => !current)}
-              aria-expanded={attachmentsOpen}
-            >
-              <div>
-                <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Smart attachments</p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">Photos, PDFs, URLs, and attachment notes.</p>
-              </div>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
-                  attachmentsOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-            {attachmentsOpen ? (
-              <div className="grid gap-4 border-t border-stone-200 p-4 dark:border-white/10 md:grid-cols-2 xl:grid-cols-4">
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentPhoto">
-                    Photo
-                  </label>
-                  <input
-                    id="attachmentPhoto"
-                    value={attachmentPhoto}
-                    onChange={(event) => setAttachmentPhoto(event.target.value)}
-                    className={inputClass}
-                    placeholder="Photo URL or file reference"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentPdf">
-                    PDF
-                  </label>
-                  <input
-                    id="attachmentPdf"
-                    value={attachmentPdf}
-                    onChange={(event) => setAttachmentPdf(event.target.value)}
-                    className={inputClass}
-                    placeholder="PDF URL or file reference"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentUrl">
-                    URL
-                  </label>
-                  <input
-                    id="attachmentUrl"
-                    value={attachmentUrl}
-                    onChange={(event) => setAttachmentUrl(event.target.value)}
-                    className={inputClass}
-                    placeholder="https://..."
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="attachmentNotes">
-                    Attachment Notes
-                  </label>
-                  <textarea
-                    id="attachmentNotes"
-                    value={attachmentNotes}
-                    onChange={(event) => setAttachmentNotes(event.target.value)}
-                    className={`min-h-[84px] ${textareaClass}`}
-                    placeholder="Details about attached references..."
-                  />
-                </div>
-              </div>
-            ) : null}
           </div>
 
           {!isPlan && !isGoal ? (

@@ -1396,7 +1396,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   const filteredEntries = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
-    const visibleEntries = entries.filter((entry) => !getBooleanMetadata(entry, "archived"));
+    const visibleEntries = entries;
     const byArea = areaFilter === "all" ? visibleEntries : visibleEntries.filter((entry) => entry.area === areaFilter);
     const byCategory = categoryFilter === "all" ? byArea : byArea.filter((entry) => entry.category === categoryFilter);
     const base = normalizedSearch
@@ -1563,7 +1563,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
             </h3>
             <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
               {searchQuery.trim()
-                ? "Try a different title, area, category, note, tag, attachment, or form field value."
+                ? "Try a different title, area, category, note, tag, or form field value."
                 : "Add the first memory you want GUIDR to keep for you."}
             </p>
             {searchQuery.trim() ? null : (

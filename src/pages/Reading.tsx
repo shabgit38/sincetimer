@@ -18,7 +18,6 @@ type ReadingEditDraft = {
   notes: string;
   priority: string;
   favorite: boolean;
-  archived: boolean;
 };
 
 const inputClass =
@@ -90,7 +89,6 @@ function getReadingDraft(entry: Entry): ReadingEditDraft {
     notes: entry.notes ?? "",
     priority: priority ? String(priority) : "",
     favorite: entry.metadata.favorite === true,
-    archived: entry.metadata.archived === true,
   };
 }
 
@@ -308,9 +306,6 @@ function ReadingEditForm({
         <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300">
           <input type="checkbox" checked={draft.favorite} onChange={(event) => onChange({ ...draft, favorite: event.target.checked })} /> Favorite
         </label>
-        <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300">
-          <input type="checkbox" checked={draft.archived} onChange={(event) => onChange({ ...draft, archived: event.target.checked })} /> Archived
-        </label>
       </div>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
         <Button size="sm" className="w-8 !px-0" variant="outline" onClick={onCancel} disabled={saving} title="Cancel reading changes" aria-label="Cancel reading changes">
@@ -344,7 +339,6 @@ export default function Reading() {
   const [entryDate, setEntryDate] = useState(() => getDateInputValue());
   const [completedDate, setCompletedDate] = useState("");
   const [favorite, setFavorite] = useState(false);
-  const [archived, setArchived] = useState(false);
 
   const loadReading = async () => {
     setLoading(true);
@@ -378,7 +372,16 @@ export default function Reading() {
         return priorityA - priorityB;
       });
     const sortDone = (items: Entry[]) =>
-      sortReading(items).sort((a, b) => Number(b.metadata.favorite === true) - Number(a.metadata.favorite === true));
+      [...items].sort((a, b) => {
+        const favoriteCompare = Number(b.metadata.favorite === true) - Number(a.metadata.favorite === true);
+        if (favoriteCompare !== 0) return favoriteCompare;
+        const completedA = getCompletedDate(a);
+        const completedB = getCompletedDate(b);
+        if (!completedA && !completedB) return 0;
+        if (!completedA) return 1;
+        if (!completedB) return -1;
+        return new Date(completedA).getTime() - new Date(completedB).getTime();
+      });
 
     return {
       notes: sortReading(entries.filter((entry) => getReadingStatus(entry) !== "done" && !getStringMetadata(entry, "reading_url"))),
@@ -428,7 +431,6 @@ export default function Reading() {
           reading_completed_date: status === "done" ? getIsoFromDateInput(completedDate) ?? nowIso : null,
           tags: trimmedTopic ? [trimmedTopic] : [],
           favorite,
-          archived,
         },
         price: null,
         notes: trimmedNotes || null,
@@ -445,7 +447,6 @@ export default function Reading() {
       setEntryDate(getDateInputValue());
       setCompletedDate("");
       setFavorite(false);
-      setArchived(false);
       await loadReading();
     } catch (saveError) {
       console.error(saveError);
@@ -553,7 +554,6 @@ export default function Reading() {
           reading_started_date: startedDate,
           tags: trimmedTopic ? [trimmedTopic] : [],
           favorite: editDraft.favorite,
-          archived: editDraft.archived,
         },
         notes: trimmedNotes || null,
       });
@@ -663,7 +663,7 @@ export default function Reading() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-emerald-300 bg-white p-4 shadow-sm dark:border-emerald-300/35 dark:bg-emerald-950/10 xl:col-span-2">
+          <section className="order-3 rounded-2xl border border-emerald-300 bg-white p-4 shadow-sm dark:border-emerald-300/35 dark:bg-emerald-950/10 xl:col-span-2 xl:col-start-1 xl:row-start-2">
             <div className="mb-2 flex items-center gap-2">
               <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Done</h3>
               <span className="rounded-full border border-stone-200 px-2.5 py-0.5 text-xs font-semibold text-stone-600 dark:border-white/10 dark:text-stone-300">{columns.done.length}</span>
@@ -683,7 +683,7 @@ export default function Reading() {
           </section>
         </>
       )}
-        <form className="grid gap-3 rounded-2xl border border-[#ff8080] bg-white p-4 shadow-sm dark:border-[#ff8080] dark:bg-white/[0.04]" onSubmit={handleAdd}>
+        <form className="order-2 grid gap-3 rounded-2xl border border-[#ff8080] bg-white p-4 shadow-sm dark:border-[#ff8080] dark:bg-white/[0.04] xl:col-start-3 xl:row-start-1" onSubmit={handleAdd}>
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
             <span className="rounded-full bg-stone-100 px-2.5 py-1 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300">Area: Personal</span>
             <span className="rounded-full bg-stone-100 px-2.5 py-1 text-stone-600 dark:bg-white/[0.08] dark:text-stone-300">Category: Reading</span>
@@ -702,7 +702,6 @@ export default function Reading() {
           <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">Notes / highlights / learnings<textarea className={`${textareaClass} min-h-32`} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Why this matters, highlights, or what to research next" /></label>
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={favorite} onChange={(event) => setFavorite(event.target.checked)} /> Favorite</label>
-            <label className="flex items-center gap-2 text-xs font-medium text-stone-600 dark:text-stone-300"><input type="checkbox" checked={archived} onChange={(event) => setArchived(event.target.checked)} /> Archived</label>
           </div>
           <Button className="w-10 !px-0" type="submit" disabled={saving} title="Save new reading entry" aria-label="Save new reading entry"><SaveIcon className="h-4 w-4" /></Button>
         </form>

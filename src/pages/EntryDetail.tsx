@@ -462,13 +462,7 @@ export default function EntryDetail() {
   const hospital = isHealthRecord ? getStringMetadata(entry.metadata, "hospital") : "";
   const tags = getTags(entry.metadata);
   const isFavorite = getBooleanMetadata(entry.metadata, "favorite");
-  const isArchived = getBooleanMetadata(entry.metadata, "archived");
   const completedCount = getNumberMetadata(entry.metadata, "completed_count") ?? 0;
-  const attachmentPhoto = getStringMetadata(entry.metadata, "attachment_photo");
-  const attachmentPdf = getStringMetadata(entry.metadata, "attachment_pdf");
-  const attachmentUrl = getStringMetadata(entry.metadata, "attachment_url");
-  const attachmentNotes = getStringMetadata(entry.metadata, "attachment_notes");
-  const hasAttachments = Boolean(attachmentPhoto || attachmentPdf || attachmentUrl || attachmentNotes);
 
   return (
     <section className="space-y-6">
@@ -772,10 +766,6 @@ export default function EntryDetail() {
             <p className="text-stone-400">Favorite</p>
             <p className="mt-1 font-semibold text-stone-900">{isFavorite ? "Yes" : "No"}</p>
           </div>
-          <div>
-            <p className="text-stone-400">Archived</p>
-            <p className="mt-1 font-semibold text-stone-900">{isArchived ? "Yes" : "No"}</p>
-          </div>
         </div>
         {tags.length > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -787,35 +777,6 @@ export default function EntryDetail() {
           </div>
         ) : null}
       </div>
-
-      {hasAttachments ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Smart attachments</p>
-          <div className="mt-4 grid gap-3 text-sm">
-            {attachmentPhoto ? (
-              <a className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-medium text-stone-900 underline" href={attachmentPhoto} target="_blank" rel="noreferrer">
-                Open photo reference
-              </a>
-            ) : null}
-            {attachmentPdf ? (
-              <a className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-medium text-stone-900 underline" href={attachmentPdf} target="_blank" rel="noreferrer">
-                Open PDF reference
-              </a>
-            ) : null}
-            {attachmentUrl ? (
-              <a className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2 font-medium text-stone-900 underline" href={attachmentUrl} target="_blank" rel="noreferrer">
-                Open URL
-              </a>
-            ) : null}
-            {attachmentNotes ? (
-              <div className="rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
-                <p className="text-xs uppercase tracking-[0.16em] text-stone-400">Attachment notes</p>
-                <p className="mt-1 whitespace-pre-line text-stone-600">{attachmentNotes}</p>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       <div className="rounded-xl border border-stone-200 bg-white p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
