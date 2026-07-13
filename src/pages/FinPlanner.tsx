@@ -227,9 +227,8 @@ export default function FinPlanner() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-[360px_1fr]">
-          <aside className="min-w-0 rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-5 dark:border-white/10 dark:bg-white/[0.04]">
+      <section className="grid grid-cols-2 gap-4 lg:grid-cols-[360px_1fr]">
+          <aside className="min-w-0 rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-5 lg:row-span-2 dark:border-white/10 dark:bg-white/[0.04]">
           <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Inputs</h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Field label="Start year" help="The first calendar year shown in the projection." value={inputs.startYear} onChange={(value) => updateInput("startYear", value)} />
@@ -254,9 +253,8 @@ export default function FinPlanner() {
             <SummaryCard label="Required SIP estimate" help="Level monthly beginning-of-month SIP needed to close the target gap, using Zerodha-style monthly compounding and the Existing Corpus." value={formatInr(requiredMonthlySip)} />
             <SummaryCard label="Total invested" help="Existing Corpus plus all SIP principal and year-end lumpsum contributions through retirement." value={formatInr(finalRow?.totalInvested ?? inputs.existingCorpus)} />
           </div>
-        </div>
 
-        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <section className="col-span-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm lg:col-span-1 lg:col-start-2 dark:border-white/10 dark:bg-white/[0.04]">
             <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Yearly projection</h3>
             </div>
