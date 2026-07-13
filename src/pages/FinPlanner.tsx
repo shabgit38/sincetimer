@@ -39,8 +39,8 @@ const defaultInputs: PlannerInputs = {
   sipStepUpPercent: 20,
   existingCorpus: 430000,
   expectedReturnPercent: 10,
-  annualLumpsum: 100000,
-  currentMonthlyExpense: 40833,
+  annualLumpsum: 50000,
+  currentMonthlyExpense: 50000,
   inflationPercent: 8,
   withdrawalRatePercent: 4,
 };
@@ -227,8 +227,9 @@ export default function FinPlanner() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[360px_1fr]">
-        <aside className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <section className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-[360px_1fr]">
+          <aside className="min-w-0 rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-5 dark:border-white/10 dark:bg-white/[0.04]">
           <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Inputs</h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Field label="Start year" help="The first calendar year shown in the projection." value={inputs.startYear} onChange={(value) => updateInput("startYear", value)} />
@@ -243,10 +244,9 @@ export default function FinPlanner() {
             <Field label="Inflation" help="The annual rate used to increase projected retirement expenses." value={inputs.inflationPercent} onChange={(value) => updateInput("inflationPercent", value)} suffix="%" />
             <Field label="Withdrawal" help="The annual withdrawal rate used to estimate the target retirement corpus." value={inputs.withdrawalRatePercent} onChange={(value) => updateInput("withdrawalRatePercent", value)} suffix="%" />
           </div>
-        </aside>
+          </aside>
 
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-3">
             <SummaryCard label="Corpus at retirement" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
             <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
             <SummaryCard label={surplus >= 0 ? "Projected surplus" : "Projected shortfall"} help="Difference between the projected retirement corpus and target corpus." value={formatInr(Math.abs(surplus))} tone={surplus >= 0 ? "good" : "bad"} />
@@ -254,8 +254,9 @@ export default function FinPlanner() {
             <SummaryCard label="Required SIP estimate" help="Level monthly beginning-of-month SIP needed to close the target gap, using Zerodha-style monthly compounding and the Existing Corpus." value={formatInr(requiredMonthlySip)} />
             <SummaryCard label="Total invested" help="Existing Corpus plus all SIP principal and year-end lumpsum contributions through retirement." value={formatInr(finalRow?.totalInvested ?? inputs.existingCorpus)} />
           </div>
+        </div>
 
-          <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
             <div className="border-b border-stone-200 bg-stone-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
               <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Yearly projection</h3>
             </div>
@@ -321,8 +322,7 @@ export default function FinPlanner() {
                 </tbody>
               </table>
             </div>
-          </section>
-        </div>
+        </section>
       </section>
     </div>
   );
