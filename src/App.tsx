@@ -12,6 +12,7 @@ import FinPlanner from './pages/FinPlanner';
 import SettingsPage from './pages/Settings';
 import { isSupabaseConfigured, supabase } from './lib/supabase';
 import { Button } from './components/ui/button';
+import QuoteRibbon from './components/QuoteRibbon';
 
 export default function App() {
   const location = useLocation();
@@ -221,6 +222,7 @@ export default function App() {
             </Button>
           </nav>
         </div>
+        <QuoteRibbon />
       </header>
 
       <main className="mx-auto w-full max-w-[1520px] px-6 py-10 sm:px-8 lg:px-10">

@@ -269,3 +269,36 @@ html:not(.dark) textarea:focus {
 .animate-log-complete {
   animation: log-complete 1.15s ease-out;
 }
+
+@keyframes quote-ribbon-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.quote-ribbon-track {
+  animation: quote-ribbon-scroll 360s linear infinite;
+  will-change: transform;
+}
+
+.quote-ribbon:hover .quote-ribbon-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quote-ribbon {
+    overflow-x: auto;
+  }
+
+  .quote-ribbon-track {
+    animation: none;
+    will-change: auto;
+  }
+
+  .quote-ribbon-track > :last-child {
+    display: none;
+  }
+}
