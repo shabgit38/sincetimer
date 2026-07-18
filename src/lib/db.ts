@@ -14,6 +14,7 @@ const defaultCategoryNames = [
   'Habit',
   'Practice',
   'reading',
+  'list',
 ];
 
 const entriesSelect = `

@@ -55,103 +55,6 @@ function PencilIcon() {
   );
 }
 
-type EditableOptionButtonProps = {
-  active: boolean;
-  option: EntryOption;
-  onSelect: () => void;
-  onRename: (nextName: string) => Promise<void>;
-};
-
-function EditableOptionButton({ active, option, onSelect, onRename }: EditableOptionButtonProps) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(option.name);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setName(option.name);
-  }, [option.name]);
-
-  const saveRename = async () => {
-    const nextName = name.trim();
-    if (!nextName || nextName === option.name) {
-      setName(option.name);
-      setEditing(false);
-      return;
-    }
-    setSaving(true);
-    try {
-      await onRename(nextName);
-      setEditing(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (editing) {
-    return (
-      <form
-        className="flex items-center gap-1"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void saveRename();
-        }}
-      >
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          className="h-8 w-32 rounded-lg border border-stone-300 bg-white px-2 text-sm text-stone-700 outline-none"
-          autoFocus
-        />
-        <Button size="sm" className="w-8 !px-0" type="submit" disabled={saving} title="Save renamed item" aria-label="Save renamed item">
-          <SaveIcon className="h-4 w-4" />
-        </Button>
-        <Button
-          size="sm"
-          className="w-8 !px-0"
-          variant="ghost"
-          type="button"
-          disabled={saving}
-          title="Cancel renaming"
-          aria-label="Cancel renaming"
-          onClick={() => {
-            setName(option.name);
-            setEditing(false);
-          }}
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </form>
-    );
-  }
-
-  return (
-    <div className="group flex items-center">
-      <Button
-        variant={active ? "default" : "outline"}
-        size="sm"
-        onClick={onSelect}
-        className={`rounded-r-none ${
-          active ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
-        }`}
-      >
-        {formatOptionLabel(option.name)}
-      </Button>
-      <Button
-        variant={active ? "default" : "outline"}
-        size="sm"
-        className={`w-8 rounded-l-none border-l-0 px-0 opacity-40 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${
-          active ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
-        }`}
-        onClick={() => setEditing(true)}
-        aria-label={`Rename ${option.name}`}
-        title={`Rename ${option.name}`}
-      >
-        <PencilIcon />
-      </Button>
-    </div>
-  );
-}
-
 type AddOptionControlProps = {
   active: boolean;
   onCancel: () => void;
@@ -211,6 +114,89 @@ function AddOptionControl({ active, onCancel, onSave }: AddOptionControlProps) {
         <X className="h-4 w-4" />
       </Button>
     </form>
+  );
+}
+
+type ManagedOptionDropdownProps = {
+  label: string;
+  allLabel: string;
+  value: string;
+  options: EntryOption[];
+  adding: boolean;
+  onSelect: (value: string) => void;
+  onStartAdding: () => void;
+  onCancelAdding: () => void;
+  onAdd: (name: string) => Promise<void>;
+  onRename: (option: EntryOption, nextName: string) => Promise<void>;
+};
+
+function ManagedOptionRow({ active, option, onSelect, onRename }: { active: boolean; option: EntryOption; onSelect: () => void; onRename: (nextName: string) => Promise<void> }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(option.name);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => setName(option.name), [option.name]);
+
+  const save = async () => {
+    const nextName = name.trim();
+    if (!nextName || nextName === option.name) {
+      setName(option.name);
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onRename(nextName);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <form className="flex items-center gap-1 p-1" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+        <input value={name} onChange={(event) => setName(event.target.value)} className="h-8 min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-700 outline-none dark:border-white/15 dark:bg-stone-950 dark:text-stone-100" autoFocus />
+        <Button size="sm" className="w-8 !px-0" type="submit" disabled={saving} aria-label={`Save renamed ${option.name}`}><SaveIcon className="h-4 w-4" /></Button>
+        <Button size="sm" className="w-8 !px-0" variant="ghost" type="button" disabled={saving} onClick={() => { setName(option.name); setEditing(false); }} aria-label="Cancel renaming"><X className="h-4 w-4" /></Button>
+      </form>
+    );
+  }
+
+  return (
+    <div className="group flex items-center rounded-lg hover:bg-stone-100 dark:hover:bg-white/[0.06]">
+      <button type="button" className={`min-w-0 flex-1 px-3 py-2 text-left text-sm ${active ? "font-semibold text-stone-950 dark:text-white" : "text-stone-700 dark:text-stone-200"}`} onClick={onSelect}>
+        <span className="mr-2 inline-block w-3">{active ? "✓" : ""}</span>{formatOptionLabel(option.name)}
+      </button>
+      <button type="button" className="mr-1 grid h-8 w-8 place-items-center rounded-md text-stone-400 opacity-50 transition hover:bg-white hover:text-stone-900 group-hover:opacity-100 focus:opacity-100 dark:hover:bg-white/10 dark:hover:text-white" onClick={() => setEditing(true)} aria-label={`Rename ${option.name}`} title={`Rename ${option.name}`}><PencilIcon /></button>
+    </div>
+  );
+}
+
+function ManagedOptionDropdown({ label, allLabel, value, options, adding, onSelect, onStartAdding, onCancelAdding, onAdd, onRename }: ManagedOptionDropdownProps) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">{label}</p>
+      <details className="group/dropdown relative mt-3">
+        <summary className="flex h-10 cursor-pointer list-none items-center justify-between rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-700 outline-none transition hover:border-stone-300 dark:border-white/10 dark:bg-stone-950 dark:text-stone-200 dark:hover:border-white/20">
+          <span>{value === "all" ? allLabel : formatOptionLabel(value)}</span>
+          <ChevronDown className="h-4 w-4 transition group-open/dropdown:rotate-180" />
+        </summary>
+        <div className="absolute left-0 right-0 z-30 mt-2 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl dark:border-white/10 dark:bg-stone-900">
+          <button type="button" className={`w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-stone-100 dark:hover:bg-white/[0.06] ${value === "all" ? "font-semibold text-stone-950 dark:text-white" : "text-stone-700 dark:text-stone-200"}`} onClick={() => onSelect("all")}>
+            <span className="mr-2 inline-block w-3">{value === "all" ? "✓" : ""}</span>{allLabel}
+          </button>
+          <div className="max-h-64 overflow-y-auto py-1">
+            {options.map((option) => <ManagedOptionRow key={option.id} active={value === option.name} option={option} onSelect={() => onSelect(option.name)} onRename={(nextName) => onRename(option, nextName)} />)}
+          </div>
+          <div className="border-t border-stone-200 pt-1 dark:border-white/10">
+            {adding ? <AddOptionControl active onCancel={onCancelAdding} onSave={onAdd} /> : (
+              <button type="button" className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-stone-700 hover:bg-stone-100 dark:text-stone-200 dark:hover:bg-white/[0.06]" onClick={onStartAdding}><Plus className="h-4 w-4" />Add new {label.toLocaleLowerCase().replace(/s$/, "")}</button>
+            )}
+          </div>
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -939,8 +925,8 @@ function ReadingDashboardColumns({ entries, onOpen, onToggleFavorite, onStatusCh
       const priorityB = getNumberMetadata(b, "reading_priority") || Number.POSITIVE_INFINITY;
       return priorityA - priorityB;
     });
-  const notes = sortReading(entries.filter((entry) => !getStringMetadata(entry, "reading_url")));
-  const links = sortReading(entries.filter((entry) => getStringMetadata(entry, "reading_url")));
+  const notes = sortReading(entries.filter((entry) => !getStringMetadata(entry, "reading_url"))).slice(0, 3);
+  const links = sortReading(entries.filter((entry) => getStringMetadata(entry, "reading_url"))).slice(0, 3);
 
   const renderColumn = (items: Entry[], empty: string) => (
     <section className="rounded-xl border border-[#ff8080]/50 bg-white/70 px-4 py-2 shadow-sm dark:border-[#ffb5b2]/35 dark:bg-rose-950/10">
@@ -1609,87 +1595,9 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
       <aside className="hidden rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04] lg:sticky lg:top-24 lg:order-2 lg:block">
         <div className="space-y-5">
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">Areas</p>
-              <button
-                type="button"
-                className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50"
-                onClick={() => setAdding("area")}
-                aria-label="Add a new Area type"
-                title="Add a new Area type"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                variant={areaFilter === "all" ? "default" : "outline"}
-                size="sm"
-                className={`${
-                  areaFilter === "all" ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
-                }`}
-                onClick={() => setAreaFilter("all")}
-              >
-                All
-              </Button>
-              {areas.map((option) => (
-                <EditableOptionButton
-                  key={option.id}
-                  active={areaFilter === option.name}
-                  option={option}
-                  onSelect={() => setAreaFilter(option.name)}
-                  onRename={(nextName) => handleRenameOption("area", option, nextName)}
-                />
-              ))}
-              <AddOptionControl
-                active={adding === "area"}
-                onCancel={() => setAdding(null)}
-                onSave={(name) => handleAddOption("area", name)}
-              />
-            </div>
-          </div>
+          <ManagedOptionDropdown label="Areas" allLabel="All areas" value={areaFilter} options={areas} adding={adding === "area"} onSelect={setAreaFilter} onStartAdding={() => setAdding("area")} onCancelAdding={() => setAdding(null)} onAdd={(name) => handleAddOption("area", name)} onRename={(option, nextName) => handleRenameOption("area", option, nextName)} />
 
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">Categories</p>
-              <button
-                type="button"
-                className="grid h-7 w-7 place-items-center rounded-full border border-stone-200 text-stone-500 transition hover:border-stone-300 hover:bg-stone-50 hover:text-stone-900 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50"
-                onClick={() => setAdding("category")}
-                aria-label="Add a new Category type"
-                title="Add a new Category type"
-              >
-                <Plus className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                variant={categoryFilter === "all" ? "default" : "outline"}
-                size="sm"
-                className={`${
-                  categoryFilter === "all" ? "text-white dark:text-stone-950" : "text-stone-900 dark:text-stone-100"
-                }`}
-                onClick={() => setCategoryFilter("all")}
-              >
-                All categories
-              </Button>
-              {categories.map((option) => (
-                <EditableOptionButton
-                  key={option.id}
-                  active={categoryFilter === option.name}
-                  option={option}
-                  onSelect={() => setCategoryFilter(option.name)}
-                  onRename={(nextName) => handleRenameOption("category", option, nextName)}
-                />
-              ))}
-              <AddOptionControl
-                active={adding === "category"}
-                onCancel={() => setAdding(null)}
-                onSave={(name) => handleAddOption("category", name)}
-              />
-            </div>
-          </div>
+          <ManagedOptionDropdown label="Categories" allLabel="All categories" value={categoryFilter} options={categories} adding={adding === "category"} onSelect={setCategoryFilter} onStartAdding={() => setAdding("category")} onCancelAdding={() => setAdding(null)} onAdd={(name) => handleAddOption("category", name)} onRename={(option, nextName) => handleRenameOption("category", option, nextName)} />
 
           <div>
             <label className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-400 dark:text-stone-500" htmlFor="sort-select">

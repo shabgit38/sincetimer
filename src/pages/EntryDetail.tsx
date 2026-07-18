@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
 import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration, formatYearMonthDaySpan } from "@/lib/timeUtils";
+import { getListItems } from "@/lib/listItems";
 import {
   deleteEntry,
   deleteHistory,
@@ -150,6 +151,7 @@ export default function EntryDetail() {
   const [editHistoryNotes, setEditHistoryNotes] = useState("");
   const [editHistoryPrice, setEditHistoryPrice] = useState("");
   const [historySavingId, setHistorySavingId] = useState<string | null>(null);
+  const [listSavingId, setListSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -410,6 +412,24 @@ export default function EntryDetail() {
     navigate("/");
   };
 
+  const handleToggleListItem = async (itemId: string) => {
+    if (!entry || !entryId || listSavingId) return;
+    const currentItems = getListItems(entry.metadata);
+    const nextItems = currentItems.map((item) => item.id === itemId ? { ...item, completed: !item.completed } : item);
+    setListSavingId(itemId);
+    setError(null);
+    setEntry({ ...entry, metadata: { ...entry.metadata, list_items: nextItems } });
+    try {
+      await updateEntry(entryId, { metadata: { ...entry.metadata, list_items: nextItems } });
+    } catch (saveError) {
+      console.error(saveError);
+      setEntry(entry);
+      setError("Unable to update this list item.");
+    } finally {
+      setListSavingId(null);
+    }
+  };
+
   if (loading) {
     return (
       <section className="rounded-xl border border-stone-200 bg-white p-8 shadow-sm">
@@ -444,6 +464,8 @@ export default function EntryDetail() {
   const isSubscription = normalizedCategory === "subscription";
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
+  const isList = normalizedCategory === "list";
+  const listItems = isList ? getListItems(entry.metadata) : [];
   const goalProgress = isGoal ? getNumberMetadata(entry.metadata, "progress_percent") : null;
   const goalStatus = isGoal ? getStringMetadata(entry.metadata, "goal_status") : "";
   const goalMilestones = isGoal
@@ -580,6 +602,29 @@ export default function EntryDetail() {
           </p>
         </div>
       </div>
+
+      {isList ? (
+        <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Checklist</p>
+            <p className="text-sm text-stone-500 dark:text-stone-400">{listItems.filter((item) => item.completed).length} of {listItems.length} completed</p>
+          </div>
+          {listItems.length > 0 ? (
+            <ul className="mt-4 grid gap-2">
+              {listItems.map((item) => (
+                <li key={item.id}>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 px-3 py-3 transition hover:bg-stone-50 dark:border-white/10 dark:hover:bg-white/[0.04]">
+                    <input type="checkbox" checked={item.completed} disabled={listSavingId !== null} onChange={() => void handleToggleListItem(item.id)} className="h-5 w-5 rounded border-stone-300" />
+                    <span className={`text-sm ${item.completed ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`}>{item.text}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-4 text-sm text-stone-500 dark:text-stone-400">No items yet. Use Edit to add list items.</p>
+          )}
+        </div>
+      ) : null}
 
       {entry.repeat_interval_days && !isRoutine ? (
         <div className="rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-600 shadow-sm">

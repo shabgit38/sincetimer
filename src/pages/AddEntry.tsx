@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays } from "date-fns";
-import { ChevronDown, Save as SaveIcon, X } from "lucide-react";
+import { ChevronDown, Plus, Save as SaveIcon, Trash2, X } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { replacePlanSessions, replaceScheduledPlanSessions } from "@/lib/plans";
 import { isPlanAreaCategory } from "@/lib/entryClassification";
 import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
+import { createListItem, getListItems, type ListItem } from "@/lib/listItems";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
@@ -169,6 +170,7 @@ export default function AddEntry() {
   const [readingStatus, setReadingStatus] = useState<ReadingStatus>("to_read");
   const [readingPriority, setReadingPriority] = useState("");
   const [readingCompletedDate, setReadingCompletedDate] = useState("");
+  const [listItems, setListItems] = useState<ListItem[]>([createListItem()]);
   const [planType, setPlanType] = useState<PlanType>("learning");
   const [planEndDate, setPlanEndDate] = useState("");
   const [planScheduleMode, setPlanScheduleMode] = useState<PlanScheduleMode>("days");
@@ -205,6 +207,7 @@ export default function AddEntry() {
   const isPlan = isPlanAreaCategory(area, category);
   const returnPath = isPlan ? "/goals" : "/";
   const isReading = normalizedCategory === "reading";
+  const isList = normalizedCategory === "list";
   const hasRepeatInterval = isRoutine || isHealthRecord;
   const hasCost = isPurchase || isSubscription;
   const titleLabel = isGoal
@@ -213,6 +216,8 @@ export default function AddEntry() {
       ? "Service Name"
       : isReading
         ? "Reading Title"
+      : isList
+        ? "List Name"
       : isHealthRecord
         ? "Event Type"
         : isPurchase
@@ -226,6 +231,8 @@ export default function AddEntry() {
       ? "e.g. ChatGPT Plus"
       : isReading
         ? "e.g. We Live Like Royalty"
+      : isList
+        ? "e.g. Weekend errands"
       : isHealthRecord
         ? "e.g. Blood test"
         : isPurchase
@@ -351,6 +358,7 @@ export default function AddEntry() {
               ? entry.metadata.reading_completed_date.slice(0, 10)
               : ""
           );
+          setListItems(getListItems(entry.metadata).length > 0 ? getListItems(entry.metadata) : [createListItem()]);
           setPlanType(getStoredPlanType(entry));
           setPlanEndDate(typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "");
           const scheduleConfig = getPlanScheduleConfig(entry.metadata);
@@ -545,6 +553,9 @@ export default function AddEntry() {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
+    const normalizedListItems = listItems
+      .map((item) => ({ ...item, text: item.text.trim() }))
+      .filter((item) => item.text);
     const existingEntry = isEditing && entryId ? entries.find((entry) => entry.id === entryId) : null;
     const existingEntryIsSubscription = existingEntry ? normalizeCategory(existingEntry.category) === "subscription" : false;
     const shouldPreserveSubscriptionStartDate = Boolean(isSubscription && existingEntryIsSubscription && existingEntry);
@@ -603,6 +614,7 @@ export default function AddEntry() {
               ? new Date(`${readingCompletedDate}T00:00:00`).toISOString()
               : (existingEntry?.metadata.reading_completed_date as string | undefined) ?? new Date().toISOString()
             : null,
+        list_items: isList ? normalizedListItems : null,
         plan_status: isPlan ? planStatus : null,
         start_date: isPlan ? entryDate : null,
         end_date: isPlan ? planEndDate : null,
@@ -864,6 +876,42 @@ export default function AddEntry() {
               </div>
             ) : null}
           </div>
+
+          {isList ? (
+            <div className="rounded-2xl border border-stone-300 bg-stone-50 p-4 dark:border-white/15 dark:bg-white/[0.04]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-stone-700 dark:text-stone-200">List items</p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">Add anything you want to track or check off.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setListItems((current) => [...current, createListItem()])}>
+                  <Plus className="h-4 w-4" /> Add item
+                </Button>
+              </div>
+              <div className="mt-4 grid gap-2">
+                {listItems.map((item, index) => (
+                  <div key={item.id} className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={item.completed}
+                      onChange={(event) => setListItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, completed: event.target.checked } : currentItem))}
+                      aria-label={`Mark item ${index + 1} complete`}
+                      className="h-4 w-4 rounded border-stone-300"
+                    />
+                    <input
+                      value={item.text}
+                      onChange={(event) => setListItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, text: event.target.value } : currentItem))}
+                      className={`${inputClass} min-w-0 flex-1`}
+                      placeholder={`Item ${index + 1}`}
+                    />
+                    <Button type="button" variant="ghost" size="sm" className="w-9 !px-0 text-stone-500" onClick={() => setListItems((current) => current.length === 1 ? [createListItem()] : current.filter((currentItem) => currentItem.id !== item.id))} aria-label={`Remove item ${index + 1}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {isRoutine ? (
             <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
