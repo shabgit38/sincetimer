@@ -466,6 +466,10 @@ export default function EntryDetail() {
   const isHealthRecord = normalizedCategory === "health record";
   const isList = normalizedCategory === "list";
   const listItems = isList ? getListItems(entry.metadata) : [];
+  const listTracksPrices = isList && entry.metadata.list_track_prices === true;
+  const getListItemTotal = (item: (typeof listItems)[number]) => (item.quantity ?? 1) * (item.price ?? 0);
+  const listCompletedTotal = listItems.filter((item) => item.completed).reduce((total, item) => total + getListItemTotal(item), 0);
+  const listRemainingTotal = listItems.filter((item) => !item.completed).reduce((total, item) => total + getListItemTotal(item), 0);
   const goalProgress = isGoal ? getNumberMetadata(entry.metadata, "progress_percent") : null;
   const goalStatus = isGoal ? getStringMetadata(entry.metadata, "goal_status") : "";
   const goalMilestones = isGoal
@@ -609,13 +613,26 @@ export default function EntryDetail() {
             <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Checklist</p>
             <p className="text-sm text-stone-500 dark:text-stone-400">{listItems.filter((item) => item.completed).length} of {listItems.length} completed</p>
           </div>
+          {listTracksPrices ? (
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-lg bg-stone-50 px-3 py-2 dark:bg-white/[0.04]"><p className="text-xs text-stone-500">Remaining</p><p className="font-semibold dark:text-stone-100">{formatMoney(listRemainingTotal, entry.metadata.currency)}</p></div>
+              <div className="rounded-lg bg-stone-50 px-3 py-2 dark:bg-white/[0.04]"><p className="text-xs text-stone-500">Completed / spent</p><p className="font-semibold dark:text-stone-100">{formatMoney(listCompletedTotal, entry.metadata.currency)}</p></div>
+              <div className="rounded-lg bg-stone-50 px-3 py-2 dark:bg-white/[0.04]"><p className="text-xs text-stone-500">Overall</p><p className="font-semibold dark:text-stone-100">{formatMoney(listRemainingTotal + listCompletedTotal, entry.metadata.currency)}</p></div>
+            </div>
+          ) : null}
           {listItems.length > 0 ? (
             <ul className="mt-4 grid gap-2">
               {listItems.map((item) => (
                 <li key={item.id}>
                   <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-stone-200 px-3 py-3 transition hover:bg-stone-50 dark:border-white/10 dark:hover:bg-white/[0.04]">
                     <input type="checkbox" checked={item.completed} disabled={listSavingId !== null} onChange={() => void handleToggleListItem(item.id)} className="h-5 w-5 rounded border-stone-300" />
-                    <span className={`text-sm ${item.completed ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`}>{item.text}</span>
+                    <span className={`min-w-0 flex-1 text-sm ${item.completed ? "text-stone-400 line-through" : "text-stone-800 dark:text-stone-100"}`}>{item.text}</span>
+                    {listTracksPrices && item.price !== undefined ? (
+                      <span className={`shrink-0 text-sm font-medium ${item.completed ? "text-stone-400 line-through" : "text-stone-700 dark:text-stone-200"}`}>
+                        {(item.quantity ?? 1) !== 1 ? `${item.quantity} × ` : ""}{formatMoney(item.price, entry.metadata.currency)}
+                        {(item.quantity ?? 1) !== 1 ? ` = ${formatMoney(getListItemTotal(item), entry.metadata.currency)}` : ""}
+                      </span>
+                    ) : null}
                   </label>
                 </li>
               ))}

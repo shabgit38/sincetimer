@@ -171,6 +171,7 @@ export default function AddEntry() {
   const [readingPriority, setReadingPriority] = useState("");
   const [readingCompletedDate, setReadingCompletedDate] = useState("");
   const [listItems, setListItems] = useState<ListItem[]>([createListItem()]);
+  const [listTrackPrices, setListTrackPrices] = useState(false);
   const [planType, setPlanType] = useState<PlanType>("learning");
   const [planEndDate, setPlanEndDate] = useState("");
   const [planScheduleMode, setPlanScheduleMode] = useState<PlanScheduleMode>("days");
@@ -359,6 +360,7 @@ export default function AddEntry() {
               : ""
           );
           setListItems(getListItems(entry.metadata).length > 0 ? getListItems(entry.metadata) : [createListItem()]);
+          setListTrackPrices(entry.metadata.list_track_prices === true);
           setPlanType(getStoredPlanType(entry));
           setPlanEndDate(typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "");
           const scheduleConfig = getPlanScheduleConfig(entry.metadata);
@@ -554,7 +556,16 @@ export default function AddEntry() {
       .map((tag) => tag.trim())
       .filter(Boolean);
     const normalizedListItems = listItems
-      .map((item) => ({ ...item, text: item.text.trim() }))
+      .map((item) => ({
+        ...item,
+        text: item.text.trim(),
+        ...(listTrackPrices
+          ? {
+              quantity: typeof item.quantity === "number" && item.quantity > 0 ? item.quantity : 1,
+              price: typeof item.price === "number" && item.price >= 0 ? item.price : undefined,
+            }
+          : { quantity: undefined, price: undefined }),
+      }))
       .filter((item) => item.text);
     const existingEntry = isEditing && entryId ? entries.find((entry) => entry.id === entryId) : null;
     const existingEntryIsSubscription = existingEntry ? normalizeCategory(existingEntry.category) === "subscription" : false;
@@ -615,6 +626,7 @@ export default function AddEntry() {
               : (existingEntry?.metadata.reading_completed_date as string | undefined) ?? new Date().toISOString()
             : null,
         list_items: isList ? normalizedListItems : null,
+        list_track_prices: isList ? listTrackPrices : null,
         plan_status: isPlan ? planStatus : null,
         start_date: isPlan ? entryDate : null,
         end_date: isPlan ? planEndDate : null,
@@ -637,7 +649,7 @@ export default function AddEntry() {
           : {}),
         tags: tagValues,
         favorite,
-        currency: hasCost ? currency : null,
+        currency: hasCost || (isList && listTrackPrices) ? currency : null,
       },
       price: hasCost ? priceValue : null,
       notes: notes.trim() ? notes.trim() : null,
@@ -888,9 +900,32 @@ export default function AddEntry() {
                   <Plus className="h-4 w-4" /> Add item
                 </Button>
               </div>
+              <div className="mt-4 flex flex-wrap items-end gap-4 rounded-xl border border-stone-200 bg-white p-3 dark:border-white/10 dark:bg-stone-950/40">
+                <label className="flex min-h-10 items-center gap-2 text-sm font-medium text-stone-700 dark:text-stone-200">
+                  <input type="checkbox" checked={listTrackPrices} onChange={(event) => setListTrackPrices(event.target.checked)} className="h-4 w-4 rounded border-stone-300" />
+                  Track prices
+                </label>
+                {listTrackPrices ? (
+                  <label className="grid gap-1 text-xs font-medium text-stone-600 dark:text-stone-300">
+                    Currency
+                    <select value={currency} onChange={(event) => setCurrency(event.target.value as CurrencyCode)} className={`${inputClass} h-10 min-w-40`}>
+                      {currencyOptions.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
               <div className="mt-4 grid gap-2">
+                {listTrackPrices ? (
+                  <div className="hidden grid-cols-[1rem_minmax(0,1fr)_7rem_8rem_2.25rem] items-center gap-2 px-1 text-xs font-medium text-stone-500 sm:grid dark:text-stone-400">
+                    <span />
+                    <span>Item</span>
+                    <span>Quantity</span>
+                    <span>Unit price</span>
+                    <span />
+                  </div>
+                ) : null}
                 {listItems.map((item, index) => (
-                  <div key={item.id} className="flex items-center gap-2">
+                  <div key={item.id} className={`grid items-center gap-2 rounded-xl border border-stone-200 bg-white p-2 dark:border-white/10 dark:bg-stone-950/30 ${listTrackPrices ? "grid-cols-[1rem_minmax(0,1fr)_2.25rem] sm:grid-cols-[1rem_minmax(0,1fr)_7rem_8rem_2.25rem]" : "grid-cols-[1rem_minmax(0,1fr)_2.25rem]"}`}>
                     <input
                       type="checkbox"
                       checked={item.completed}
@@ -901,10 +936,34 @@ export default function AddEntry() {
                     <input
                       value={item.text}
                       onChange={(event) => setListItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, text: event.target.value } : currentItem))}
-                      className={`${inputClass} min-w-0 flex-1`}
+                      className={`${inputClass} min-w-0 w-full`}
                       placeholder={`Item ${index + 1}`}
                     />
-                    <Button type="button" variant="ghost" size="sm" className="w-9 !px-0 text-stone-500" onClick={() => setListItems((current) => current.length === 1 ? [createListItem()] : current.filter((currentItem) => currentItem.id !== item.id))} aria-label={`Remove item ${index + 1}`}>
+                    {listTrackPrices ? (
+                      <>
+                        <input
+                          type="number"
+                          value={item.quantity ?? 1}
+                          onChange={(event) => setListItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, quantity: event.target.value ? Number(event.target.value) : undefined } : currentItem))}
+                          className={`${inputClass} col-start-2 w-full sm:col-auto`}
+                          min="0.01"
+                          step="any"
+                          placeholder="Qty"
+                          aria-label={`Quantity for item ${index + 1}`}
+                        />
+                        <input
+                          type="number"
+                          value={item.price ?? ""}
+                          onChange={(event) => setListItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, price: event.target.value ? Number(event.target.value) : undefined } : currentItem))}
+                          className={`${inputClass} col-start-2 w-full sm:col-auto`}
+                          min="0"
+                          step="any"
+                          placeholder="Unit price"
+                          aria-label={`Unit price for item ${index + 1}`}
+                        />
+                      </>
+                    ) : null}
+                    <Button type="button" variant="ghost" size="sm" className={`w-9 !px-0 text-stone-500 ${listTrackPrices ? "col-start-3 row-start-1 sm:col-auto sm:row-auto" : ""}`} onClick={() => setListItems((current) => current.length === 1 ? [createListItem()] : current.filter((currentItem) => currentItem.id !== item.id))} aria-label={`Remove item ${index + 1}`}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
