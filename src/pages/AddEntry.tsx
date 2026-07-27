@@ -190,7 +190,7 @@ export default function AddEntry() {
   const [currency, setCurrency] = useState<CurrencyCode>("INR");
   const [notes, setNotes] = useState("");
   const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState("09:00");
+  const [reminderTime, setReminderTime] = useState("05:00");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sidePanelError, setSidePanelError] = useState<string | null>(null);
@@ -288,6 +288,16 @@ export default function AddEntry() {
       setReminderTime("05:00");
     }
   }, [isEditing, isPlan]);
+
+  useEffect(() => {
+    if (
+      !isEditing &&
+      ["task", "subscription", "appointment", "list"].includes(normalizedCategory)
+    ) {
+      setReminderEnabled(true);
+      setReminderTime("05:00");
+    }
+  }, [isEditing, normalizedCategory]);
 
   useEffect(() => {
     const load = async () => {
@@ -392,7 +402,7 @@ export default function AddEntry() {
           setCurrency(getCurrencyCode(entry.metadata.currency));
           setNotes(entry.notes ?? "");
           setReminderEnabled(entry.reminder_enabled);
-          setReminderTime(entry.reminder_time ?? "09:00");
+          setReminderTime(entry.reminder_time ?? "05:00");
           return;
         }
 
