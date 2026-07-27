@@ -1450,14 +1450,14 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         entries: sortDashboardGroup("Favorites", favorites),
       },
       {
-        title: "Reading list",
-        description: "Links and topics waiting for focused reading.",
-        entries: sortDashboardGroup("Reading list", readingList),
-      },
-      {
         title: "Overdue",
         description: "Items that have crossed their due date.",
         entries: sortDashboardGroup("Overdue", overdue),
+      },
+      {
+        title: "Reading list",
+        description: "Links and topics waiting for focused reading.",
+        entries: sortDashboardGroup("Reading list", readingList),
       },
       {
         title: "Today",
