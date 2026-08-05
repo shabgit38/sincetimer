@@ -424,6 +424,7 @@ function sortDashboardGroup(title: string, entries: Entry[]) {
 
 function getNextScheduledPlanSession(sessions: PlanSession[]) {
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const sorted = sessions
     .filter((session) => session.status === "scheduled")
     .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());

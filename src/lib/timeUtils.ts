@@ -28,7 +28,7 @@ export function computeTimeSummary(entryDateIso: string, nextDueDateIso?: string
 
   const nextDueDate = parseISO(nextDueDateIso);
   const nextDueIn = differenceInCalendarDays(nextDueDate, now);
-  const isOverdue = isBefore(nextDueDate, now);
+  const isOverdue = nextDueIn < 0;
 
   return {
     daysPassed,

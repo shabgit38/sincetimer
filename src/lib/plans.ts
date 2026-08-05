@@ -185,6 +185,7 @@ async function refreshPlanNextDueDate(entryId: string, updatedAt: string): Promi
       : { completed_count: completedCount };
 
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const nextSession =
     scheduledSessions.find((session) => new Date(session.session_date) >= now) ??
     scheduledSessions[0] ??
@@ -291,6 +292,7 @@ export function getVisiblePlanSessions(sessions: PlanSession[], limit = 24): Pla
   if (sorted.length <= limit) return sorted;
 
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const anchorIndex = sorted.findIndex(
     (session) => session.status === "scheduled" && new Date(session.session_date) >= now
   );
@@ -311,6 +313,7 @@ export function getPlanLastDoneLabel(sessions: PlanSession[]): string | null {
 
 export function getPlanMetrics(sessions: PlanSession[]) {
   const now = new Date();
+  now.setHours(0, 0, 0, 0);
   const completed = sessions.filter((session) => session.status === "completed").length;
   const missed = sessions.filter((session) => session.status === "missed").length;
   const scheduled = sessions.filter((session) => session.status === "scheduled").length;
