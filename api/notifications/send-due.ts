@@ -13,8 +13,16 @@ type ReminderEntry = {
   id: string;
   user_id: string;
   title: string;
+  category: string;
   next_due_date: string;
   reminder_time: string | null;
+  metadata: Record<string, unknown>;
+};
+
+type ReadingEntry = {
+  id: string;
+  user_id: string;
+  title: string;
   metadata: Record<string, unknown>;
 };
 
@@ -99,6 +107,15 @@ function getReminderKeyTimestamp(reminderDate: string, reminderTime: string) {
   return new Date(`${reminderDate}T${reminderTime}:00.000Z`).toISOString();
 }
 
+function isWeekend(parts: ReturnType<typeof getLocalParts>) {
+  const day = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
+  return day === 0 || day === 6;
+}
+
+function getReadingDigestKey(parts: ReturnType<typeof getLocalParts>) {
+  return getReminderKeyTimestamp(getLocalDateKey(parts), '05:00');
+}
+
 function shouldSendReminder(entry: ReminderEntry, timezone: string, now = new Date()) {
   const reminderBeforeDays = getReminderBeforeDays(entry.metadata);
   const reminderDate = getReminderDate(entry.next_due_date, reminderBeforeDays);
@@ -144,7 +161,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
     const userIds = [...new Set(activeSubscriptions.map((subscription) => subscription.user_id))];
     const { data: entries, error: entriesError } = await supabase
       .from('entries')
-      .select('id, user_id, title, next_due_date, reminder_time, metadata')
+      .select('id, user_id, title, category, next_due_date, reminder_time, metadata')
       .eq('reminder_enabled', true)
       .not('next_due_date', 'is', null)
       .in('user_id', userIds);
@@ -157,6 +174,21 @@ export default async function handler(request: VercelRequest, response: VercelRe
     let sent = 0;
     let skipped = 0;
     const reminderEntries = (entries ?? []) as ReminderEntry[];
+
+    const { data: readingEntries, error: readingError } = await supabase
+      .from('entries')
+      .select('id, user_id, title, metadata')
+      .ilike('category', 'reading')
+      .in('user_id', userIds);
+
+    if (readingError) {
+      response.status(500).json({ error: readingError.message });
+      return;
+    }
+
+    const pendingReadingEntries = ((readingEntries ?? []) as ReadingEntry[]).filter(
+      (entry) => entry.metadata?.reading_status !== 'done'
+    );
 
     for (const subscription of activeSubscriptions) {
       const timezone = subscription.timezone || 'UTC';
@@ -214,9 +246,69 @@ export default async function handler(request: VercelRequest, response: VercelRe
           }
         }
       }
+
+      const localParts = getLocalParts(new Date(), timezone);
+      const userReadingEntries = pendingReadingEntries.filter((entry) => entry.user_id === subscription.user_id);
+      if (!isWeekend(localParts) || userReadingEntries.length === 0) continue;
+
+      const digestReminderAt = getReadingDigestKey(localParts);
+      const readingEntryIds = userReadingEntries.map((entry) => entry.id);
+      const { data: existingDigest, error: digestLookupError } = await supabase
+        .from('reminder_deliveries')
+        .select('id')
+        .eq('push_subscription_id', subscription.id)
+        .eq('reminder_at', digestReminderAt)
+        .in('entry_id', readingEntryIds)
+        .limit(1);
+
+      if (digestLookupError) throw digestLookupError;
+      if ((existingDigest ?? []).length > 0) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        const itemCount = userReadingEntries.length;
+        await webpush.sendNotification(
+          subscription.subscription,
+          JSON.stringify({
+            title: 'Weekend reading reminder',
+            body: `${itemCount} unfinished reading ${itemCount === 1 ? 'item is' : 'items are'} waiting for you.`,
+            url: '/reading',
+          })
+        );
+
+        const { error: digestDeliveryError } = await supabase.from('reminder_deliveries').insert(
+          userReadingEntries.map((entry) => ({
+            user_id: entry.user_id,
+            entry_id: entry.id,
+            push_subscription_id: subscription.id,
+            reminder_at: digestReminderAt,
+          }))
+        );
+        if (digestDeliveryError) throw digestDeliveryError;
+        sent += 1;
+      } catch (sendError) {
+        const statusCode =
+          typeof sendError === 'object' && sendError !== null && 'statusCode' in sendError
+            ? Number((sendError as { statusCode?: number }).statusCode)
+            : null;
+
+        if (statusCode === 404 || statusCode === 410) {
+          await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
+        } else {
+          console.error(sendError);
+        }
+      }
     }
 
-    response.status(200).json({ checked: activeSubscriptions.length, entries: reminderEntries.length, sent, skipped });
+    response.status(200).json({
+      checked: activeSubscriptions.length,
+      entries: reminderEntries.length,
+      readingEntries: pendingReadingEntries.length,
+      sent,
+      skipped,
+    });
   } catch (error) {
     console.error(error);
     response.status(500).json({ error: error instanceof Error ? error.message : 'Notification job failed.' });
