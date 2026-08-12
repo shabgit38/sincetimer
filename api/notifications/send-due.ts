@@ -120,10 +120,14 @@ function shouldSendReminder(entry: ReminderEntry, timezone: string, now = new Da
   const reminderBeforeDays = getReminderBeforeDays(entry.metadata);
   const reminderDate = getReminderDate(entry.next_due_date, reminderBeforeDays);
   const reminderTime = getReminderTime(entry.reminder_time);
-  const todayLocal = getLocalDateKey(getLocalParts(now, timezone));
+  const localParts = getLocalParts(now, timezone);
+  const todayLocal = getLocalDateKey(localParts);
+  const [reminderHour, reminderMinute] = reminderTime.split(':').map(Number);
+  const currentLocalMinutes = localParts.hour * 60 + localParts.minute;
+  const reminderLocalMinutes = reminderHour * 60 + reminderMinute;
 
   return {
-    due: reminderDate === todayLocal,
+    due: reminderDate === todayLocal && currentLocalMinutes >= reminderLocalMinutes,
     reminderAt: getReminderKeyTimestamp(reminderDate, reminderTime),
   };
 }
