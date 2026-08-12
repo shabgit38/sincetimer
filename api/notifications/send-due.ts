@@ -107,9 +107,13 @@ function getReminderKeyTimestamp(reminderDate: string, reminderTime: string) {
   return new Date(`${reminderDate}T${reminderTime}:00.000Z`).toISOString();
 }
 
-function isWeekend(parts: ReturnType<typeof getLocalParts>) {
+function isSaturday(parts: ReturnType<typeof getLocalParts>) {
   const day = new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
-  return day === 0 || day === 6;
+  return day === 6;
+}
+
+function isAtOrAfterReadingDigestTime(parts: ReturnType<typeof getLocalParts>) {
+  return parts.hour >= 5;
 }
 
 function getReadingDigestKey(parts: ReturnType<typeof getLocalParts>) {
@@ -253,7 +257,7 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
       const localParts = getLocalParts(new Date(), timezone);
       const userReadingEntries = pendingReadingEntries.filter((entry) => entry.user_id === subscription.user_id);
-      if (!isWeekend(localParts) || userReadingEntries.length === 0) continue;
+      if (!isSaturday(localParts) || !isAtOrAfterReadingDigestTime(localParts) || userReadingEntries.length === 0) continue;
 
       const digestReminderAt = getReadingDigestKey(localParts);
       const readingEntryIds = userReadingEntries.map((entry) => entry.id);
