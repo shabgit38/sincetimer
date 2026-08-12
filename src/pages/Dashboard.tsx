@@ -265,7 +265,7 @@ function getSectionTone(title: string): SectionTone {
   if (title === "Favorites") return "favorite";
   if (title === "Reading list") return "reading";
   if (title === "Overdue") return "overdue";
-  if (title === "Today") return "today";
+  if (title === "Today" || title === "Needs attention") return "today";
   if (title === "Due soon" || title === "Upcoming") return "soon";
   if (title === "Recently completed") return "recent";
   return "neutral";
@@ -1451,19 +1451,17 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         entries: sortDashboardGroup("Favorites", favorites),
       },
       {
-        title: "Overdue",
-        description: "Items that have crossed their due date.",
-        entries: sortDashboardGroup("Overdue", overdue),
+        title: "Needs attention",
+        description: "Due today first, followed by overdue items.",
+        entries: [
+          ...sortDashboardGroup("Today", today),
+          ...sortDashboardGroup("Overdue", overdue),
+        ],
       },
       {
         title: "Reading list",
         description: "Links and topics waiting for focused reading.",
         entries: sortDashboardGroup("Reading list", readingList),
-      },
-      {
-        title: "Today",
-        description: "Ready to be handled now.",
-        entries: sortDashboardGroup("Today", today),
       },
       {
         title: "Due soon",
