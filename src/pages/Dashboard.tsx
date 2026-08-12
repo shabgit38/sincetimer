@@ -635,7 +635,7 @@ function CompactDashboardListItem({
                 }}
                 aria-label={`Complete ${planSession.title} with an effort level`}
               >
-                <option value="" disabled>Complete as...</option>
+                <option value="" disabled>Done</option>
                 <option value="mvp">MVP</option>
                 <option value="normal">Normal</option>
                 <option value="deep">Deep</option>
