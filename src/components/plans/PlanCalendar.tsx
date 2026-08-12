@@ -1,15 +1,15 @@
 import { format } from "date-fns";
 import { useEffect, useState } from "react";
-import { Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
+import { Info, Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { getVisiblePlanSessions } from "@/lib/plans";
-import type { PlanSession, PlanSessionStatus } from "@/types/plan";
+import type { PlanEffortLevel, PlanSession, PlanSessionStatus } from "@/types/plan";
 
 type PlanCalendarProps = {
   sessions: PlanSession[];
   updatingId: string | null;
-  onMarkDone: (session: PlanSession) => void;
+  onMarkDone: (session: PlanSession, effortLevel: PlanEffortLevel) => void;
   onMarkMissed: (session: PlanSession) => void;
   onUpdateSession: (
     session: PlanSession,
@@ -134,19 +134,32 @@ export default function PlanCalendar({
               </div>
             ) : (
               <div className="mt-2">
-                <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem_2.25rem] items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    className="h-8 min-w-0 px-2 text-xs"
-                    disabled={updatingId === session.id || session.status === "completed"}
-                    onClick={() => onMarkDone(session)}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <select
+                    className="h-8 cursor-pointer rounded-lg border border-stone-300 bg-white px-2 py-0 text-xs text-stone-700 outline-none transition hover:border-stone-400 focus:border-stone-500 focus:ring-2 focus:ring-stone-200 disabled:cursor-wait disabled:opacity-70 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:hover:border-white/35 dark:focus:border-stone-300 dark:focus:ring-white/10"
+                    value=""
+                    disabled={updatingId === session.id}
+                    onChange={(event) => {
+                      if (event.target.value) onMarkDone(session, event.target.value as PlanEffortLevel);
+                    }}
+                    aria-label={`Complete ${session.title} with an effort level`}
                   >
-                    Done
-                  </Button>
+                    <option value="" disabled>Complete as...</option>
+                    <option value="mvp">MVP</option>
+                    <option value="normal">Normal</option>
+                    <option value="deep">Deep</option>
+                  </select>
+                  <span
+                    className="grid h-8 w-8 place-items-center text-stone-500 dark:text-stone-400"
+                    title="MVP: Watch 20 min · Normal: 40 min + notes · Deep: 60–90 min + problems"
+                    aria-label="Effort levels: MVP means watch 20 minutes; Normal means 40 minutes plus notes; Deep means 60 to 90 minutes plus problems."
+                  >
+                    <Info className="h-4 w-4" />
+                  </span>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 min-w-0 px-2 text-xs"
+                    className="h-8 px-2 text-xs"
                     disabled={updatingId === session.id || session.status === "missed"}
                     onClick={() => onMarkMissed(session)}
                   >

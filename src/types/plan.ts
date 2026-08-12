@@ -5,6 +5,7 @@ export type PlanStatus = "active" | "paused" | "completed";
 export type PlanScheduleMode = "days" | "months" | "weekdays" | "custom";
 export type PlanSessionType = "learn" | "practice" | "habit" | "reflection";
 export type PlanSessionStatus = "scheduled" | "completed" | "missed" | "rescheduled" | "skipped";
+export type PlanEffortLevel = "mvp" | "normal" | "deep";
 
 export interface PlanScheduleConfig {
   mode: PlanScheduleMode;

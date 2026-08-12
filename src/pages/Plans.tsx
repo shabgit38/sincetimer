@@ -13,7 +13,7 @@ import {
 } from "@/lib/plans";
 import { computeTimeSummary } from "@/lib/timeUtils";
 import type { Entry } from "@/types/entry";
-import type { PlanMetrics, PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
+import type { PlanEffortLevel, PlanMetrics, PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
 
 function getPlanTypeLabel(value: unknown) {
   if (value === "habit") return "Habit";
@@ -120,10 +120,10 @@ export default function Plans() {
     [plans]
   );
 
-  const handleSetStatus = async (session: PlanSession, status: PlanSessionStatus) => {
+  const handleSetStatus = async (session: PlanSession, status: PlanSessionStatus, effortLevel?: PlanEffortLevel) => {
     setUpdatingId(session.id);
     try {
-      await updatePlanSessionStatus(session.id, status);
+      await updatePlanSessionStatus(session.id, status, effortLevel);
       await loadPlans();
     } catch (saveError) {
       console.error(saveError);
@@ -264,7 +264,7 @@ export default function Plans() {
                     <PlanCalendar
                       sessions={sessions}
                       updatingId={updatingId}
-                      onMarkDone={(session) => void handleSetStatus(session, "completed")}
+                      onMarkDone={(session, effortLevel) => void handleSetStatus(session, "completed", effortLevel)}
                       onMarkMissed={(session) => void handleSetStatus(session, "missed")}
                       onUpdateSession={(session, updates) => void handleUpdateSession(session, updates)}
                       onDeleteSession={(session) => void handleDeleteSession(session)}

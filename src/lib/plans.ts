@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { isPlanEntry } from "@/lib/entryClassification";
 import type { Entry } from "@/types/entry";
-import type { NewPlanSession, PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
+import type { NewPlanSession, PlanEffortLevel, PlanSession, PlanSessionStatus, PlanWithSessions } from "@/types/plan";
 
 const planSessionSelect = `
   id,
@@ -206,12 +206,12 @@ async function refreshPlanNextDueDate(entryId: string, updatedAt: string): Promi
 export async function updatePlanSessionStatus(
   sessionId: string,
   status: PlanSessionStatus,
-  notes?: string
+  effortLevel?: PlanEffortLevel
 ): Promise<void> {
   const nowIso = new Date().toISOString();
   const { data: sessionRecord, error: sessionError } = await supabase
     .from("plan_sessions")
-    .select("entry_id")
+    .select("entry_id, metadata")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -220,7 +220,10 @@ export async function updatePlanSessionStatus(
   const updates = {
     status,
     completed_at: status === "completed" ? nowIso : null,
-    notes: notes?.trim() || null,
+    metadata: {
+      ...((sessionRecord?.metadata as Record<string, unknown> | null) ?? {}),
+      effort_level: status === "completed" ? effortLevel ?? null : null,
+    },
     updated_at: nowIso,
   };
   const { error } = await supabase.from("plan_sessions").update(updates).eq("id", sessionId);

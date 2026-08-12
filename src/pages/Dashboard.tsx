@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, MessageSquarePlus, Plus, Save as SaveIcon, Star, X } from "lucide-react";
+import { ChevronDown, ExternalLink, Info, MessageSquarePlus, Plus, Save as SaveIcon, Star, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import {
 import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
 import { isPlanEntry } from "@/lib/entryClassification";
 import type { Entry, EntryOption, HistoryItem } from "@/types/entry";
-import type { PlanSession, PlanSessionStatus } from "@/types/plan";
+import type { PlanEffortLevel, PlanSession, PlanSessionStatus } from "@/types/plan";
 
 type SortOption = "created" | "overdue" | "area";
 type ManagedKind = "area" | "category";
@@ -525,7 +525,7 @@ function CompactDashboardListItem({
   donePrice: string;
   onDoneDateChange: (date: string) => void;
   onDonePriceChange: (price: string) => void;
-  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus, effortLevel?: PlanEffortLevel) => void;
   favoriteSaving: boolean;
   entryDoneSaving: boolean;
   planSessionSaving: boolean;
@@ -623,15 +623,30 @@ function CompactDashboardListItem({
             </span>
           ) : null}
           {isPlan && planSession && canActOnPlanSession ? (
-            <>
-              <Button
-                size="sm"
-                className="h-7 px-2 text-[11px]"
+            <div className="flex flex-wrap items-center justify-end gap-1">
+              <select
+                className="h-7 cursor-pointer rounded-lg border border-stone-300 bg-white px-2 py-0 text-[11px] text-stone-700 outline-none transition hover:border-stone-400 focus:border-stone-500 focus:ring-2 focus:ring-stone-200 disabled:cursor-wait disabled:opacity-70 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:hover:border-white/35 dark:focus:border-stone-300 dark:focus:ring-white/10"
+                value=""
                 disabled={planSessionSaving}
-                onClick={() => onSetPlanSessionStatus(planSession, "completed")}
+                onChange={(event) => {
+                  if (event.target.value) {
+                    onSetPlanSessionStatus(planSession, "completed", event.target.value as PlanEffortLevel);
+                  }
+                }}
+                aria-label={`Complete ${planSession.title} with an effort level`}
               >
-                Done
-              </Button>
+                <option value="" disabled>Complete as...</option>
+                <option value="mvp">MVP</option>
+                <option value="normal">Normal</option>
+                <option value="deep">Deep</option>
+              </select>
+              <span
+                className="grid h-7 w-7 place-items-center text-stone-500 dark:text-stone-400"
+                title="MVP: Watch 20 min · Normal: 40 min + notes · Deep: 60–90 min + problems"
+                aria-label="Effort levels: MVP means watch 20 minutes; Normal means 40 minutes plus notes; Deep means 60 to 90 minutes plus problems."
+              >
+                <Info className="h-3.5 w-3.5" />
+              </span>
               <Button
                 size="sm"
                 variant="outline"
@@ -641,7 +656,7 @@ function CompactDashboardListItem({
               >
                 Missed
               </Button>
-            </>
+            </div>
           ) : due.tone === "overdue" || due.tone === "today" ? (
             <Button
               size="sm"
@@ -724,7 +739,7 @@ function CompactDashboardList({
   donePrices: Record<string, string>;
   onDoneDateChange: (entryId: string, date: string) => void;
   onDonePriceChange: (entryId: string, price: string) => void;
-  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus, effortLevel?: PlanEffortLevel) => void;
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
   planSessionSavingIds: Set<string>;
@@ -964,7 +979,7 @@ type EntrySectionProps = {
   donePrices: Record<string, string>;
   onDoneDateChange: (entryId: string, date: string) => void;
   onDonePriceChange: (entryId: string, price: string) => void;
-  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus) => void;
+  onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus, effortLevel?: PlanEffortLevel) => void;
   onSetReadingStatus: (entry: Entry, status: ReadingStatus) => void;
   onSaveReadingNotes: (entry: Entry, notes: string) => Promise<void>;
   favoriteSavingIds: Set<string>;
@@ -1214,14 +1229,14 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     }
   };
 
-  const handleSetPlanSessionStatus = async (session: PlanSession, status: PlanSessionStatus) => {
+  const handleSetPlanSessionStatus = async (session: PlanSession, status: PlanSessionStatus, effortLevel?: PlanEffortLevel) => {
     if (planSessionSavingIds.has(session.id)) return;
     if ((status === "completed" || status === "missed") && !isPlanSessionActionable(session)) return;
 
     setError(null);
     setPlanSessionSavingIds((current) => new Set(current).add(session.id));
     try {
-      await updatePlanSessionStatus(session.id, status);
+      await updatePlanSessionStatus(session.id, status, effortLevel);
       await refreshData();
     } catch (saveError) {
       console.error(saveError);
