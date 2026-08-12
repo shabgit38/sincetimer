@@ -439,10 +439,6 @@ function getLatestCompletedPlanSessionDate(sessions: PlanSession[]) {
     .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
 }
 
-function isTaskEntry(entry: Entry) {
-  return entry.category.trim().toLocaleLowerCase() === "task";
-}
-
 function isPlanSessionActionable(session: PlanSession) {
   const summary = computeTimeSummary(new Date().toISOString(), session.session_date);
   return summary.isOverdue || summary.nextDueIn === 0;
@@ -539,7 +535,6 @@ function CompactDashboardListItem({
 }) {
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
   const isSubscription = isSubscriptionEntry(entry);
-  const isTask = isTaskEntry(entry);
   const isPlan = isPlanEntry(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
@@ -647,7 +642,7 @@ function CompactDashboardListItem({
                 Missed
               </Button>
             </>
-          ) : due.tone === "overdue" || (isTask && due.tone === "today") ? (
+          ) : due.tone === "overdue" || due.tone === "today" ? (
             <Button
               size="sm"
               variant="outline"
@@ -663,7 +658,7 @@ function CompactDashboardListItem({
           </span>
         </div>
       </div>
-      {actionExpanded && (due.tone === "overdue" || (isTask && due.tone === "today")) && !isPlan ? (
+      {actionExpanded && (due.tone === "overdue" || due.tone === "today") && !isPlan ? (
         <div className="mt-2 flex justify-end gap-2">
           <input
             type="date"
