@@ -39,7 +39,7 @@ const defaultInputs: PlannerInputs = {
   sipStepUpPercent: 20,
   existingCorpus: 430000,
   expectedReturnPercent: 10,
-  annualLumpsum: 50000,
+  annualLumpsum: 0,
   currentMonthlyExpense: 50000,
   inflationPercent: 8,
   withdrawalRatePercent: 4,
@@ -232,7 +232,6 @@ export default function FinPlanner() {
           <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Inputs</h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Field label="Start year" help="The first calendar year shown in the projection." value={inputs.startYear} onChange={(value) => updateInput("startYear", value)} />
-            <Field label="Age now" help="Your age in the projection's start year." value={inputs.currentAge} onChange={(value) => updateInput("currentAge", value)} />
             <Field label="Retire at" help="The target retirement age and final projection year." value={inputs.retirementAge} onChange={(value) => updateInput("retirementAge", value)} />
             <Field label="Monthly SIP" help="The monthly systematic investment in the first year." value={inputs.monthlySip} onChange={(value) => updateInput("monthlySip", value)} />
             <Field label="SIP step-up" help="The percentage by which Monthly SIP increases each year." value={inputs.sipStepUpPercent} onChange={(value) => updateInput("sipStepUpPercent", value)} suffix="%" />
@@ -246,12 +245,12 @@ export default function FinPlanner() {
           </aside>
 
           <div className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <SummaryCard label="Corpus at retirement" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
-            <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
-            <SummaryCard label={surplus >= 0 ? "Projected surplus" : "Projected shortfall"} help="Difference between the projected retirement corpus and target corpus." value={formatInr(Math.abs(surplus))} tone={surplus >= 0 ? "good" : "bad"} />
-            <SummaryCard label="Monthly expense then" help="Current monthly expense increased by inflation through the retirement age." value={formatInr(monthlyExpenseAtRetirement)} />
-            <SummaryCard label="Required SIP estimate" help="Level monthly beginning-of-month SIP needed to close the target gap, using Zerodha-style monthly compounding and the Existing Corpus." value={formatInr(requiredMonthlySip)} />
             <SummaryCard label="Total invested" help="Existing Corpus plus all SIP principal and year-end lumpsum contributions through retirement." value={formatInr(finalRow?.totalInvested ?? inputs.existingCorpus)} />
+            <SummaryCard label="Monthly expense then" help="Current monthly expense increased by inflation through the retirement age." value={formatInr(monthlyExpenseAtRetirement)} />
+            <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
+            <SummaryCard label="Corpus at retirement" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
+            <SummaryCard label="Required SIP estimate" help="Level monthly beginning-of-month SIP needed to close the target gap, using Zerodha-style monthly compounding and the Existing Corpus." value={formatInr(requiredMonthlySip)} />
+            <SummaryCard label={surplus >= 0 ? "Projected surplus" : "Projected shortfall"} help="Difference between the projected retirement corpus and target corpus." value={formatInr(Math.abs(surplus))} tone={surplus >= 0 ? "good" : "bad"} />
           </div>
 
         <section className="col-span-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm lg:col-span-1 lg:col-start-2 dark:border-white/10 dark:bg-white/[0.04]">
