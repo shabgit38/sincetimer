@@ -37,7 +37,7 @@ const defaultInputs: PlannerInputs = {
   retirementAge: 58,
   monthlySip: 5000,
   sipStepUpPercent: 20,
-  existingCorpus: 430000,
+  existingCorpus: 450000,
   expectedReturnPercent: 10,
   annualLumpsum: 0,
   currentMonthlyExpense: 50000,
@@ -246,7 +246,7 @@ export default function FinPlanner() {
 
           <div className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-3">
             <SummaryCard label="Total invested" help="Existing Corpus plus all SIP principal and year-end lumpsum contributions through retirement." value={formatInr(finalRow?.totalInvested ?? inputs.existingCorpus)} />
-            <SummaryCard label="Monthly expense then" help="Current monthly expense increased by inflation through the retirement age." value={formatInr(monthlyExpenseAtRetirement)} />
+            <SummaryCard label="Monthly expense then" help="Formula: Current monthly expense × (1 + Inflation ÷ 100) ^ (Retirement age − Current age)." value={formatInr(monthlyExpenseAtRetirement)} />
             <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
             <SummaryCard label="Corpus at retirement" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
             <SummaryCard label="Required SIP estimate" help="Level monthly beginning-of-month SIP needed to close the target gap, using Zerodha-style monthly compounding and the Existing Corpus." value={formatInr(requiredMonthlySip)} />
