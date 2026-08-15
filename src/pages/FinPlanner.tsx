@@ -53,6 +53,10 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(Math.round(value));
 }
 
+function formatPercent(value: number, fractionDigits = 2) {
+  return `${new Intl.NumberFormat("en-IN", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits }).format(value)}%`;
+}
+
 function clampNumber(value: number, fallback: number) {
   return Number.isFinite(value) ? value : fallback;
 }
@@ -229,6 +233,11 @@ export default function FinPlanner() {
   const targetCorpus = annualExpenseAtRetirement / Math.max(inputs.withdrawalRatePercent / 100, 0.001);
   const projectedCorpus = finalRow?.projectedCorpus ?? inputs.existingCorpus;
   const surplus = projectedCorpus - targetCorpus;
+  const fundingRatioPercent = targetCorpus > 0 ? (projectedCorpus / targetCorpus) * 100 : 0;
+  const inflationFactor = 1 + inputs.inflationPercent / 100;
+  const expectedRealReturnPercent = inflationFactor > 0
+    ? ((1 + inputs.expectedReturnPercent / 100) / inflationFactor - 1) * 100
+    : 0;
   const requiredMonthlySip = calculateMonthlySipForTarget(
     targetCorpus,
     inputs.existingCorpus,
@@ -282,19 +291,40 @@ export default function FinPlanner() {
           </div>
           </aside>
 
-          <div className="grid min-w-0 content-start gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <SummaryCard label="Total invested" help="Existing Corpus plus all SIP principal and year-end lumpsum contributions through retirement." value={formatInr(finalRow?.totalInvested ?? inputs.existingCorpus)} />
-            <SummaryCard label="Monthly expense then" help="Formula: Current monthly expense × (1 + Inflation ÷ 100) ^ (Retirement age − Current age)." value={formatInr(monthlyExpenseAtRetirement)} />
-            <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
-            <SummaryCard label="Corpus at retirement" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
-            <SummaryCard
-              label={`Required starting SIP at ${inputs.sipStepUpPercent}% step-up`}
-              help="Starting monthly SIP needed to reach the target when it increases by the selected SIP step-up each year. Uses beginning-of-month SIPs and the Existing Corpus; excludes annual lumpsums."
-              value={formatInr(requiredStartingSip)}
-              detail={`Current: ${formatInr(inputs.monthlySip)} · Gap today: ${formatInr(startingSipGap)}/month`}
-            />
-            <SummaryCard label={surplus >= 0 ? "Projected surplus" : "Projected shortfall"} help="Difference between the projected retirement corpus and target corpus." value={formatInr(Math.abs(surplus))} tone={surplus >= 0 ? "good" : "bad"} />
-            <SummaryCard label="Required fixed SIP" help="Monthly SIP needed if it never increases. Uses beginning-of-month SIPs and the Existing Corpus; excludes annual step-ups and lumpsums." value={formatInr(requiredMonthlySip)} />
+          <div className="min-w-0 space-y-4">
+            <section className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">Goal</h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
+                <SummaryCard label="Projected corpus" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
+                <SummaryCard label="Funding ratio" help="Projected corpus ÷ Target corpus × 100. A result of 100% or more means the goal is fully funded." value={formatPercent(fundingRatioPercent, 1)} tone={fundingRatioPercent >= 100 ? "good" : "bad"} />
+                <SummaryCard label={surplus >= 0 ? "Projected surplus" : "Projected shortfall"} help="Difference between the projected retirement corpus and target corpus." value={formatInr(Math.abs(surplus))} tone={surplus >= 0 ? "good" : "bad"} />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">Required contribution</h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <SummaryCard label="Current SIP" help="The monthly SIP entered for the first projection year." value={`${formatInr(inputs.monthlySip)}/month`} />
+                <SummaryCard
+                  label={`Required starting SIP with ${inputs.sipStepUpPercent}% annual step-up`}
+                  help="Starting monthly SIP needed to reach the target when it increases by the selected SIP step-up each year. Uses beginning-of-month SIPs and the Existing Corpus; excludes annual lumpsums."
+                  value={`${formatInr(requiredStartingSip)}/month`}
+                  detail={`Gap today: ${formatInr(startingSipGap)}/month`}
+                  tone="good"
+                />
+                <SummaryCard label="OR fixed SIP required" help="Monthly SIP needed if it never increases. Uses beginning-of-month SIPs and the Existing Corpus; excludes annual step-ups and lumpsums." value={`${formatInr(requiredMonthlySip)}/month`} />
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4 dark:border-white/10 dark:bg-white/[0.025]">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-stone-500 dark:text-stone-400">Planning context</h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <SummaryCard label="Total invested" help="Existing Corpus plus all SIP principal and year-end lumpsum contributions through retirement." value={formatInr(finalRow?.totalInvested ?? inputs.existingCorpus)} />
+                <SummaryCard label="Monthly expense then" help="Formula: Current monthly expense × (1 + Inflation ÷ 100) ^ (Retirement age − Current age)." value={formatInr(monthlyExpenseAtRetirement)} />
+                <SummaryCard label="Expected real return" help="Purchasing-power growth after inflation. Formula: ((1 + Expected return) ÷ (1 + Inflation)) − 1." value={formatPercent(expectedRealReturnPercent)} />
+              </div>
+            </section>
           </div>
 
         <section className="col-span-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm lg:col-span-1 lg:col-start-2 dark:border-white/10 dark:bg-white/[0.04]">
