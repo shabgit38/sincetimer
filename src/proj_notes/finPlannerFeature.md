@@ -49,7 +49,7 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 - Rows continue through age `57`, which represents the completed age `57` to `58` period. Retirement age `58` is the resulting summary snapshot, not another contribution row.
 - A projection from age `39` to `58` therefore contains `19` investment rows and exactly `19` growth periods.
 - `annualSip = monthlySip * 12` and `monthlySip` increases each investment year by the annual SIP step-up percentage.
-- SIP growth matches Zerodha's SIP convention: `monthlyRate = expectedAnnualReturn / 12` and SIPs are beginning-of-month contributions.
+- Expected annual return is treated as an effective annual return (CAGR), with `monthlyRate = (1 + expectedAnnualReturn)^(1/12) - 1`, and SIPs are beginning-of-month contributions.
 - The future value of 12 monthly SIPs for one year is `monthlySip * (((1 + monthlyRate)^12 - 1) / monthlyRate) * (1 + monthlyRate)`.
 - The prior corpus compounds for 12 months using `(1 + monthlyRate)^12`.
 - The annual lumpsum is added at year-end after growth, so it receives no return during that same year.

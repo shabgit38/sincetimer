@@ -88,7 +88,7 @@ function HeaderCell({ label, help, right = false, className = "" }: { label: str
 function calculateProjection(inputs: PlannerInputs, lumpsumOverrides: Record<number, number>): ProjectionRow[] {
   const years = Math.max(0, inputs.retirementAge - inputs.currentAge);
   const annualReturn = inputs.expectedReturnPercent / 100;
-  const monthlyReturn = annualReturn / 12;
+  const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
   const inflation = inputs.inflationPercent / 100;
   const sipStepUp = inputs.sipStepUpPercent / 100;
   let sipCorpus = 0;
@@ -131,12 +131,41 @@ function calculateProjection(inputs: PlannerInputs, lumpsumOverrides: Record<num
 
 function calculateMonthlySipForTarget(target: number, existingCorpus: number, years: number, annualReturnPercent: number) {
   const months = Math.max(1, years * 12);
-  const monthlyReturn = annualReturnPercent / 100 / 12;
+  const annualReturn = annualReturnPercent / 100;
+  const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
   const futureExistingCorpus = existingCorpus * (1 + monthlyReturn) ** months;
   const gap = Math.max(0, target - futureExistingCorpus);
   if (gap === 0) return 0;
   if (monthlyReturn === 0) return gap / months;
   return (gap * monthlyReturn) / (((1 + monthlyReturn) ** months - 1) * (1 + monthlyReturn));
+}
+
+function calculateStartingSipForTarget(
+  target: number,
+  existingCorpus: number,
+  years: number,
+  annualReturnPercent: number,
+  annualStepUpPercent: number
+) {
+  if (years <= 0) return 0;
+
+  const annualReturn = annualReturnPercent / 100;
+  const monthlyReturn = Math.pow(1 + annualReturn, 1 / 12) - 1;
+  const annualStepUp = annualStepUpPercent / 100;
+  const months = years * 12;
+  const corpusGrowthFactor = (1 + monthlyReturn) ** 12;
+  const futureExistingCorpus = existingCorpus * (1 + monthlyReturn) ** months;
+  const gap = Math.max(0, target - futureExistingCorpus);
+  if (gap === 0) return 0;
+
+  const oneYearSipFactor = monthlyReturn === 0
+    ? 12
+    : (((1 + monthlyReturn) ** 12 - 1) / monthlyReturn) * (1 + monthlyReturn);
+  const startingSipFutureValueFactor = Array.from({ length: years }, (_, index) =>
+    (1 + annualStepUp) ** index * oneYearSipFactor * corpusGrowthFactor ** (years - index - 1)
+  ).reduce((total, factor) => total + factor, 0);
+
+  return startingSipFutureValueFactor > 0 ? gap / startingSipFutureValueFactor : 0;
 }
 
 function Field({
@@ -168,7 +197,7 @@ function Field({
   );
 }
 
-function SummaryCard({ label, help, value, tone = "neutral" }: { label: string; help: string; value: string; tone?: "neutral" | "good" | "bad" }) {
+function SummaryCard({ label, help, value, detail, tone = "neutral" }: { label: string; help: string; value: string; detail?: string; tone?: "neutral" | "good" | "bad" }) {
   const toneClass =
     tone === "good"
       ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-200"
@@ -183,6 +212,7 @@ function SummaryCard({ label, help, value, tone = "neutral" }: { label: string; 
         <InfoTip text={help} />
       </div>
       <p className="mt-2 text-xl font-semibold tracking-tight">{value}</p>
+      {detail ? <p className="mt-2 text-xs opacity-70">{detail}</p> : null}
     </article>
   );
 }
@@ -205,6 +235,14 @@ export default function FinPlanner() {
     yearsToRetirement,
     inputs.expectedReturnPercent
   );
+  const requiredStartingSip = calculateStartingSipForTarget(
+    targetCorpus,
+    inputs.existingCorpus,
+    yearsToRetirement,
+    inputs.expectedReturnPercent,
+    inputs.sipStepUpPercent
+  );
+  const startingSipGap = Math.max(0, requiredStartingSip - inputs.monthlySip);
 
   const updateInput = (key: keyof PlannerInputs, value: number) => {
     setInputs((current) => ({ ...current, [key]: value }));
@@ -236,7 +274,7 @@ export default function FinPlanner() {
             <Field label="Monthly SIP" help="The monthly systematic investment in the first year." value={inputs.monthlySip} onChange={(value) => updateInput("monthlySip", value)} />
             <Field label="SIP step-up" help="The percentage by which Monthly SIP increases each year." value={inputs.sipStepUpPercent} onChange={(value) => updateInput("sipStepUpPercent", value)} suffix="%" />
             <Field label="Existing corpus" help="Your invested balance at the start; it compounds with future contributions." value={inputs.existingCorpus} onChange={(value) => updateInput("existingCorpus", value)} />
-            <Field label="Expected return" help="Nominal annual return; SIP and corpus growth use this rate divided by 12, matching Zerodha's SIP convention." value={inputs.expectedReturnPercent} onChange={(value) => updateInput("expectedReturnPercent", value)} suffix="%" />
+            <Field label="Expected return" help="Effective annual return (CAGR). The equivalent monthly rate is (1 + annual return)^(1/12) − 1, so monthly compounding matches the entered annual return." value={inputs.expectedReturnPercent} onChange={(value) => updateInput("expectedReturnPercent", value)} suffix="%" />
             <Field label="Annual lumpsum" help="The default extra yearly investment; each table row can override it." value={inputs.annualLumpsum} onChange={(value) => updateInput("annualLumpsum", value)} />
             <Field label="Monthly expense" help="Your current monthly living expense before inflation." value={inputs.currentMonthlyExpense} onChange={(value) => updateInput("currentMonthlyExpense", value)} />
             <Field label="Inflation" help="The annual rate used to increase projected retirement expenses." value={inputs.inflationPercent} onChange={(value) => updateInput("inflationPercent", value)} suffix="%" />
@@ -249,8 +287,14 @@ export default function FinPlanner() {
             <SummaryCard label="Monthly expense then" help="Formula: Current monthly expense × (1 + Inflation ÷ 100) ^ (Retirement age − Current age)." value={formatInr(monthlyExpenseAtRetirement)} />
             <SummaryCard label="Target corpus" help="Annual inflation-adjusted retirement expense divided by the withdrawal rate." value={formatInr(targetCorpus)} />
             <SummaryCard label="Corpus at retirement" help="Projected end value after all completed SIP periods, monthly compounding, and year-end lumpsums." value={formatInr(projectedCorpus)} />
-            <SummaryCard label="Required SIP estimate" help="Level monthly beginning-of-month SIP needed to close the target gap, using Zerodha-style monthly compounding and the Existing Corpus." value={formatInr(requiredMonthlySip)} />
+            <SummaryCard
+              label={`Required starting SIP at ${inputs.sipStepUpPercent}% step-up`}
+              help="Starting monthly SIP needed to reach the target when it increases by the selected SIP step-up each year. Uses beginning-of-month SIPs and the Existing Corpus; excludes annual lumpsums."
+              value={formatInr(requiredStartingSip)}
+              detail={`Current: ${formatInr(inputs.monthlySip)} · Gap today: ${formatInr(startingSipGap)}/month`}
+            />
             <SummaryCard label={surplus >= 0 ? "Projected surplus" : "Projected shortfall"} help="Difference between the projected retirement corpus and target corpus." value={formatInr(Math.abs(surplus))} tone={surplus >= 0 ? "good" : "bad"} />
+            <SummaryCard label="Required fixed SIP" help="Monthly SIP needed if it never increases. Uses beginning-of-month SIPs and the Existing Corpus; excludes annual step-ups and lumpsums." value={formatInr(requiredMonthlySip)} />
           </div>
 
         <section className="col-span-2 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm lg:col-span-1 lg:col-start-2 dark:border-white/10 dark:bg-white/[0.04]">
