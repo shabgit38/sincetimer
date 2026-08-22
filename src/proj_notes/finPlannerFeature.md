@@ -9,14 +9,14 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 - The first version is frontend-only and does not save scenarios to the database.
 - The page is reachable from the hamburger menu as `FinPlanner`.
 - Retirement is the initial/default goal.
-- SIP annual step-up is editable and defaults to `20%`.
-- Expected return defaults to `10%`.
-- The projection starts from `2025`, current age `39`, and retirement age `58`, matching the reference sheet.
+- The current age is fixed at `39`; the projection starts in `2025` and defaults to retirement at age `58`.
+- Default starting monthly SIP is `INR 5,000`, with a `20%` annual step-up.
+- Default existing corpus is `INR 450,000`; annual lumpsum defaults to `INR 0`.
+- Expected annual return defaults to `10%`, inflation to `8%`, monthly expense to `INR 50,000`, and withdrawal rate to `4%`.
 
 ## Calculator Inputs
 
 - Start year
-- Current age
 - Retirement age
 - Current monthly SIP
 - Annual SIP step-up %
@@ -58,6 +58,9 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 - Retirement expense is inflated through the full number of years to retirement, and retirement target corpus is that annual expense divided by withdrawal rate.
 - Surplus or shortfall is projected corpus at retirement minus target corpus.
 - Required SIP estimation uses the same Zerodha beginning-of-month monthly-compounding convention.
+- The required-contribution section shows both the required starting SIP when using the selected annual step-up and the alternative required fixed monthly SIP. Both estimates use the existing corpus and exclude annual lumpsums.
+- Funding ratio is `projected corpus / target corpus * 100`; 100% or more means the target is fully funded.
+- Expected real return accounts for inflation: `((1 + expected return) / (1 + inflation)) - 1`.
 
 ## UI Changes
 
@@ -65,9 +68,13 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 - Add `/finplanner` route.
 - Add a dedicated `FinPlanner` page with:
   - retirement goal heading
-  - input controls
-  - summary cards
-  - year-by-year projection table
+  - editable inputs for the start year, retirement age, SIP, returns, expenses, and annual lumpsum
+  - independently editable annual-lumpsum values in the projection table
+  - grouped summary cards:
+    - **Goal:** target corpus, projected corpus, funding ratio, and projected surplus or shortfall
+    - **Required contribution:** current SIP, required step-up SIP (including today's gap), and fixed-SIP alternative
+    - **Planning context:** total invested, monthly expense at retirement, and expected real return
+  - a horizontally scrollable, sticky-header year-by-year projection table for smaller screens
 
 ## Follow-ups
 
