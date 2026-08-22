@@ -4,7 +4,7 @@
 
 FinPlanner is a finance planning screen for goal-based projections. The first goal is retirement planning using the user's existing Excel-style SIP and lumpsum projection model.
 
-## Initial Assumptions
+##Initial Assumptions
 
 - The first version is frontend-only and does not save scenarios to the database.
 - The page is reachable from the hamburger menu as `FinPlanner`.
