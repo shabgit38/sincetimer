@@ -1,4 +1,4 @@
-import { addDays, differenceInCalendarDays, format, isAfter, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, isAfter, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/currency";
 import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration, formatYearMonthDaySpan } from "@/lib/timeUtils";
 import { getListItems } from "@/lib/listItems";
+import { getNextRecurrenceDate, getRoutineRecurrenceConfig } from "@/lib/recurrence";
 import {
   deleteEntry,
   deleteHistory,
@@ -29,8 +30,8 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
       { afterFromDate: true }
     ) ?? entry.next_due_date;
   }
-  if (!entry.repeat_interval_days) return null;
-  return addDays(loggedAt, entry.repeat_interval_days).toISOString();
+  const recurrence = getRoutineRecurrenceConfig(entry.metadata, entry.repeat_interval_days, entry.next_due_date);
+  return recurrence ? getNextRecurrenceDate(loggedAt, recurrence)?.toISOString() ?? null : entry.next_due_date;
 }
 
 function normalizeCategory(value: string) {
@@ -118,7 +119,7 @@ function getCompletedCount(entryDate: Date | string, history: HistoryItem[]) {
 
 function getRoutineSummary(entry: Entry, history: HistoryItem[]) {
   const lastDone = getLatestEventDate(entry, history);
-  const nextDue = entry.repeat_interval_days ? addDays(lastDone, entry.repeat_interval_days) : null;
+  const nextDue = entry.next_due_date ? parseISO(entry.next_due_date) : null;
   const now = new Date();
   const nextDueIn = nextDue ? differenceInCalendarDays(nextDue, now) : null;
   const isOverdue = nextDueIn !== null && nextDueIn < 0;

@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getBillingCycle, getNextSubscriptionRenewalIso } from './subscriptions';
+import { getNextRecurrenceDate, getRoutineRecurrenceConfig, toIsoDate } from '@/lib/recurrence';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
 const defaultAreaNames = ['home', 'work', 'personal', 'health'];
@@ -57,12 +58,6 @@ function normalizeOptionName(name: string) {
   return name.trim().replace(/\s+/g, ' ');
 }
 
-function addDaysIso(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next.toISOString();
-}
-
 function normalizeCategory(value: string) {
   return value.trim().toLocaleLowerCase().replace(/[_-]+/g, ' ');
 }
@@ -80,9 +75,8 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
       { afterFromDate: true }
     ) ?? entry.next_due_date;
   }
-  if (entry.metadata.repeat_unit === 'date') return null;
-  if (!entry.repeat_interval_days) return null;
-  return addDaysIso(loggedAt, entry.repeat_interval_days);
+  const recurrence = getRoutineRecurrenceConfig(entry.metadata, entry.repeat_interval_days, entry.next_due_date);
+  return toIsoDate(recurrence ? getNextRecurrenceDate(loggedAt, recurrence) : null) ?? entry.next_due_date;
 }
 
 function getLatestLogDate(entry: Entry, history: HistoryItem[]) {

@@ -15,6 +15,7 @@ import {
   updateEntry,
 } from "@/lib/db";
 import { generatePlanSessions } from "@/lib/planScheduler";
+import { getNextRecurrenceDate, type RecurrenceConfig } from "@/lib/recurrence";
 import { replacePlanSessions, replaceScheduledPlanSessions } from "@/lib/plans";
 import { isPlanAreaCategory } from "@/lib/entryClassification";
 import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
@@ -23,7 +24,7 @@ import { createListItem, getListItems, type ListItem } from "@/lib/listItems";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
-type RepeatUnit = "days" | "weeks" | "months" | "date";
+type RepeatUnit = "days" | "weeks" | "months" | "weekdays" | "dayOfMonth" | "date";
 type GoalStatus = "not_started" | "in_progress" | "paused" | "completed";
 type BillingCycle = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
 type ReadingStatus = "to_read" | "reading" | "done";
@@ -93,12 +94,20 @@ function getPlanScheduleConfig(metadata: Record<string, unknown>): PlanScheduleC
   if (rawConfig && typeof rawConfig === "object") {
     const config = rawConfig as Partial<PlanScheduleConfig>;
     const mode: PlanScheduleMode =
-      config.mode === "months" || config.mode === "weekdays" || config.mode === "custom" ? config.mode : "days";
+      config.mode === "months" || config.mode === "weekdays" || config.mode === "custom" || config.mode === "dayOfMonth" || config.mode === "date"
+        ? config.mode
+        : "days";
     const interval = typeof config.interval === "number" && config.interval > 0 ? config.interval : 1;
     const weekdays = Array.isArray(config.weekdays)
       ? config.weekdays.filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
       : [];
-    return { mode, interval, weekdays };
+    return {
+      mode,
+      interval,
+      weekdays,
+      dayOfMonth: typeof config.dayOfMonth === "number" ? config.dayOfMonth : undefined,
+      date: typeof config.date === "string" ? config.date.slice(0, 10) : undefined,
+    };
   }
 
   if (typeof metadata.frequency_per_week === "number" && metadata.frequency_per_week > 0) {
@@ -159,6 +168,8 @@ export default function AddEntry() {
   const [nextDueDate, setNextDueDate] = useState<string>("");
   const [repeatIntervalDays, setRepeatIntervalDays] = useState("");
   const [repeatUnit, setRepeatUnit] = useState<RepeatUnit>("days");
+  const [routineWeekdays, setRoutineWeekdays] = useState<number[]>([]);
+  const [routineDayOfMonth, setRoutineDayOfMonth] = useState("1");
   const [reminderBeforeDays, setReminderBeforeDays] = useState("");
   const [goalStatus, setGoalStatus] = useState<GoalStatus>("not_started");
   const [goalProgress, setGoalProgress] = useState("");
@@ -321,12 +332,22 @@ export default function AddEntry() {
           setNextDueDate(entry.next_due_date ? entry.next_due_date.slice(0, 10) : "");
           setRepeatIntervalDays(entry.repeat_interval_days ? String(entry.repeat_interval_days) : "");
           setRepeatUnit(
-            entry.metadata.repeat_unit === "weeks" || entry.metadata.repeat_unit === "months"
+            entry.metadata.recurrence_config && typeof entry.metadata.recurrence_config === "object"
+                ? (((entry.metadata.recurrence_config as { mode?: string }).mode === "custom"
+                  ? "weeks"
+                  : (entry.metadata.recurrence_config as { mode?: RepeatUnit }).mode) ?? "days")
+              : entry.metadata.repeat_unit === "weeks" || entry.metadata.repeat_unit === "months"
               ? entry.metadata.repeat_unit
               : entry.metadata.repeat_unit === "date"
                 ? "date"
                 : "days"
           );
+          const storedRecurrence = entry.metadata.recurrence_config;
+          if (storedRecurrence && typeof storedRecurrence === "object") {
+            const config = storedRecurrence as Partial<RecurrenceConfig>;
+            setRoutineWeekdays(Array.isArray(config.weekdays) ? config.weekdays : []);
+            setRoutineDayOfMonth(typeof config.dayOfMonth === "number" ? String(config.dayOfMonth) : "1");
+          }
           setReminderBeforeDays(
             typeof entry.metadata.reminder_before_days === "number"
               ? String(entry.metadata.reminder_before_days)
@@ -438,11 +459,27 @@ export default function AddEntry() {
   );
 
   useEffect(() => {
-    if (!hasRepeatInterval || repeatUnit === "date" || !repeatIntervalDays.trim() || !entryDate) return;
+    if (!isRoutine || !entryDate) return;
+    if (repeatUnit === "date") return;
+    if (repeatUnit === "weekdays") {
+      const nextDate = getNextRecurrenceDate(entryDate, { mode: "weekdays", interval: 1, weekdays: routineWeekdays });
+      setNextDueDate(nextDate?.toISOString().slice(0, 10) ?? "");
+      return;
+    }
+    if (repeatUnit === "dayOfMonth") {
+      const day = Number(routineDayOfMonth);
+      if (!Number.isInteger(day) || day < 1 || day > 31) return;
+      const nextDate = getNextRecurrenceDate(entryDate, { mode: "dayOfMonth", interval: 1, weekdays: [], dayOfMonth: day });
+      setNextDueDate(nextDate?.toISOString().slice(0, 10) ?? "");
+      return;
+    }
+    if (!repeatIntervalDays.trim()) return;
     const parsed = Number(repeatIntervalDays);
     if (!Number.isInteger(parsed) || parsed <= 0) return;
-    setNextDueDate(addDays(new Date(entryDate), getRepeatIntervalDays(parsed, repeatUnit)).toISOString().slice(0, 10));
-  }, [entryDate, hasRepeatInterval, repeatIntervalDays, repeatUnit]);
+    const mode = repeatUnit === "months" ? "months" : repeatUnit === "weeks" ? "custom" : "days";
+    const nextDate = getNextRecurrenceDate(entryDate, { mode, interval: parsed, weekdays: [] });
+    setNextDueDate(nextDate?.toISOString().slice(0, 10) ?? "");
+  }, [entryDate, isRoutine, repeatIntervalDays, repeatUnit, routineDayOfMonth, routineWeekdays]);
 
   const relatedEntries = useMemo(() => {
     if (!area || !category) return [];
@@ -483,7 +520,7 @@ export default function AddEntry() {
 
     let repeatValue: number | null = null;
     let intervalValue: number | null = null;
-    if (hasRepeatInterval && repeatUnit !== "date" && repeatIntervalDays.trim()) {
+    if (hasRepeatInterval && (repeatUnit === "days" || repeatUnit === "weeks" || repeatUnit === "months") && repeatIntervalDays.trim()) {
       const parsed = Number(repeatIntervalDays);
       if (!Number.isInteger(parsed) || parsed <= 0) {
         setError("Repeat every must be a positive whole number.");
@@ -492,8 +529,20 @@ export default function AddEntry() {
       repeatValue = parsed;
       intervalValue = getRepeatIntervalDays(parsed, repeatUnit);
     }
-    if (isRoutine && repeatUnit === "date" && !nextDueDate) {
-      setError("Choose a date for this routine.");
+    if (isRoutine && repeatUnit === "weekdays" && routineWeekdays.length === 0) {
+      setError("Choose at least one day of the week.");
+      return;
+    }
+    if (isRoutine && (repeatUnit === "days" || repeatUnit === "weeks" || repeatUnit === "months") && !repeatIntervalDays.trim()) {
+      setError("Enter a repeat interval.");
+      return;
+    }
+    if (isRoutine && repeatUnit === "dayOfMonth" && (!Number.isInteger(Number(routineDayOfMonth)) || Number(routineDayOfMonth) < 1 || Number(routineDayOfMonth) > 31)) {
+      setError("Choose a day of the month from 1 to 31.");
+      return;
+    }
+    if (isRoutine && (repeatUnit === "date" || repeatUnit === "weekdays" || repeatUnit === "dayOfMonth") && !nextDueDate) {
+      setError(repeatUnit === "date" ? "Choose a date for this routine." : "Choose a valid recurrence option.");
       return;
     }
 
@@ -553,10 +602,20 @@ export default function AddEntry() {
         setError("Choose at least one day of the week.");
         return;
       }
+      if (planScheduleMode === "dayOfMonth" && (!Number.isInteger(Number(planScheduleInterval)) || Number(planScheduleInterval) < 1 || Number(planScheduleInterval) > 31)) {
+        setError("Choose a day of the month from 1 to 31.");
+        return;
+      }
+      if (planScheduleMode === "date" && !nextDueDate) {
+        setError("Choose a goal date.");
+        return;
+      }
       planScheduleConfig = {
         mode: planScheduleMode,
         interval: parsedInterval,
         weekdays: planScheduleMode === "weekdays" ? [...planScheduleWeekdays].sort((a, b) => a - b) : [],
+        dayOfMonth: planScheduleMode === "dayOfMonth" ? parsedInterval : undefined,
+        date: planScheduleMode === "date" ? nextDueDate : undefined,
       };
 
       const parsedDuration = Number(planSessionDurationMinutes);
@@ -592,6 +651,15 @@ export default function AddEntry() {
     const subscriptionStartDate = shouldPreserveSubscriptionStartDate
       ? existingEntry!.entry_date
       : entryDate;
+    const routineRecurrence: RecurrenceConfig | null = isRoutine
+      ? repeatUnit === "weekdays"
+        ? { mode: "weekdays", interval: 1, weekdays: [...routineWeekdays].sort((a, b) => a - b) }
+        : repeatUnit === "dayOfMonth"
+          ? { mode: "dayOfMonth", interval: 1, weekdays: [], dayOfMonth: Number(routineDayOfMonth) }
+          : repeatUnit === "date"
+            ? { mode: "date", interval: 1, weekdays: [], date: nextDueDate }
+            : { mode: repeatUnit === "weeks" ? "custom" : repeatUnit === "months" ? "months" : "days", interval: Number(repeatIntervalDays), weekdays: [] }
+      : null;
     const nextDueDateIso = isReading
       ? null
       : isPlan
@@ -602,7 +670,7 @@ export default function AddEntry() {
             ? new Date(nextDueDate).toISOString()
             : null
           : getNextSubscriptionRenewalIso(subscriptionStartDate, getBillingCycle(billingCycle))
-      : isRoutine && repeatUnit === "date"
+      : isRoutine
         ? nextDueDate
           ? new Date(nextDueDate).toISOString()
           : null
@@ -625,6 +693,7 @@ export default function AddEntry() {
       metadata: {
         repeat_every: hasRepeatInterval ? repeatValue : null,
         repeat_unit: hasRepeatInterval && (repeatValue || repeatUnit === "date") ? repeatUnit : null,
+        recurrence_config: routineRecurrence,
         reminder_before_days: isRoutine || isSubscription ? reminderBeforeValue : null,
         goal_status: isGoal ? goalStatus : null,
         progress_percent: isGoal ? progressValue : null,
@@ -874,7 +943,7 @@ export default function AddEntry() {
                 />
               </div>
             ) : null}
-            {hasRepeatInterval ? (
+            {hasRepeatInterval && !isRoutine ? (
               <>
                 {isRoutine ? (
                   <div className="grid gap-2 md:col-span-2">
@@ -1043,10 +1112,18 @@ export default function AddEntry() {
 
           {isRoutine ? (
             <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
-              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">Repeat Every</label><input id="repeatIntervalDays" type="number" value={repeatIntervalDays} onChange={(event) => setRepeatIntervalDays(event.target.value)} className={inputClass} min="1" step="1" /></div>
-              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatUnit">Unit</label><select id="repeatUnit" value={repeatUnit} onChange={(event) => setRepeatUnit(event.target.value as RepeatUnit)} className={inputClass}><option value="days">Days</option><option value="weeks">Weeks</option><option value="months">Months</option></select></div>
+              {repeatUnit === "days" || repeatUnit === "weeks" || repeatUnit === "months" ? (
+                <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">Repeat Every</label><input id="repeatIntervalDays" type="number" value={repeatIntervalDays} onChange={(event) => setRepeatIntervalDays(event.target.value)} className={inputClass} min="1" step="1" /></div>
+              ) : null}
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatUnit">Repeat Type</label><select id="repeatUnit" value={repeatUnit} onChange={(event) => setRepeatUnit(event.target.value as RepeatUnit)} className={inputClass}><option value="days">Every N days</option><option value="weeks">Every N weeks</option><option value="months">Every N months</option><option value="weekdays">Specific day of week</option><option value="dayOfMonth">Specific day of month</option><option value="date">Specific date</option></select></div>
+              {repeatUnit === "weekdays" ? (
+                <div className="grid min-w-0 gap-2 md:col-span-2"><span className="text-sm font-medium text-stone-700 dark:text-stone-200">Day of Week</span><div className="flex flex-wrap gap-2">{weekdayOptions.map((day) => <button key={day.value} type="button" onClick={() => setRoutineWeekdays((current) => current.includes(day.value) ? current.filter((value) => value !== day.value) : [...current, day.value])} className={`rounded-full border px-3 py-2 text-sm font-medium ${routineWeekdays.includes(day.value) ? "border-stone-900 bg-stone-900 text-white" : inactivePillClass}`}>{day.label}</button>)}</div></div>
+              ) : null}
+              {repeatUnit === "dayOfMonth" ? (
+                <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="routineDayOfMonth">Day of Month</label><input id="routineDayOfMonth" type="number" value={routineDayOfMonth} onChange={(event) => setRoutineDayOfMonth(event.target.value)} className={inputClass} min="1" max="31" step="1" /></div>
+              ) : null}
               <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">Reminder Before</label><input id="reminderBeforeDays" type="number" value={reminderBeforeDays} onChange={(event) => setReminderBeforeDays(event.target.value)} className={inputClass} min="0" step="1" /></div>
-              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">Next Due Date</label><input id="nextDueDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} disabled={Boolean(repeatIntervalDays.trim())} className={inputClass} /></div>
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">Next Due Date</label><input id="nextDueDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} disabled={repeatUnit !== "date"} readOnly={repeatUnit !== "date"} className={inputClass} /></div>
             </div>
           ) : null}
 
@@ -1081,12 +1158,14 @@ export default function AddEntry() {
                   <option value="months">Every N months</option>
                   <option value="weekdays">Specific days</option>
                   <option value="custom">Custom weeks</option>
+                  <option value="dayOfMonth">Specific day of month</option>
+                  <option value="date">Specific date</option>
                 </select>
               </div>
-              {planScheduleMode !== "weekdays" ? (
+              {planScheduleMode !== "weekdays" && planScheduleMode !== "date" ? (
                 <div className="grid gap-2">
                   <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planScheduleInterval">
-                    Repeat Every
+                    {planScheduleMode === "dayOfMonth" ? "Day of Month" : "Repeat Every"}
                   </label>
                   <input
                     id="planScheduleInterval"
@@ -1097,11 +1176,9 @@ export default function AddEntry() {
                     min="1"
                     step="1"
                   />
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
-                    {planScheduleMode === "months" ? "Months" : planScheduleMode === "custom" ? "Weeks" : "Days"}
-                  </p>
+                  <p className="text-xs text-stone-500 dark:text-stone-400">{planScheduleMode === "dayOfMonth" ? "1 to 31" : planScheduleMode === "months" ? "Months" : planScheduleMode === "custom" ? "Weeks" : "Days"}</p>
                 </div>
-              ) : (
+              ) : planScheduleMode === "weekdays" ? (
                 <div className="grid gap-2 xl:col-span-2">
                   <span className="text-sm font-medium text-stone-700 dark:text-stone-200">Days of Week</span>
                   <div className="flex flex-wrap gap-2">
@@ -1131,6 +1208,11 @@ export default function AddEntry() {
                       );
                     })}
                   </div>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planSpecificDate">Date</label>
+                  <input id="planSpecificDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} className={inputClass} />
                 </div>
               )}
               <div className="grid gap-2">

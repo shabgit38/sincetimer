@@ -2,7 +2,7 @@ import type { Entry } from "@/types/entry";
 
 export type PlanType = "learning" | "habit" | "practice";
 export type PlanStatus = "active" | "paused" | "completed";
-export type PlanScheduleMode = "days" | "months" | "weekdays" | "custom";
+export type PlanScheduleMode = "days" | "months" | "weekdays" | "custom" | "dayOfMonth" | "date";
 export type PlanSessionType = "learn" | "practice" | "habit" | "reflection";
 export type PlanSessionStatus = "scheduled" | "completed" | "missed" | "rescheduled" | "skipped";
 export type PlanEffortLevel = "mvp" | "normal" | "deep";
@@ -11,6 +11,8 @@ export interface PlanScheduleConfig {
   mode: PlanScheduleMode;
   interval: number;
   weekdays: number[];
+  dayOfMonth?: number;
+  date?: string;
 }
 
 export interface PlanSession {
