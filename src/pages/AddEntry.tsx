@@ -1123,7 +1123,7 @@ export default function AddEntry() {
                 <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="routineDayOfMonth">Day of Month</label><input id="routineDayOfMonth" type="number" value={routineDayOfMonth} onChange={(event) => setRoutineDayOfMonth(event.target.value)} className={inputClass} min="1" max="31" step="1" /></div>
               ) : null}
               <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">Reminder Before</label><input id="reminderBeforeDays" type="number" value={reminderBeforeDays} onChange={(event) => setReminderBeforeDays(event.target.value)} className={inputClass} min="0" step="1" /></div>
-              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">Next Due Date</label><input id="nextDueDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} disabled={repeatUnit !== "date"} readOnly={repeatUnit !== "date"} className={inputClass} /></div>
+              <div className="grid min-w-0 gap-2"><label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">{repeatUnit === "date" ? "Specific Date" : "Next Due Date"}</label><input id="nextDueDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} disabled={repeatUnit !== "date"} readOnly={repeatUnit !== "date"} className={inputClass} /></div>
             </div>
           ) : null}
 

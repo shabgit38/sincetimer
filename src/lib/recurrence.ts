@@ -98,8 +98,8 @@ export function getNextRecurrenceDate(afterValue: string | Date, config: Recurre
 
   if (config.mode === "dayOfMonth") {
     const requestedDay = Math.min(31, Math.max(1, Math.floor(config.dayOfMonth || 1)));
-    let month = new Date(after.getFullYear(), after.getMonth(), 1);
     const interval = Math.max(1, Math.floor(config.interval || 1));
+    let month = addMonths(new Date(after.getFullYear(), after.getMonth(), 1), interval);
     for (let attempt = 0; attempt < 240; attempt += 1) {
       const date = new Date(month.getFullYear(), month.getMonth(), clampDayOfMonth(month.getFullYear(), month.getMonth(), requestedDay), 9);
       if (date > after) return date;
