@@ -1,4 +1,4 @@
-import { addDays, addMonths, addWeeks, differenceInCalendarDays, isValid, parseISO, startOfDay } from "date-fns";
+import { addDays, addMonths, addWeeks, differenceInCalendarDays, isValid, parseISO } from "date-fns";
 
 export type RecurrenceMode = "days" | "months" | "weekdays" | "custom" | "dayOfMonth" | "date";
 
@@ -87,7 +87,7 @@ export function generateRecurrenceDates(startValue: string, endValue: string, co
 }
 
 export function getNextRecurrenceDate(afterValue: string | Date, config: RecurrenceConfig): Date | null {
-  const after = startOfDay(typeof afterValue === "string" ? parseISO(afterValue) : afterValue);
+  const after = normalizeDate(afterValue);
   if (!isValid(after)) return null;
 
   if (config.mode === "date") {
