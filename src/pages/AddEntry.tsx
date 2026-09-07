@@ -23,7 +23,7 @@ import { createListItem, getListItems, type ListItem } from "@/lib/listItems";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
-type RepeatUnit = "days" | "weeks" | "months";
+type RepeatUnit = "days" | "weeks" | "months" | "date";
 type GoalStatus = "not_started" | "in_progress" | "paused" | "completed";
 type BillingCycle = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
 type ReadingStatus = "to_read" | "reading" | "done";
@@ -323,7 +323,9 @@ export default function AddEntry() {
           setRepeatUnit(
             entry.metadata.repeat_unit === "weeks" || entry.metadata.repeat_unit === "months"
               ? entry.metadata.repeat_unit
-              : "days"
+              : entry.metadata.repeat_unit === "date"
+                ? "date"
+                : "days"
           );
           setReminderBeforeDays(
             typeof entry.metadata.reminder_before_days === "number"
@@ -436,7 +438,7 @@ export default function AddEntry() {
   );
 
   useEffect(() => {
-    if (!hasRepeatInterval || !repeatIntervalDays.trim() || !entryDate) return;
+    if (!hasRepeatInterval || repeatUnit === "date" || !repeatIntervalDays.trim() || !entryDate) return;
     const parsed = Number(repeatIntervalDays);
     if (!Number.isInteger(parsed) || parsed <= 0) return;
     setNextDueDate(addDays(new Date(entryDate), getRepeatIntervalDays(parsed, repeatUnit)).toISOString().slice(0, 10));
@@ -481,7 +483,7 @@ export default function AddEntry() {
 
     let repeatValue: number | null = null;
     let intervalValue: number | null = null;
-    if (hasRepeatInterval && repeatIntervalDays.trim()) {
+    if (hasRepeatInterval && repeatUnit !== "date" && repeatIntervalDays.trim()) {
       const parsed = Number(repeatIntervalDays);
       if (!Number.isInteger(parsed) || parsed <= 0) {
         setError("Repeat every must be a positive whole number.");
@@ -489,6 +491,10 @@ export default function AddEntry() {
       }
       repeatValue = parsed;
       intervalValue = getRepeatIntervalDays(parsed, repeatUnit);
+    }
+    if (isRoutine && repeatUnit === "date" && !nextDueDate) {
+      setError("Choose a date for this routine.");
+      return;
     }
 
     let reminderBeforeValue: number | null = null;
@@ -596,6 +602,10 @@ export default function AddEntry() {
             ? new Date(nextDueDate).toISOString()
             : null
           : getNextSubscriptionRenewalIso(subscriptionStartDate, getBillingCycle(billingCycle))
+      : isRoutine && repeatUnit === "date"
+        ? nextDueDate
+          ? new Date(nextDueDate).toISOString()
+          : null
       : intervalValue
         ? addDays(new Date(entryDate), intervalValue).toISOString()
         : nextDueDate
@@ -614,7 +624,7 @@ export default function AddEntry() {
       repeat_interval_days: hasRepeatInterval ? intervalValue : null,
       metadata: {
         repeat_every: hasRepeatInterval ? repeatValue : null,
-        repeat_unit: hasRepeatInterval && repeatValue ? repeatUnit : null,
+        repeat_unit: hasRepeatInterval && (repeatValue || repeatUnit === "date") ? repeatUnit : null,
         reminder_before_days: isRoutine || isSubscription ? reminderBeforeValue : null,
         goal_status: isGoal ? goalStatus : null,
         progress_percent: isGoal ? progressValue : null,
@@ -864,22 +874,71 @@ export default function AddEntry() {
                 />
               </div>
             ) : null}
-            {hasRepeatInterval && !isRoutine ? (
-              <div className="grid gap-2 md:col-span-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">
-                  {isRoutine ? "Repeat Every" : "Repeat Interval"}
-                </label>
-                <input
-                  id="repeatIntervalDays"
-                  type="number"
-                  value={repeatIntervalDays}
-                  onChange={(event) => setRepeatIntervalDays(event.target.value)}
-                  className={inputClass}
-                  placeholder={isRoutine ? "e.g. 2" : "e.g. 180"}
-                  min="1"
-                  step="1"
-                />
-              </div>
+            {hasRepeatInterval ? (
+              <>
+                {isRoutine ? (
+                  <div className="grid gap-2 md:col-span-2">
+                    <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatUnit">
+                      Repeat Type
+                    </label>
+                    <select
+                      id="repeatUnit"
+                      value={repeatUnit}
+                      onChange={(event) => setRepeatUnit(event.target.value as RepeatUnit)}
+                      className={inputClass}
+                    >
+                      <option value="days">Repeat every days</option>
+                      <option value="weeks">Repeat every weeks</option>
+                      <option value="months">Repeat every months</option>
+                      <option value="date">Repeat on date</option>
+                    </select>
+                  </div>
+                ) : null}
+                {repeatUnit === "date" && isRoutine ? (
+                  <div className="grid gap-2 md:col-span-2">
+                    <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="nextDueDate">
+                      Next Due Date
+                    </label>
+                    <input
+                      id="nextDueDate"
+                      type="date"
+                      value={nextDueDate}
+                      onChange={(event) => setNextDueDate(event.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid gap-2 md:col-span-2">
+                    <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="repeatIntervalDays">
+                      {isRoutine ? "Repeat Every" : "Repeat Interval"}
+                    </label>
+                    <input
+                      id="repeatIntervalDays"
+                      type="number"
+                      value={repeatIntervalDays}
+                      onChange={(event) => setRepeatIntervalDays(event.target.value)}
+                      className={inputClass}
+                      placeholder={isRoutine ? "e.g. 2" : "e.g. 180"}
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+                )}
+                {isRoutine && repeatUnit !== "date" ? (
+                  <div className="grid gap-2 md:col-span-2">
+                    <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="routineNextDueDate">
+                      Next Due Date
+                    </label>
+                    <input
+                      id="routineNextDueDate"
+                      type="date"
+                      value={nextDueDate}
+                      className={inputClass}
+                      readOnly
+                    />
+                  </div>
+                ) : null}
+              </>
             ) : null}
             {!isPlan && !isReading && !isRoutine && !isHealthRecord ? (
               <div className="grid gap-2 md:col-span-3">

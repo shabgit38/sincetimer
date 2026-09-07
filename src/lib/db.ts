@@ -80,6 +80,7 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
       { afterFromDate: true }
     ) ?? entry.next_due_date;
   }
+  if (entry.metadata.repeat_unit === 'date') return null;
   if (!entry.repeat_interval_days) return null;
   return addDaysIso(loggedAt, entry.repeat_interval_days);
 }

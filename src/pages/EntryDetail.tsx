@@ -86,6 +86,7 @@ function formatWarrantyRemaining(warrantyDateIso: string | null) {
 }
 
 function formatRoutineCadence(entry: Entry) {
+  if (entry.metadata.repeat_unit === "date") return "Specific date";
   const repeatEvery = getNumberMetadata(entry.metadata, "repeat_every") ?? entry.repeat_interval_days;
   if (!repeatEvery) return "Not set";
   return `${repeatEvery} ${formatRepeatUnit(entry.metadata.repeat_unit)}`;
