@@ -76,7 +76,7 @@ function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
     ) ?? entry.next_due_date;
   }
   const recurrence = getRoutineRecurrenceConfig(entry.metadata, entry.repeat_interval_days, entry.next_due_date);
-  return toIsoDate(recurrence ? getNextRecurrenceDate(loggedAt, recurrence) : null) ?? entry.next_due_date;
+  return toIsoDate(recurrence ? getNextRecurrenceDate(loggedAt, recurrence) : null);
 }
 
 function getLatestLogDate(entry: Entry, history: HistoryItem[]) {
