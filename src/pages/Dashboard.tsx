@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ExternalLink, Info, MessageSquarePlus, Plus, Save as SaveIcon, Star, Trash2, X } from "lucide-react";
+import { ChevronDown, ExternalLink, Info, MessageSquarePlus, Plus, Save as SaveIcon, Star, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import {
   getAreas,
   getCategories,
   getHistoryForEntries,
-  deleteEntry,
   insertArea,
   insertCategory,
   logEntryAgain,
@@ -797,7 +796,6 @@ function ReadingDashboardListItem({
   onToggleFavorite,
   onStatusChange,
   onSaveNotes,
-  onDelete,
   statusSaving,
   notesSaving,
 }: {
@@ -806,7 +804,6 @@ function ReadingDashboardListItem({
   onToggleFavorite: () => void;
   onStatusChange: (entry: Entry, status: ReadingStatus) => void;
   onSaveNotes: (entry: Entry, notes: string) => Promise<void>;
-  onDelete: (entry: Entry) => void;
   statusSaving: boolean;
   notesSaving: boolean;
 }) {
@@ -880,15 +877,6 @@ function ReadingDashboardListItem({
           >
             <MessageSquarePlus className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            className="grid h-8 w-8 place-items-center rounded-lg border border-red-300 text-red-700 transition hover:border-red-400 hover:bg-red-50 hover:text-red-900 dark:border-red-300/50 dark:text-red-200 dark:hover:border-red-200 dark:hover:bg-red-400/10 dark:hover:text-white"
-            onClick={() => onDelete(entry)}
-            aria-label={`Delete ${entry.title}`}
-            title="Delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
           {status !== "done" ? (
             <select
               className="h-8 cursor-pointer rounded-lg border border-stone-300 bg-white px-2 py-0 text-xs text-stone-700 outline-none transition hover:border-stone-400 focus:border-stone-500 focus:ring-2 focus:ring-stone-200 disabled:cursor-wait disabled:opacity-70 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:hover:border-white/35 dark:focus:border-stone-300 dark:focus:ring-white/10"
@@ -944,7 +932,7 @@ function ReadingDashboardListItem({
   );
 }
 
-function ReadingDashboardColumns({ entries, onOpen, onToggleFavorite, onStatusChange, onSaveNotes, onDelete, favoriteSavingIds, statusSavingIds, notesSavingIds, deleteSavingIds }: { entries: Entry[]; onOpen: (entry: Entry) => void; onToggleFavorite: (entry: Entry) => void; onStatusChange: (entry: Entry, status: ReadingStatus) => void; onSaveNotes: (entry: Entry, notes: string) => Promise<void>; onDelete: (entry: Entry) => void; favoriteSavingIds: Set<string>; statusSavingIds: Set<string>; notesSavingIds: Set<string>; deleteSavingIds: Set<string> }) {
+function ReadingDashboardColumns({ entries, onOpen, onToggleFavorite, onStatusChange, onSaveNotes, favoriteSavingIds, statusSavingIds, notesSavingIds }: { entries: Entry[]; onOpen: (entry: Entry) => void; onToggleFavorite: (entry: Entry) => void; onStatusChange: (entry: Entry, status: ReadingStatus) => void; onSaveNotes: (entry: Entry, notes: string) => Promise<void>; favoriteSavingIds: Set<string>; statusSavingIds: Set<string>; notesSavingIds: Set<string> }) {
   const sortReading = (items: Entry[]) =>
     [...items].sort((a, b) => {
       const statusCompare = getReadingStatusRank(a) - getReadingStatusRank(b);
@@ -963,7 +951,7 @@ function ReadingDashboardColumns({ entries, onOpen, onToggleFavorite, onStatusCh
       ) : (
         <ul>
           {items.map((entry) => (
-            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} onToggleFavorite={() => onToggleFavorite(entry)} onStatusChange={onStatusChange} onSaveNotes={onSaveNotes} onDelete={onDelete} statusSaving={statusSavingIds.has(entry.id) || favoriteSavingIds.has(entry.id) || deleteSavingIds.has(entry.id)} notesSaving={notesSavingIds.has(entry.id)} />
+            <ReadingDashboardListItem key={entry.id} entry={entry} onOpen={() => onOpen(entry)} onToggleFavorite={() => onToggleFavorite(entry)} onStatusChange={onStatusChange} onSaveNotes={onSaveNotes} statusSaving={statusSavingIds.has(entry.id) || favoriteSavingIds.has(entry.id)} notesSaving={notesSavingIds.has(entry.id)} />
           ))}
         </ul>
       )}
@@ -994,13 +982,11 @@ type EntrySectionProps = {
   onSetPlanSessionStatus: (session: PlanSession, status: PlanSessionStatus, effortLevel?: PlanEffortLevel) => void;
   onSetReadingStatus: (entry: Entry, status: ReadingStatus) => void;
   onSaveReadingNotes: (entry: Entry, notes: string) => Promise<void>;
-  onDeleteReading: (entry: Entry) => void;
   favoriteSavingIds: Set<string>;
   entryDoneSavingIds: Set<string>;
   planSessionSavingIds: Set<string>;
   readingStatusSavingIds: Set<string>;
   readingNotesSavingIds: Set<string>;
-  readingDeleteSavingIds: Set<string>;
   expandedDoneIds: Set<string>;
   onToggleDoneAction: (entryId: string) => void;
 };
@@ -1021,13 +1007,11 @@ function EntrySection({
   onSetPlanSessionStatus,
   onSetReadingStatus,
   onSaveReadingNotes,
-  onDeleteReading,
   favoriteSavingIds,
   entryDoneSavingIds,
   planSessionSavingIds,
   readingStatusSavingIds,
   readingNotesSavingIds,
-  readingDeleteSavingIds,
   expandedDoneIds,
   onToggleDoneAction,
 }: EntrySectionProps) {
@@ -1083,7 +1067,7 @@ function EntrySection({
           accent="favorite"
         />
       ) : isReadingSection ? (
-        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onStatusChange={onSetReadingStatus} onSaveNotes={onSaveReadingNotes} onDelete={onDeleteReading} favoriteSavingIds={favoriteSavingIds} statusSavingIds={readingStatusSavingIds} notesSavingIds={readingNotesSavingIds} deleteSavingIds={readingDeleteSavingIds} />
+        <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onStatusChange={onSetReadingStatus} onSaveNotes={onSaveReadingNotes} favoriteSavingIds={favoriteSavingIds} statusSavingIds={readingStatusSavingIds} notesSavingIds={readingNotesSavingIds} />
       ) : (
         <CompactDashboardList
           entries={group.entries}
@@ -1130,7 +1114,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [planSessionSavingIds, setPlanSessionSavingIds] = useState<Set<string>>(() => new Set());
   const [readingStatusSavingIds, setReadingStatusSavingIds] = useState<Set<string>>(() => new Set());
   const [readingNotesSavingIds, setReadingNotesSavingIds] = useState<Set<string>>(() => new Set());
-  const [readingDeleteSavingIds, setReadingDeleteSavingIds] = useState<Set<string>>(() => new Set());
   const [expandedDoneIds, setExpandedDoneIds] = useState<Set<string>>(() => new Set());
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(["Upcoming", "Unscheduled"])
@@ -1318,24 +1301,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     }
   };
 
-  const handleDeleteReading = async (entry: Entry) => {
-    if (readingDeleteSavingIds.has(entry.id) || !window.confirm(`Delete "${entry.title}"? This cannot be undone.`)) return;
-    setError(null);
-    setReadingDeleteSavingIds((current) => new Set(current).add(entry.id));
-    try {
-      await deleteEntry(entry.id);
-      setEntries((current) => current.filter((item) => item.id !== entry.id));
-    } catch (deleteError) {
-      console.error(deleteError);
-      setError("Unable to delete this reading item.");
-    } finally {
-      setReadingDeleteSavingIds((current) => {
-        const next = new Set(current);
-        next.delete(entry.id);
-        return next;
-      });
-    }
-  };
 
   const handleDoneDateChange = (entryId: string, date: string) => {
     setDoneDates((current) => ({ ...current, [entryId]: date }));
@@ -1630,13 +1595,11 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 onSetPlanSessionStatus={handleSetPlanSessionStatus}
                 onSetReadingStatus={handleSetReadingStatus}
                 onSaveReadingNotes={handleSaveReadingNotes}
-                  onDeleteReading={handleDeleteReading}
                 favoriteSavingIds={favoriteSavingIds}
                 entryDoneSavingIds={entryDoneSavingIds}
                 planSessionSavingIds={planSessionSavingIds}
                 readingStatusSavingIds={readingStatusSavingIds}
                 readingNotesSavingIds={readingNotesSavingIds}
-                  readingDeleteSavingIds={readingDeleteSavingIds}
                 expandedDoneIds={expandedDoneIds}
                 onToggleDoneAction={toggleDoneAction}
               />
