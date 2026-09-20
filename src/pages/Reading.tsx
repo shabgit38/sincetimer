@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExternalLink, Pencil, Save as SaveIcon, Star, X } from "lucide-react";
+import { ExternalLink, Pencil, Save as SaveIcon, Star, Trash2, X } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { getAllEntries, insertEntry, updateEntry } from "@/lib/db";
+import { deleteEntry, getAllEntries, insertEntry, updateEntry } from "@/lib/db";
 import type { Entry, EntryPayload } from "@/types/entry";
 
 type ReadingStatus = "to_read" | "reading" | "done";
@@ -113,6 +113,7 @@ function ReadingListItem({
   onStatusChange,
   onToggleFavorite,
   onStartEdit,
+  onDelete,
   statusSaving,
   focused,
   itemRef,
@@ -121,6 +122,7 @@ function ReadingListItem({
   onStatusChange: (entry: Entry, status: ReadingStatus) => void;
   onToggleFavorite: (entry: Entry) => void;
   onStartEdit: (entry: Entry) => void;
+  onDelete: (entry: Entry) => void;
   statusSaving: boolean;
   focused: boolean;
   itemRef: (node: HTMLDivElement | null) => void;
@@ -184,6 +186,16 @@ function ReadingListItem({
             title="Edit"
           >
             <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 w-9 border-red-300/70 bg-transparent px-0 text-red-700 hover:border-red-400 hover:bg-red-50 dark:border-red-300/65 dark:bg-transparent dark:text-red-200 dark:hover:border-red-200 dark:hover:bg-red-400/10"
+            onClick={() => onDelete(entry)}
+            aria-label={`Delete ${entry.title}`}
+            title="Delete"
+          >
+            <Trash2 className="h-[18px] w-[18px]" />
           </Button>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${statusChipClass(status)}`}>
             {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
@@ -497,6 +509,22 @@ export default function Reading() {
     }
   };
 
+  const handleDelete = async (entry: Entry) => {
+    if (savingEntryId === entry.id || !window.confirm(`Delete "${entry.title}"? This cannot be undone.`)) return;
+    setError(null);
+    setSavingEntryId(entry.id);
+    try {
+      await deleteEntry(entry.id);
+      setEntries((current) => current.filter((item) => item.id !== entry.id));
+      if (editingId === entry.id) cancelEditing();
+    } catch (deleteError) {
+      console.error(deleteError);
+      setError("Unable to delete this reading item.");
+    } finally {
+      setSavingEntryId(null);
+    }
+  };
+
   const startEditing = (entry: Entry) => {
     setEditingId(entry.id);
     setEditDraft(getReadingDraft(entry));
@@ -608,6 +636,7 @@ export default function Reading() {
                       entry={entry}
                       onStatusChange={handleStatusChange}
                       onToggleFavorite={handleToggleFavorite}
+                      onDelete={handleDelete}
                       onStartEdit={startEditing}
                       statusSaving={savingEntryId === entry.id}
                       focused={focusedId === entry.id}
@@ -643,6 +672,7 @@ export default function Reading() {
                       entry={entry}
                       onStatusChange={handleStatusChange}
                       onToggleFavorite={handleToggleFavorite}
+                      onDelete={handleDelete}
                       onStartEdit={startEditing}
                       statusSaving={savingEntryId === entry.id}
                       focused={focusedId === entry.id}
@@ -674,7 +704,7 @@ export default function Reading() {
               <ul className="space-y-3">
                 {columns.done.map((entry) => (
                   <li key={entry.id} className="space-y-3">
-                    <ReadingListItem entry={entry} onStatusChange={handleStatusChange} onToggleFavorite={handleToggleFavorite} onStartEdit={startEditing} statusSaving={savingEntryId === entry.id} focused={focusedId === entry.id} itemRef={setItemRef(entry.id)} />
+                    <ReadingListItem entry={entry} onStatusChange={handleStatusChange} onToggleFavorite={handleToggleFavorite} onStartEdit={startEditing} onDelete={handleDelete} statusSaving={savingEntryId === entry.id} focused={focusedId === entry.id} itemRef={setItemRef(entry.id)} />
                     {editingId === entry.id && editDraft ? <ReadingEditForm draft={editDraft} saving={savingEntryId === entry.id} onChange={setEditDraft} onCancel={cancelEditing} onSave={() => void handleSaveEdit(entry)} /> : null}
                   </li>
                 ))}
