@@ -1016,7 +1016,6 @@ function EntrySection({
   onToggleDoneAction,
 }: EntrySectionProps) {
   if (group.entries.length === 0) return null;
-  const isFavoriteSection = group.title === "Favorites";
   const isReadingSection = group.title === "Reading list";
   const isPurpleDarkSection = group.title === "Upcoming" || group.title === "Unscheduled";
   const toneName = getSectionTone(group.title);
@@ -1046,27 +1045,7 @@ function EntrySection({
         </div>
         <ChevronDown className={`h-4 w-4 shrink-0 text-stone-500 transition ${tone.chevron} ${purpleDarkChevron} ${collapsed ? "" : "rotate-180"}`} />
       </button>
-      {collapsed ? null : isFavoriteSection ? (
-        <CompactDashboardList
-          entries={group.entries}
-          planSessionsByEntryId={planSessionsByEntryId}
-          latestSubscriptionLogDates={latestSubscriptionLogDates}
-          onOpen={onOpen}
-          onToggleFavorite={onToggleFavorite}
-          onMarkDone={onMarkDone}
-          doneDates={doneDates}
-          donePrices={donePrices}
-          onDoneDateChange={onDoneDateChange}
-          onDonePriceChange={onDonePriceChange}
-          onSetPlanSessionStatus={onSetPlanSessionStatus}
-          favoriteSavingIds={favoriteSavingIds}
-          entryDoneSavingIds={entryDoneSavingIds}
-          planSessionSavingIds={planSessionSavingIds}
-          expandedDoneIds={expandedDoneIds}
-          onToggleDoneAction={onToggleDoneAction}
-          accent="favorite"
-        />
-      ) : isReadingSection ? (
+      {collapsed ? null : isReadingSection ? (
         <ReadingDashboardColumns entries={group.entries} onOpen={onOpen} onToggleFavorite={onToggleFavorite} onStatusChange={onSetReadingStatus} onSaveNotes={onSaveReadingNotes} favoriteSavingIds={favoriteSavingIds} statusSavingIds={readingStatusSavingIds} notesSavingIds={readingNotesSavingIds} />
       ) : (
         <CompactDashboardList
@@ -1462,14 +1441,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
     return [
       {
-        title: "Favorites",
-        description: "Pinned memories you want close at hand.",
-        entries: sortDashboardGroup("Favorites", favorites),
-      },
-      {
         title: "Needs attention",
-        description: "Due today first, followed by overdue items.",
+        description: "Favorites first, followed by items due today and overdue.",
         entries: [
+          ...sortDashboardGroup("Favorites", favorites),
           ...sortDashboardGroup("Today", today),
           ...sortDashboardGroup("Overdue", overdue),
         ],
