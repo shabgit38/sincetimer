@@ -249,48 +249,33 @@ export default function Plans() {
             return (
               <article key={entry.id} className="rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex flex-wrap items-center justify-between gap-4 p-5">
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
-                    onClick={() => togglePlan(entry.id)}
-                    aria-expanded={expanded}
-                  >
-                    <ChevronDown
-                      className={`mt-1 h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
-                        expanded ? "rotate-180" : ""
-                      }`}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
-                        {entry.area} / {getPlanCategoryLabel(entry)}
-                      </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <h3 className="min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
-                        {dateRange ? (
-                          <span className="shrink-0 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
-                            {dateRange}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-                  </button>
-                  <div className={`rounded-xl border px-2.5 py-1.5 text-xs ${getToneClasses(due.tone)}`}>
-                    <p className="font-medium leading-tight">{due.label}</p>
-                    <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
-                  </div>
-                  <HeaderMetrics metrics={metrics} />
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Link
-                      to={`/edit/${entry.id}`}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-300/70 bg-transparent text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
-                      aria-label={`Edit ${entry.title}`}
-                      title="Edit"
-                    >
-                      <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
-                    </Link>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition disabled:cursor-wait disabled:opacity-60 ${
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => togglePlan(entry.id)}
+                      aria-expanded={expanded}
+                    >
+                      <ChevronDown
+                        className={`mt-1 h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
+                          expanded ? "rotate-180" : ""
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
+                          {entry.area} / {getPlanCategoryLabel(entry)}
+                        </p>
+                        <h3 className="mt-2 min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</h3>
+                      </div>
+                    </button>
+                    {dateRange ? (
+                      <span className="shrink-0 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
+                        {dateRange}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition disabled:cursor-wait disabled:opacity-60 ${
                         entry.metadata.favorite === true
                           ? "border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-300/50 dark:bg-amber-300/10 dark:text-amber-200"
                           : "border-stone-300 text-stone-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/15 dark:text-stone-400 dark:hover:border-amber-300/50 dark:hover:text-amber-200"
@@ -302,6 +287,21 @@ export default function Plans() {
                     >
                       <Star className={`h-4 w-4 ${entry.metadata.favorite === true ? "fill-current" : ""}`} />
                     </button>
+                  </div>
+                  <div className={`rounded-xl border px-2.5 py-1.5 text-xs ${getToneClasses(due.tone)}`}>
+                    <p className="font-medium leading-tight">{due.label}</p>
+                    <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
+                  </div>
+                  <HeaderMetrics metrics={metrics} />
+                  <div className="flex shrink-0 items-center">
+                    <Link
+                      to={`/edit/${entry.id}`}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-300/70 bg-transparent text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+                      aria-label={`Edit ${entry.title}`}
+                      title="Edit"
+                    >
+                      <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
+                    </Link>
                   </div>
                 </div>
                 {expanded ? (
