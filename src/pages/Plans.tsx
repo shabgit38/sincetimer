@@ -249,42 +249,54 @@ export default function Plans() {
             return (
               <article key={entry.id} className="rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex flex-wrap items-center justify-between gap-4 p-5">
-                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
+                      className="mt-1 shrink-0 text-left"
                       onClick={() => togglePlan(entry.id)}
                       aria-expanded={expanded}
+                      aria-label={`${expanded ? "Collapse" : "Expand"} ${entry.title}`}
                     >
                       <ChevronDown
-                        className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
+                        className={`h-4 w-4 text-stone-500 transition dark:text-stone-400 ${
                           expanded ? "rotate-180" : ""
                         }`}
                       />
-                      <span className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
+                    </button>
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-[0.18em] text-stone-700 dark:text-stone-200">
                         {entry.area} / {getPlanCategoryLabel(entry)}
-                      </span>
-                      <span className="min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</span>
-                      {dateRange ? (
-                        <span className="shrink-0 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
-                          {dateRange}
-                        </span>
-                      ) : null}
-                    </button>
-                    <button
-                      type="button"
-                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition disabled:cursor-wait disabled:opacity-60 ${
-                        entry.metadata.favorite === true
-                          ? "border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-300/50 dark:bg-amber-300/10 dark:text-amber-200"
-                          : "border-stone-300 text-stone-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/15 dark:text-stone-400 dark:hover:border-amber-300/50 dark:hover:text-amber-200"
-                      }`}
-                      disabled={favoriteSavingIds.has(entry.id)}
-                      onClick={() => void handleToggleFavorite(entry)}
-                      aria-label={entry.metadata.favorite === true ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
-                      title={entry.metadata.favorite === true ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      <Star className={`h-4 w-4 ${entry.metadata.favorite === true ? "fill-current" : ""}`} />
-                    </button>
+                      </p>
+                      <div className="mt-2 flex min-w-0 items-center gap-2">
+                        <button
+                          type="button"
+                          className="flex min-w-0 items-center gap-2 text-left"
+                          onClick={() => togglePlan(entry.id)}
+                          aria-expanded={expanded}
+                        >
+                          <span className="min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</span>
+                          {dateRange ? (
+                            <span className="shrink-0 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
+                              {dateRange}
+                            </span>
+                          ) : null}
+                        </button>
+                        <button
+                          type="button"
+                          className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition disabled:cursor-wait disabled:opacity-60 ${
+                            entry.metadata.favorite === true
+                              ? "border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-300/50 dark:bg-amber-300/10 dark:text-amber-200"
+                              : "border-stone-300 text-stone-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/15 dark:text-stone-400 dark:hover:border-amber-300/50 dark:hover:text-amber-200"
+                          }`}
+                          disabled={favoriteSavingIds.has(entry.id)}
+                          onClick={() => void handleToggleFavorite(entry)}
+                          aria-label={entry.metadata.favorite === true ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
+                          title={entry.metadata.favorite === true ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <Star className={`h-4 w-4 ${entry.metadata.favorite === true ? "fill-current" : ""}`} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                   <div className={`rounded-xl border px-2.5 py-1.5 text-xs ${getToneClasses(due.tone)}`}>
                     <p className="font-medium leading-tight">{due.label}</p>
