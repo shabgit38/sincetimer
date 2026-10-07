@@ -134,6 +134,11 @@ export default function PlanCalendar({
               </div>
             ) : (
               <div className="mt-2">
+                {session.notes?.trim() ? (
+                  <p className="mb-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-stone-600 dark:text-stone-300">
+                    {session.notes}
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-1.5">
                   <select
                     className="h-8 cursor-pointer rounded-lg border border-stone-300 bg-white px-2 py-0 text-xs text-stone-700 outline-none transition hover:border-stone-400 focus:border-stone-500 focus:ring-2 focus:ring-stone-200 disabled:cursor-wait disabled:opacity-70 dark:border-white/20 dark:bg-stone-900 dark:text-stone-100 dark:hover:border-white/35 dark:focus:border-stone-300 dark:focus:ring-white/10"

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { format, isValid, parseISO } from "date-fns";
-import { ChevronDown, Pencil } from "lucide-react";
+import { ChevronDown, Pencil, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import PlanCalendar from "@/components/plans/PlanCalendar";
+import { updateEntry } from "@/lib/db";
 import {
   deletePlanSession,
   getPlanMetrics,
@@ -92,6 +93,7 @@ export default function Plans() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
   const [expandedPlanIds, setExpandedPlanIds] = useState<Set<string>>(() => new Set());
 
   const loadPlans = async () => {
@@ -146,6 +148,33 @@ export default function Plans() {
       setError("Unable to update this session.");
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleToggleFavorite = async (entry: Entry) => {
+    if (favoriteSavingIds.has(entry.id)) return;
+    setFavoriteSavingIds((current) => new Set(current).add(entry.id));
+    setError(null);
+    const nextMetadata = { ...entry.metadata, favorite: entry.metadata.favorite !== true };
+
+    try {
+      await updateEntry(entry.id, { metadata: nextMetadata });
+      setPlans((current) =>
+        current.map((plan) =>
+          plan.entry.id === entry.id
+            ? { ...plan, entry: { ...plan.entry, metadata: nextMetadata } }
+            : plan
+        )
+      );
+    } catch (saveError) {
+      console.error(saveError);
+      setError("Unable to update favorite.");
+    } finally {
+      setFavoriteSavingIds((current) => {
+        const next = new Set(current);
+        next.delete(entry.id);
+        return next;
+      });
     }
   };
 
@@ -250,14 +279,30 @@ export default function Plans() {
                     <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
                   </div>
                   <HeaderMetrics metrics={metrics} />
-                  <Link
-                    to={`/edit/${entry.id}`}
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-300/70 bg-transparent text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
-                    aria-label={`Edit ${entry.title}`}
-                    title="Edit"
-                  >
-                    <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
-                  </Link>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Link
+                      to={`/edit/${entry.id}`}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-300/70 bg-transparent text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+                      aria-label={`Edit ${entry.title}`}
+                      title="Edit"
+                    >
+                      <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
+                    </Link>
+                    <button
+                      type="button"
+                      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition disabled:cursor-wait disabled:opacity-60 ${
+                        entry.metadata.favorite === true
+                          ? "border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-300/50 dark:bg-amber-300/10 dark:text-amber-200"
+                          : "border-stone-300 text-stone-500 hover:border-amber-300 hover:text-amber-600 dark:border-white/15 dark:text-stone-400 dark:hover:border-amber-300/50 dark:hover:text-amber-200"
+                      }`}
+                      disabled={favoriteSavingIds.has(entry.id)}
+                      onClick={() => void handleToggleFavorite(entry)}
+                      aria-label={entry.metadata.favorite === true ? `Remove ${entry.title} from favorites` : `Add ${entry.title} to favorites`}
+                      title={entry.metadata.favorite === true ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <Star className={`h-4 w-4 ${entry.metadata.favorite === true ? "fill-current" : ""}`} />
+                    </button>
+                  </div>
                 </div>
                 {expanded ? (
                   <div className="border-t border-stone-200 p-5 dark:border-white/10">
