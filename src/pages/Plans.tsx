@@ -86,11 +86,11 @@ function HeaderMetrics({ metrics, entryId, title }: { metrics: PlanMetrics; entr
       ))}
       <Link
         to={`/edit/${entryId}`}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-lg border border-sky-300/70 bg-transparent text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-md border border-sky-300/70 bg-transparent text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
         aria-label={`Edit ${title}`}
         title="Edit"
       >
-        <Pencil className="h-4 w-4 stroke-[2.4]" />
+        <Pencil className="h-3 w-3 stroke-[2.4]" />
       </Link>
     </div>
   );
