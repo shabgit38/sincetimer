@@ -65,7 +65,7 @@ function getToneClasses(tone: string) {
   return "border-stone-200 bg-stone-50 text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300";
 }
 
-function HeaderMetrics({ metrics }: { metrics: PlanMetrics }) {
+function HeaderMetrics({ metrics, entryId, title }: { metrics: PlanMetrics; entryId: string; title: string }) {
   const items = [
     { label: "Progress", value: `${metrics.completionRate}%` },
     { label: "Done", value: `${metrics.completed}/${metrics.total}` },
@@ -84,6 +84,14 @@ function HeaderMetrics({ metrics }: { metrics: PlanMetrics }) {
           <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-50">{item.value}</p>
         </div>
       ))}
+      <Link
+        to={`/edit/${entryId}`}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-lg border border-sky-300/70 bg-transparent text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
+        aria-label={`Edit ${title}`}
+        title="Edit"
+      >
+        <Pencil className="h-4 w-4 stroke-[2.4]" />
+      </Link>
     </div>
   );
 }
@@ -302,17 +310,7 @@ export default function Plans() {
                     <p className="font-medium leading-tight">{due.label}</p>
                     <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
                   </div>
-                  <HeaderMetrics metrics={metrics} />
-                  <div className="flex shrink-0 items-center">
-                    <Link
-                      to={`/edit/${entry.id}`}
-                      className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-sky-300/70 bg-transparent text-sm font-medium text-sky-700 transition hover:border-sky-400 hover:bg-sky-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 dark:border-sky-300/65 dark:bg-transparent dark:text-sky-200 dark:hover:border-sky-200 dark:hover:bg-sky-400/10"
-                      aria-label={`Edit ${entry.title}`}
-                      title="Edit"
-                    >
-                      <Pencil className="h-[18px] w-[18px] stroke-[2.4]" />
-                    </Link>
-                  </div>
+                  <HeaderMetrics metrics={metrics} entryId={entry.id} title={entry.title} />
                 </div>
                 {expanded ? (
                   <div className="border-t border-stone-200 p-5 dark:border-white/10">
