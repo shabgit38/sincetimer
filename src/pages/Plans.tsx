@@ -270,11 +270,11 @@ export default function Plans() {
                       <div className="mt-2 flex min-w-0 items-center gap-2">
                         <button
                           type="button"
-                          className="flex min-w-0 items-center gap-2 text-left"
+                          className="flex min-w-0 flex-1 flex-col items-start gap-2 text-left sm:flex-row sm:items-center"
                           onClick={() => togglePlan(entry.id)}
                           aria-expanded={expanded}
                         >
-                          <span className="min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50">{entry.title}</span>
+                          <span className="w-full min-w-0 truncate text-xl font-semibold text-stone-950 dark:text-stone-50 sm:w-auto">{entry.title}</span>
                           {dateRange ? (
                             <span className="shrink-0 rounded-full border border-stone-200 bg-stone-50 px-2.5 py-1 text-[11px] font-medium text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
                               {dateRange}
