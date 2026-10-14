@@ -17,7 +17,7 @@ import {
   renameCategory,
   updateEntry,
 } from "@/lib/db";
-import { getAllPlanSessions, updatePlanSessionStatus } from "@/lib/plans";
+import { getAllPlanSessions, getPlanMetrics, updatePlanSessionStatus } from "@/lib/plans";
 import { isPlanEntry } from "@/lib/entryClassification";
 import type { Entry, EntryOption, HistoryItem } from "@/types/entry";
 import type { PlanEffortLevel, PlanSession, PlanSessionStatus } from "@/types/plan";
@@ -365,10 +365,6 @@ function isReadingEntry(entry: Entry) {
   return entry.category.toLocaleLowerCase() === "reading";
 }
 
-function isGoalEntry(entry: Entry) {
-  return entry.category.trim().toLocaleLowerCase().replace(/[_-]+/g, " ") === "goal";
-}
-
 function isSubscriptionEntry(entry: Entry) {
   return entry.category.trim().toLocaleLowerCase().replace(/[_-]+/g, " ") === "subscription";
 }
@@ -564,7 +560,6 @@ function CompactDashboardListItem({
 }) {
   const isPurchase = entry.category.toLocaleLowerCase() === "purchase";
   const isSubscription = isSubscriptionEntry(entry);
-  const isGoal = isGoalEntry(entry);
   const isPlan = isPlanEntry(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const planSession = isPlan ? getNextScheduledPlanSession(planSessions) : null;
@@ -573,7 +568,7 @@ function CompactDashboardListItem({
   const due = getDueCopy(dueEntry);
   const canActOnPlanSession = Boolean(planSession && isPlanSessionActionable(planSession));
   const completedCount = getNumberMetadata(entry, "completed_count");
-  const progressPercent = isGoal ? getNumberMetadata(entry, "progress_percent") : null;
+  const goalMetrics = isPlan ? getPlanMetrics(planSessions) : null;
   const durationDate = isSubscription
     ? latestSubscriptionLogDate ?? entry.entry_date
     : isPlan && planLastDoneDate
@@ -636,9 +631,9 @@ function CompactDashboardListItem({
               {due.label}
             </span>
           ) : null}
-          {isGoal ? (
+          {isPlan && goalMetrics ? (
             <span className="rounded-xl border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
-              {progressPercent ?? 0}% · {completedCount} done
+              {goalMetrics.completionRate}% · {goalMetrics.completed}/{goalMetrics.total}
             </span>
           ) : completedCount > 0 && !isPurchase ? (
             <>
