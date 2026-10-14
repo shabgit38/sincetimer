@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import ExpensePlanner from "@/components/finplanner/ExpensePlanner";
 
 type ProjectionRow = {
   year: number;
@@ -224,6 +225,7 @@ function SummaryCard({ label, help, value, detail, tone = "neutral" }: { label: 
 export default function FinPlanner() {
   const [inputs, setInputs] = useState<PlannerInputs>(defaultInputs);
   const [lumpsumOverrides, setLumpsumOverrides] = useState<Record<number, number>>({});
+  const [activeTab, setActiveTab] = useState<"expense-budget" | "corpus-planner">("corpus-planner");
 
   const rows = useMemo(() => calculateProjection(inputs, lumpsumOverrides), [inputs, lumpsumOverrides]);
   const finalRow = rows.at(-1);
@@ -259,16 +261,62 @@ export default function FinPlanner() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="inline-flex rounded-xl border border-stone-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/[0.04]" aria-label="FinPlanner sections">
+        <button
+          id="expense-budget-tab"
+          type="button"
+          aria-pressed={activeTab === "expense-budget"}
+          aria-controls="expense-budget-panel"
+          onClick={() => setActiveTab("expense-budget")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === "expense-budget"
+              ? "bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950"
+              : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/[0.06]"
+          }`}
+        >
+          Expense/Budget
+        </button>
+        <button
+          id="corpus-planner-tab"
+          type="button"
+          aria-pressed={activeTab === "corpus-planner"}
+          aria-controls="corpus-planner-panel"
+          onClick={() => setActiveTab("corpus-planner")}
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            activeTab === "corpus-planner"
+              ? "bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950"
+              : "text-stone-600 hover:bg-stone-100 dark:text-stone-300 dark:hover:bg-white/[0.06]"
+          }`}
+        >
+          CorpusPlanner
+        </button>
+      </div>
+
+      <section
+        id="expense-budget-panel"
+        role="region"
+        aria-labelledby="expense-budget-tab"
+        hidden={activeTab !== "expense-budget"}
+        className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-5 dark:border-white/10 dark:bg-white/[0.04]"
+      >
+        <ExpensePlanner />
+      </section>
+
+      <div
+        id="corpus-planner-panel"
+        role="region"
+        aria-labelledby="corpus-planner-tab"
+        hidden={activeTab !== "corpus-planner"}
+        className="space-y-6"
+      >
+      <section className="rounded-2xl border border-stone-200 bg-white p-3 shadow-sm sm:p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-stone-500 dark:text-stone-400">FinPlanner</p>
-            <h2 className="mt-2 text-2xl font-semibold text-stone-950 dark:text-stone-50">Retirement SIP Planner</h2>
-            <p className="mt-2 max-w-3xl text-sm text-stone-600 dark:text-stone-300">
+            <p className="max-w-3xl text-sm text-stone-600 dark:text-stone-300">
               Plan yearly SIP step-ups, lumpsum additions, and retirement expense needs in one projection.
             </p>
           </div>
-          <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
+          <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
             <span className="font-semibold text-stone-950 dark:text-stone-50">{yearsToRetirement}</span> years to retirement
           </div>
         </div>
@@ -395,6 +443,7 @@ export default function FinPlanner() {
             </div>
         </section>
       </section>
+      </div>
     </div>
   );
 }
