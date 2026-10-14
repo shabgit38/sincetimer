@@ -418,8 +418,33 @@ function compareReadingEntries(a: Entry, b: Entry) {
   );
 }
 
-function sortDashboardGroup(title: string, entries: Entry[]) {
-  return [...entries].sort(title === "Reading list" ? compareReadingEntries : compareEntryAreaCategoryTitle);
+function getDashboardEntryDueDate(entry: Entry, planSessionsByEntryId: Map<string, PlanSession[]>) {
+  if (isPlanEntry(entry)) {
+    return getNextScheduledPlanSession(planSessionsByEntryId.get(entry.id) ?? [])?.session_date ?? null;
+  }
+  return entry.next_due_date ?? null;
+}
+
+function sortDashboardGroup(title: string, entries: Entry[], planSessionsByEntryId: Map<string, PlanSession[]>) {
+  if (title === "Reading list") {
+    return [...entries].sort(compareReadingEntries);
+  }
+
+  if (title === "Favorites") {
+    return [...entries].sort((a, b) => {
+      const aDueDate = getDashboardEntryDueDate(a, planSessionsByEntryId);
+      const bDueDate = getDashboardEntryDueDate(b, planSessionsByEntryId);
+      const aDue = aDueDate ? computeTimeSummary(a.entry_date, aDueDate).nextDueIn ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
+      const bDue = bDueDate ? computeTimeSummary(b.entry_date, bDueDate).nextDueIn ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
+
+      if (aDue !== bDue) {
+        return aDue - bDue;
+      }
+      return compareEntryAreaCategoryTitle(a, b);
+    });
+  }
+
+  return [...entries].sort(compareEntryAreaCategoryTitle);
 }
 
 function getNextScheduledPlanSession(sessions: PlanSession[]) {
@@ -1444,30 +1469,30 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         title: "Needs attention",
         description: "Favorites first, followed by items due today and overdue.",
         entries: [
-          ...sortDashboardGroup("Favorites", favorites),
-          ...sortDashboardGroup("Today", today),
-          ...sortDashboardGroup("Overdue", overdue),
+          ...sortDashboardGroup("Favorites", favorites, planSessionsByEntryId),
+          ...sortDashboardGroup("Today", today, planSessionsByEntryId),
+          ...sortDashboardGroup("Overdue", overdue, planSessionsByEntryId),
         ],
       },
       {
         title: "Reading list",
         description: "Links and topics waiting for focused reading.",
-        entries: sortDashboardGroup("Reading list", readingList),
+        entries: sortDashboardGroup("Reading list", readingList, planSessionsByEntryId),
       },
       {
         title: "Due soon",
         description: "Coming up in the next 7 days.",
-        entries: sortDashboardGroup("Due soon", dueSoon),
+        entries: sortDashboardGroup("Due soon", dueSoon, planSessionsByEntryId),
       },
       {
         title: "Upcoming",
         description: "Scheduled for later.",
-        entries: sortDashboardGroup("Upcoming", upcoming),
+        entries: sortDashboardGroup("Upcoming", upcoming, planSessionsByEntryId),
       },
       {
         title: "Unscheduled",
         description: "Tracked memories without a next due date.",
-        entries: sortDashboardGroup("Unscheduled", unscheduled),
+        entries: sortDashboardGroup("Unscheduled", unscheduled, planSessionsByEntryId),
       },
     ];
   }, [filteredEntries, planSessionsByEntryId]);
