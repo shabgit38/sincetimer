@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { useEffect, useState } from "react";
 import { Info, Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
 
@@ -68,6 +68,10 @@ export default function PlanCalendar({
         const availableTopics = selectedTopic && !topics.includes(selectedTopic)
           ? [selectedTopic, ...topics]
           : topics;
+        const isPastSession = isBefore(
+          startOfDay(new Date(session.session_date)),
+          startOfDay(new Date())
+        );
 
         return (
           <div
@@ -149,7 +153,8 @@ export default function PlanCalendar({
                   id={`session-topic-${session.id}`}
                   className="mb-2 h-8 w-full rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 dark:border-white/10 dark:bg-stone-900 dark:text-stone-100"
                   value={selectedTopic}
-                  disabled={updatingId === session.id}
+                  disabled={updatingId === session.id || isPastSession}
+                  title={isPastSession ? "Past sessions are locked" : undefined}
                   onChange={(event) => {
                     const topic = event.target.value;
                     const metadata = { ...session.metadata };
@@ -161,7 +166,7 @@ export default function PlanCalendar({
                     });
                   }}
                 >
-                  <option value="">No topic selected</option>
+                  <option value="">Select topic</option>
                   {availableTopics.map((topic) => (
                     <option key={topic} value={topic}>{topic}</option>
                   ))}
