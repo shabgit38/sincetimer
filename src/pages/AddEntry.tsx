@@ -18,7 +18,12 @@ import { generatePlanSessions } from "@/lib/planScheduler";
 import { getNextRecurrenceDate, type RecurrenceConfig } from "@/lib/recurrence";
 import { replacePlanSessions, replaceScheduledPlanSessions } from "@/lib/plans";
 import { isPlanAreaCategory } from "@/lib/entryClassification";
-import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
+import {
+  getBillingCycle,
+  getNextSubscriptionDueDate,
+  getNextSubscriptionRenewalIso,
+  getSubscriptionRenewalType,
+} from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import { createListItem, getListItems, type ListItem } from "@/lib/listItems";
 import type { Entry, EntryOption } from "@/types/entry";
@@ -167,6 +172,7 @@ export default function AddEntry() {
   const [goalProgress, setGoalProgress] = useState("");
   const [goalMilestones, setGoalMilestones] = useState("");
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [subscriptionType, setSubscriptionType] = useState<"fixed" | "refill">("fixed");
   const [autoRenew, setAutoRenew] = useState(false);
   const [readingUrl, setReadingUrl] = useState("");
   const [readingTopic, setReadingTopic] = useState("");
@@ -262,7 +268,7 @@ export default function AddEntry() {
   const nextDueLabel = isGoal
     ? "Target Date"
     : isSubscription
-      ? "Renewal Date"
+      ? subscriptionType === "refill" ? "Next Expected Refill" : "Renewal Date"
       : isPurchase
         ? "Warranty Ends"
         : "Next Due Date";
@@ -273,9 +279,17 @@ export default function AddEntry() {
   const planEndDateMissing = isPlan && planEndDate.length === 0;
   const calculatedSubscriptionRenewalDate =
     isSubscription && billingCycle !== "custom"
-      ? getNextSubscriptionRenewalIso(entryDate, getBillingCycle(billingCycle))?.slice(0, 10) ?? ""
+      ? getNextSubscriptionDueDate(
+          entryDate,
+          getBillingCycle(billingCycle),
+          subscriptionType,
+          subscriptionType === "refill" ? new Date(entryDate) : new Date()
+        )?.toISOString().slice(0, 10) ?? ""
       : "";
-  const renewalDateValue = isSubscription && billingCycle !== "custom" ? calculatedSubscriptionRenewalDate : nextDueDate;
+  const renewalDateValue =
+    isSubscription && billingCycle !== "custom" && subscriptionType === "fixed"
+      ? calculatedSubscriptionRenewalDate
+      : nextDueDate || calculatedSubscriptionRenewalDate;
 
   useEffect(() => {
     if (!isEditing && isReading) {
@@ -358,14 +372,16 @@ export default function AddEntry() {
               : ""
           );
           setGoalMilestones(typeof entry.metadata.milestones === "string" ? entry.metadata.milestones : "");
-          setBillingCycle(
+          const storedSubscriptionType = getSubscriptionRenewalType(entry.metadata.subscription_type);
+          const storedBillingCycle =
             entry.metadata.billing_cycle === "weekly" ||
               entry.metadata.billing_cycle === "quarterly" ||
               entry.metadata.billing_cycle === "yearly" ||
               entry.metadata.billing_cycle === "custom"
               ? entry.metadata.billing_cycle
-              : "monthly"
-          );
+              : "monthly";
+          setSubscriptionType(storedSubscriptionType);
+          setBillingCycle(storedSubscriptionType === "refill" && storedBillingCycle === "custom" ? "monthly" : storedBillingCycle);
           setAutoRenew(entry.metadata.auto_renew === true);
           setReadingUrl(typeof entry.metadata.reading_url === "string" ? entry.metadata.reading_url : "");
           setReadingTopic(typeof entry.metadata.reading_topic === "string" ? entry.metadata.reading_topic : "");
@@ -508,6 +524,18 @@ export default function AddEntry() {
         return;
       }
       priceValue = parsed;
+    }
+
+    if (isSubscription && (subscriptionType === "refill" || billingCycle === "custom") && renewalDateValue) {
+      const parsedRenewalDate = new Date(`${renewalDateValue}T00:00:00.000Z`);
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(renewalDateValue) ||
+        Number.isNaN(parsedRenewalDate.getTime()) ||
+        parsedRenewalDate.toISOString().slice(0, 10) !== renewalDateValue
+      ) {
+        setError("Renewal Date must use a valid YYYY-MM-DD date.");
+        return;
+      }
     }
 
     let repeatValue: number | null = null;
@@ -657,7 +685,11 @@ export default function AddEntry() {
       : isPlan
       ? existingEntry?.next_due_date ?? entryDateIso
       : isSubscription
-        ? billingCycle === "custom"
+        ? subscriptionType === "refill"
+          ? renewalDateValue
+            ? new Date(renewalDateValue).toISOString()
+            : null
+          : billingCycle === "custom"
           ? nextDueDate
             ? new Date(nextDueDate).toISOString()
             : null
@@ -691,7 +723,8 @@ export default function AddEntry() {
         progress_percent: isGoal ? progressValue : null,
         milestones: isGoal && goalMilestones.trim() ? goalMilestones.trim() : null,
         billing_cycle: isSubscription ? billingCycle : null,
-        auto_renew: isSubscription ? autoRenew : null,
+        subscription_type: isSubscription ? subscriptionType : null,
+        auto_renew: isSubscription && subscriptionType === "fixed" ? autoRenew : null,
         reading_url: isReading && readingUrl.trim() ? readingUrl.trim() : null,
         reading_topic: isReading && readingTopic.trim() ? readingTopic.trim() : null,
         reading_status: isReading ? readingStatus : null,
@@ -1032,7 +1065,10 @@ export default function AddEntry() {
                   type={isPurchase ? "text" : "date"}
                   value={renewalDateValue}
                   onChange={(event) => setNextDueDate(event.target.value)}
-                  disabled={(hasRepeatInterval && Boolean(repeatIntervalDays.trim())) || (isSubscription && billingCycle !== "custom")}
+                  disabled={
+                    (hasRepeatInterval && Boolean(repeatIntervalDays.trim())) ||
+                    (isSubscription && billingCycle !== "custom" && subscriptionType === "fixed")
+                  }
                   className={inputClass}
                   placeholder={isPurchase ? "YYYY-MM-DD" : undefined}
                 />
@@ -1351,14 +1387,38 @@ export default function AddEntry() {
           ) : null}
 
           {isSubscription ? (
-            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-3`}>
+            <div className={`${sectionPanelClass} md:grid-cols-2 xl:grid-cols-4`}>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="reminderBeforeDays">Reminder Before</label>
                 <input id="reminderBeforeDays" type="number" value={reminderBeforeDays} onChange={(event) => setReminderBeforeDays(event.target.value)} className={inputClass} placeholder="Days" min="0" step="1" />
               </div>
               <div className="grid gap-2">
+                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="subscriptionType">
+                  Subscription Type
+                </label>
+                <select
+                  id="subscriptionType"
+                  value={subscriptionType}
+                  onChange={(event) => {
+                    const nextType = event.target.value as "fixed" | "refill";
+                    if (nextType !== subscriptionType) setNextDueDate("");
+                    setSubscriptionType(nextType);
+                    if (nextType === "refill" && billingCycle === "custom") setBillingCycle("monthly");
+                  }}
+                  className={inputClass}
+                >
+                  <option value="fixed">Fixed renewal</option>
+                  <option value="refill">Refill</option>
+                </select>
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  {subscriptionType === "fixed"
+                    ? "Keeps the vendor's renewal date, even if paid early."
+                    : "Starts the next interval from each refill; you can adjust the date."}
+                </p>
+              </div>
+              <div className="grid gap-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="billingCycle">
-                  Billing Cycle
+                  {subscriptionType === "refill" ? "Refill Interval" : "Billing Cycle"}
                 </label>
                 <select
                   id="billingCycle"
@@ -1370,10 +1430,10 @@ export default function AddEntry() {
                   <option value="monthly">Monthly</option>
                   <option value="quarterly">Quarterly</option>
                   <option value="yearly">Yearly</option>
-                  <option value="custom">Custom</option>
+                  {subscriptionType === "fixed" ? <option value="custom">Custom</option> : null}
                 </select>
               </div>
-              <div className={inlinePanelClass}>
+              {subscriptionType === "fixed" ? <div className={inlinePanelClass}>
                 <div className="flex h-full items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Auto Renew</p>
@@ -1389,7 +1449,7 @@ export default function AddEntry() {
                     <div className="peer h-6 w-11 rounded-full border border-stone-300 bg-stone-200 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:border-stone-900 peer-checked:bg-stone-900 peer-checked:after:translate-x-5 dark:border-white/20 dark:bg-stone-700 dark:after:bg-stone-100 dark:peer-checked:border-stone-100 dark:peer-checked:bg-stone-100 dark:peer-checked:after:bg-stone-950" />
                   </label>
                 </div>
-              </div>
+              </div> : null}
             </div>
           ) : null}
 

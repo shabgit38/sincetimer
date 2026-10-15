@@ -1,10 +1,15 @@
 import { addMonths, addWeeks, addYears, isBefore, isValid, parseISO, startOfDay } from "date-fns";
 
 export type SubscriptionBillingCycle = "weekly" | "monthly" | "quarterly" | "yearly" | "custom";
+export type SubscriptionRenewalType = "fixed" | "refill";
 
 export function getBillingCycle(value: unknown): SubscriptionBillingCycle {
   if (value === "weekly" || value === "quarterly" || value === "yearly" || value === "custom") return value;
   return "monthly";
+}
+
+export function getSubscriptionRenewalType(value: unknown): SubscriptionRenewalType {
+  return value === "refill" ? "refill" : "fixed";
 }
 
 function addBillingCycle(date: Date, cycle: SubscriptionBillingCycle) {
@@ -12,6 +17,22 @@ function addBillingCycle(date: Date, cycle: SubscriptionBillingCycle) {
   if (cycle === "quarterly") return addMonths(date, 3);
   if (cycle === "yearly") return addYears(date, 1);
   return addMonths(date, 1);
+}
+
+export function getNextSubscriptionDueDate(
+  startDate: string,
+  cycle: SubscriptionBillingCycle,
+  renewalType: SubscriptionRenewalType,
+  fromDate: Date = new Date(),
+  options: { afterFromDate?: boolean } = {}
+) {
+  if (cycle === "custom") return null;
+
+  if (renewalType === "refill") {
+    return addBillingCycle(fromDate, cycle);
+  }
+
+  return getNextSubscriptionRenewalDate(startDate, cycle, fromDate, options);
 }
 
 export function getNextSubscriptionRenewalDate(

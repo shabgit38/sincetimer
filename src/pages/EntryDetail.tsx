@@ -5,7 +5,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
-import { getBillingCycle, getNextSubscriptionRenewalIso } from "@/lib/subscriptions";
+import {
+  getBillingCycle,
+  getNextSubscriptionDueDate,
+  getSubscriptionRenewalType,
+} from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration, formatYearMonthDaySpan } from "@/lib/timeUtils";
 import { getListItems } from "@/lib/listItems";
 import { getNextRecurrenceDate, getRoutineRecurrenceConfig } from "@/lib/recurrence";
@@ -23,12 +27,13 @@ import type { Entry, HistoryItem } from "@/types/entry";
 
 function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
   if (normalizeCategory(entry.category) === "subscription") {
-    return getNextSubscriptionRenewalIso(
+    return getNextSubscriptionDueDate(
       entry.entry_date,
       getBillingCycle(entry.metadata.billing_cycle),
+      getSubscriptionRenewalType(entry.metadata.subscription_type),
       loggedAt,
       { afterFromDate: true }
-    ) ?? entry.next_due_date;
+    )?.toISOString() ?? entry.next_due_date;
   }
   const recurrence = getRoutineRecurrenceConfig(entry.metadata, entry.repeat_interval_days, entry.next_due_date);
   return recurrence ? getNextRecurrenceDate(loggedAt, recurrence)?.toISOString() ?? null : entry.next_due_date;
@@ -481,6 +486,7 @@ export default function EntryDetail() {
         .filter(Boolean)
     : [];
   const billingCycle = isSubscription ? getStringMetadata(entry.metadata, "billing_cycle") : "";
+  const subscriptionType = isSubscription ? getSubscriptionRenewalType(entry.metadata.subscription_type) : "fixed";
   const autoRenew = isSubscription ? getBooleanMetadata(entry.metadata, "auto_renew") : false;
   const reminderBefore = getNumberMetadata(entry.metadata, "reminder_before_days");
   const seller = isPurchase ? getStringMetadata(entry.metadata, "seller") : "";
@@ -541,7 +547,7 @@ export default function EntryDetail() {
         </div>
         <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
-            {isSubscription ? "Renewal date" : isPurchase ? "Warranty ends" : isGoal ? "Target date" : "Next due"}
+            {isSubscription ? subscriptionType === "refill" ? "Next expected refill" : "Renewal date" : isPurchase ? "Warranty ends" : isGoal ? "Target date" : "Next due"}
           </p>
           <p className="mt-2 text-lg font-semibold dark:text-stone-50">
             {isGoal || isSubscription || isPurchase
@@ -566,11 +572,11 @@ export default function EntryDetail() {
               : isSubscription
                 ? entry.next_due_date && timeSummary
                   ? timeSummary.isOverdue
-                    ? `Renewal passed by ${Math.abs(timeSummary.nextDueIn ?? 0)} days`
+                    ? `${subscriptionType === "refill" ? "Refill" : "Renewal"} passed by ${Math.abs(timeSummary.nextDueIn ?? 0)} days`
                     : timeSummary.nextDueIn === 0
-                    ? "Renews today"
-                    : `Renews in ${timeSummary.nextDueIn} days`
-                  : "No renewal date"
+                    ? subscriptionType === "refill" ? "Refill expected today" : "Renews today"
+                    : `${subscriptionType === "refill" ? "Refill expected" : "Renews"} in ${timeSummary.nextDueIn} days`
+                  : subscriptionType === "refill" ? "No refill date" : "No renewal date"
               : isPurchase
                 ? warrantyEnds
                   ? formatWarrantyRemaining(warrantyEnds)
@@ -594,7 +600,7 @@ export default function EntryDetail() {
         </div>
         <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
           <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
-            {isSubscription ? "Time since payment" : isGoal ? "Time since start" : isPurchase ? "Days owned" : isRoutine || isHealthRecord ? "Time since" : "Time summary"}
+            {isSubscription ? subscriptionType === "refill" ? "Time since refill" : "Time since payment" : isGoal ? "Time since start" : isPurchase ? "Days owned" : isRoutine || isHealthRecord ? "Time since" : "Time summary"}
           </p>
           <p className="mt-2 text-lg font-semibold dark:text-stone-50">
             {isSubscription && latestEventDate
@@ -604,7 +610,7 @@ export default function EntryDetail() {
               : formatYearMonthDayDuration(entry.entry_date).replace(/ ago$/, "")}
           </p>
           <p className="mt-1 text-sm text-stone-500 dark:text-stone-400">
-            {isSubscription ? "since latest payment" : isGoal ? "since start" : isPurchase ? "since purchase" : isHealthRecord || isRoutine ? "since last done" : "since last logged"}
+            {isSubscription ? subscriptionType === "refill" ? "since latest refill" : "since latest payment" : isGoal ? "since start" : isPurchase ? "since purchase" : isHealthRecord || isRoutine ? "since last done" : "since last logged"}
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { getBillingCycle, getNextSubscriptionRenewalIso } from './subscriptions';
+import { getBillingCycle, getNextSubscriptionDueDate, getSubscriptionRenewalType } from './subscriptions';
 import { getNextRecurrenceDate, getRoutineRecurrenceConfig, toIsoDate } from '@/lib/recurrence';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
 
@@ -68,12 +68,13 @@ function isSubscriptionEntry(entry: Entry) {
 
 function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
   if (isSubscriptionEntry(entry)) {
-    return getNextSubscriptionRenewalIso(
+    return getNextSubscriptionDueDate(
       entry.entry_date,
       getBillingCycle(entry.metadata.billing_cycle),
+      getSubscriptionRenewalType(entry.metadata.subscription_type),
       loggedAt,
       { afterFromDate: true }
-    ) ?? entry.next_due_date;
+    )?.toISOString() ?? entry.next_due_date;
   }
   const recurrence = getRoutineRecurrenceConfig(entry.metadata, entry.repeat_interval_days, entry.next_due_date);
   return toIsoDate(recurrence ? getNextRecurrenceDate(loggedAt, recurrence) : null);
