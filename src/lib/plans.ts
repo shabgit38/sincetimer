@@ -37,6 +37,8 @@ const planEntrySelect = `
   updated_at
 `;
 
+const topicBacklogResetKey = "topic_backlog_reset_v1";
+
 async function requireUserId() {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -100,19 +102,63 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
   ]);
 
   if (entryError) throw entryError;
+  const planEntries = ((entries ?? []) as Entry[]).filter(isPlanEntry);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const nowIso = new Date().toISOString();
+  const cleanedSessions = new Map<string, { title: string; metadata: Record<string, unknown> }>();
+  const resetEntryIds = new Set<string>();
+
+  for (const entry of planEntries) {
+    if (entry.metadata[topicBacklogResetKey] === true) continue;
+
+    const upcomingSessionsWithTopics = (sessions ?? []).filter(
+      (session) =>
+        session.entry_id === entry.id &&
+        session.status === "scheduled" &&
+        new Date(session.session_date) >= todayStart &&
+        typeof session.metadata.topic === "string"
+    );
+
+    await Promise.all(
+      upcomingSessionsWithTopics.map(async (session) => {
+        const metadata = { ...session.metadata };
+        delete metadata.topic;
+        const { error } = await supabase
+          .from("plan_sessions")
+          .update({ title: entry.title, metadata, updated_at: nowIso })
+          .eq("id", session.id);
+        if (error) throw error;
+        cleanedSessions.set(session.id, { title: entry.title, metadata });
+      })
+    );
+
+    const { error } = await supabase
+      .from("entries")
+      .update({
+        metadata: { ...entry.metadata, [topicBacklogResetKey]: true },
+        updated_at: nowIso,
+      })
+      .eq("id", entry.id);
+    if (error) throw error;
+    resetEntryIds.add(entry.id);
+  }
+
   const sessionGroups = new Map<string, PlanSession[]>();
-  sessions.forEach((session) => {
-    const group = sessionGroups.get(session.entry_id) ?? [];
-    group.push(session);
-    sessionGroups.set(session.entry_id, group);
+  (sessions ?? []).forEach((session) => {
+    const cleanedSession = cleanedSessions.get(session.id);
+    const visibleSession = cleanedSession ? { ...session, ...cleanedSession } : session;
+    const group = sessionGroups.get(visibleSession.entry_id) ?? [];
+    group.push(visibleSession);
+    sessionGroups.set(visibleSession.entry_id, group);
   });
 
-  return ((entries ?? []) as Entry[])
-    .filter(isPlanEntry)
-    .map((entry) => ({
-      entry,
-      sessions: sessionGroups.get(entry.id) ?? [],
-    }));
+  return planEntries.map((entry) => ({
+    entry: resetEntryIds.has(entry.id)
+      ? { ...entry, metadata: { ...entry.metadata, [topicBacklogResetKey]: true } }
+      : entry,
+    sessions: sessionGroups.get(entry.id) ?? [],
+  }));
 }
 
 export async function replacePlanSessions(entryId: string, sessions: NewPlanSession[]): Promise<void> {

@@ -715,6 +715,7 @@ export default function AddEntry() {
         schedule_config: isPlan ? planScheduleConfig : null,
         session_duration_minutes: isPlan ? planDurationValue : null,
         topics: isPlan ? planTopicValues : null,
+        topic_backlog_reset_v1: isPlan && existingEntry?.metadata.topic_backlog_reset_v1 === true,
         seller: isPurchase && seller.trim() ? seller.trim() : null,
         invoice_image: isPurchase && invoiceImage.trim() ? invoiceImage.trim() : null,
         warranty_ends: isPurchase && nextDueDate ? nextDueDate : null,
