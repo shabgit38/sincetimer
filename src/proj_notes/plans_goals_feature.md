@@ -38,7 +38,14 @@ Use **Save** to submit the form. The top-of-form and bottom-of-form save buttons
 
 When a goal is created, the app generates scheduled sessions for recurrence dates between the start and end dates. The schedule determines the dates only; backlog topics are not automatically assigned.
 
-When an existing goal's start date, end date, type, or schedule changes, the app regenerates its scheduled sessions from today onward. Past sessions and sessions with non-scheduled statuses are retained. If a generated session has the same date as an existing upcoming scheduled session, its title and metadata (including a manually selected topic) are preserved.
+When an existing goal's start date, end date, type, or schedule changes, the app regenerates sessions from today onward:
+
+- Moving the **start date later** removes upcoming scheduled sessions before the new start date and generates sessions from the new date onward.
+- Moving the **start date earlier** adds sessions for newly included dates from today onward; dates in the past are not regenerated.
+- Moving the **end date later** adds scheduled sessions through the new end date.
+- Moving the **end date earlier** removes upcoming scheduled sessions after the new end date.
+
+Only sessions with status **Scheduled** and a date today or later are replaced. Past sessions and sessions with other statuses, such as Completed, Missed, or Skipped, are retained. When a generated session falls on the same date as an existing upcoming scheduled session, its title and metadata—including a manually selected topic—are preserved. After regeneration, the goal's next due date is recalculated.
 
 Changing only the topic backlog does not regenerate the schedule.
 
