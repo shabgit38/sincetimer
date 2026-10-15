@@ -146,11 +146,9 @@ export default function PlanCalendar({
               </div>
             ) : (
               <div className="mt-2">
-                <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300" htmlFor={`session-topic-${session.id}`}>
-                  Topic
-                </label>
                 <select
                   id={`session-topic-${session.id}`}
+                  aria-label={`Select topic for ${session.title}`}
                   className="mb-2 h-8 w-full rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 dark:border-white/10 dark:bg-stone-900 dark:text-stone-100"
                   value={selectedTopic}
                   disabled={updatingId === session.id || isPastSession}
