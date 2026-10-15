@@ -37,8 +37,6 @@ const planEntrySelect = `
   updated_at
 `;
 
-const topicBacklogResetKey = "topic_backlog_reset_v1";
-
 async function requireUserId() {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -107,21 +105,23 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
   todayStart.setHours(0, 0, 0, 0);
   const nowIso = new Date().toISOString();
   const cleanedSessions = new Map<string, { title: string; metadata: Record<string, unknown> }>();
-  const resetEntryIds = new Set<string>();
 
   for (const entry of planEntries) {
-    if (entry.metadata[topicBacklogResetKey] === true) continue;
+    const backlogTopics = Array.isArray(entry.metadata.topics)
+      ? entry.metadata.topics.filter((topic): topic is string => typeof topic === "string")
+      : [];
 
-    const upcomingSessionsWithTopics = (sessions ?? []).filter(
+    const upcomingSessionsWithOrphanedTopics = (sessions ?? []).filter(
       (session) =>
         session.entry_id === entry.id &&
         session.status === "scheduled" &&
         new Date(session.session_date) >= todayStart &&
-        typeof session.metadata.topic === "string"
+        typeof session.metadata.topic === "string" &&
+        !backlogTopics.includes(session.metadata.topic)
     );
 
     await Promise.all(
-      upcomingSessionsWithTopics.map(async (session) => {
+      upcomingSessionsWithOrphanedTopics.map(async (session) => {
         const metadata = { ...session.metadata };
         delete metadata.topic;
         const { error } = await supabase
@@ -132,16 +132,6 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
         cleanedSessions.set(session.id, { title: entry.title, metadata });
       })
     );
-
-    const { error } = await supabase
-      .from("entries")
-      .update({
-        metadata: { ...entry.metadata, [topicBacklogResetKey]: true },
-        updated_at: nowIso,
-      })
-      .eq("id", entry.id);
-    if (error) throw error;
-    resetEntryIds.add(entry.id);
   }
 
   const sessionGroups = new Map<string, PlanSession[]>();
@@ -154,9 +144,7 @@ export async function getPlansWithSessions(): Promise<PlanWithSessions[]> {
   });
 
   return planEntries.map((entry) => ({
-    entry: resetEntryIds.has(entry.id)
-      ? { ...entry, metadata: { ...entry.metadata, [topicBacklogResetKey]: true } }
-      : entry,
+    entry,
     sessions: sessionGroups.get(entry.id) ?? [],
   }));
 }

@@ -65,9 +65,6 @@ export default function PlanCalendar({
       {visibleSessions.map((session) => {
         const isEditing = editingId === session.id;
         const selectedTopic = typeof session.metadata.topic === "string" ? session.metadata.topic : "";
-        const availableTopics = selectedTopic && !topics.includes(selectedTopic)
-          ? [selectedTopic, ...topics]
-          : topics;
         const isPastSession = isBefore(
           startOfDay(new Date(session.session_date)),
           startOfDay(new Date())
@@ -165,7 +162,7 @@ export default function PlanCalendar({
                   }}
                 >
                   <option value="">Select topic</option>
-                  {availableTopics.map((topic) => (
+                  {topics.map((topic) => (
                     <option key={topic} value={topic}>{topic}</option>
                   ))}
                 </select>
