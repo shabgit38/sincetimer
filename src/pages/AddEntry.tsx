@@ -404,7 +404,7 @@ export default function AddEntry() {
           );
           setPlanTopics(
             Array.isArray(entry.metadata.topics)
-              ? entry.metadata.topics.filter((topic) => typeof topic === "string").join("\n")
+              ? entry.metadata.topics.filter((topic) => typeof topic === "string").join("\n\n")
               : ""
           );
           setSeller(typeof entry.metadata.seller === "string" ? entry.metadata.seller : "");
@@ -571,7 +571,7 @@ export default function AddEntry() {
     let planScheduleConfig: PlanScheduleConfig | null = null;
     let planDurationValue: number | null = null;
     const planTopicValues = planTopics
-      .split(/\r?\n|,/)
+      .split(/\r?\n\s*\r?\n/)
       .map((topic) => topic.trim())
       .filter(Boolean);
 
@@ -1268,10 +1268,10 @@ export default function AddEntry() {
                     value={planTopics}
                     onChange={(event) => setPlanTopics(event.target.value)}
                     className={`min-h-[96px] ${textareaClass}`}
-                    placeholder="Add ideas to work on, one per line..."
+                    placeholder="Add an idea, then leave a blank line before the next..."
                   />
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Choose a topic from this list when a session is due. Topics are not assigned to sessions automatically.
+                    Separate topics with a blank line. Choose one from this list when a session is due.
                   </p>
                 </div>
               </div>
