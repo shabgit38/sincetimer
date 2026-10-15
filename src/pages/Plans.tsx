@@ -150,7 +150,26 @@ export default function Plans() {
     setUpdatingId(session.id);
     try {
       await updatePlanSession(session.id, updates);
-      await loadPlans();
+      const topicTitle = updates.title;
+      const topicMetadata = updates.metadata;
+      if (
+        typeof topicTitle === "string" &&
+        topicMetadata !== undefined &&
+        Object.keys(updates).every((key) => key === "title" || key === "metadata")
+      ) {
+        setPlans((current) =>
+          current.map((plan) => ({
+            ...plan,
+            sessions: plan.sessions.map((currentSession) =>
+              currentSession.id === session.id
+                ? { ...currentSession, title: topicTitle, metadata: topicMetadata }
+                : currentSession
+            ),
+          }))
+        );
+      } else {
+        await loadPlans();
+      }
     } catch (saveError) {
       console.error(saveError);
       setError("Unable to update this session.");
