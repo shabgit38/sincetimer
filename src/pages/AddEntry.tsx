@@ -1205,49 +1205,51 @@ export default function AddEntry() {
                   <input id="planSpecificDate" type="date" value={nextDueDate} onChange={(event) => setNextDueDate(event.target.value)} className={inputClass} />
                 </div>
               )}
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planSessionDurationMinutes">
-                  Session Minutes
-                </label>
-                <input
-                  id="planSessionDurationMinutes"
-                  type="number"
-                  value={planSessionDurationMinutes}
-                  onChange={(event) => setPlanSessionDurationMinutes(event.target.value)}
-                  className={inputClass}
-                  min="1"
-                  step="1"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planStatus">
-                  Status
-                </label>
-                <select
-                  id="planStatus"
-                  value={planStatus}
-                  onChange={(event) => setPlanStatus(event.target.value as PlanStatus)}
-                  className={inputClass}
-                >
-                  <option value="active">Active</option>
-                  <option value="paused">Paused</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-              <div className="grid gap-2 md:col-span-3 xl:col-span-2">
-                <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
-                  Topic backlog
-                </label>
-                <textarea
-                  id="planTopics"
-                  value={planTopics}
-                  onChange={(event) => setPlanTopics(event.target.value)}
-                  className={`min-h-[96px] ${textareaClass}`}
-                  placeholder="Add ideas to work on, one per line..."
-                />
-                <p className="text-xs text-stone-500 dark:text-stone-400">
-                  Choose a topic from this list when a session is due. Topics are not assigned to sessions automatically.
-                </p>
+              <div className="grid min-w-0 gap-4 md:col-span-2 md:grid-cols-[7rem_8rem_minmax(0,1fr)] xl:col-span-3">
+                <div className="grid min-w-0 content-start gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planSessionDurationMinutes">
+                    Session Minutes
+                  </label>
+                  <input
+                    id="planSessionDurationMinutes"
+                    type="number"
+                    value={planSessionDurationMinutes}
+                    onChange={(event) => setPlanSessionDurationMinutes(event.target.value)}
+                    className={inputClass}
+                    min="1"
+                    step="1"
+                  />
+                </div>
+                <div className="grid min-w-0 content-start gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planStatus">
+                    Status
+                  </label>
+                  <select
+                    id="planStatus"
+                    value={planStatus}
+                    onChange={(event) => setPlanStatus(event.target.value as PlanStatus)}
+                    className={inputClass}
+                  >
+                    <option value="active">Active</option>
+                    <option value="paused">Paused</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+                <div className="grid min-w-0 gap-2">
+                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
+                    Topic backlog
+                  </label>
+                  <textarea
+                    id="planTopics"
+                    value={planTopics}
+                    onChange={(event) => setPlanTopics(event.target.value)}
+                    className={`min-h-[96px] ${textareaClass}`}
+                    placeholder="Add ideas to work on, one per line..."
+                  />
+                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                    Choose a topic from this list when a session is due. Topics are not assigned to sessions automatically.
+                  </p>
+                </div>
               </div>
               <div className="grid gap-2 md:col-span-3 xl:col-span-3">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="notes">
