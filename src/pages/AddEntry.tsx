@@ -830,12 +830,35 @@ export default function AddEntry() {
               Capture what happened and the next action date.
             </p>
           </div>
-          <Button variant="outline" type="button" onClick={() => navigate(returnPath)}>
-            {isPlan ? "Back to Goals" : "Back to Dashboard"}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" type="button" onClick={() => navigate(returnPath)}>
+              {isPlan ? "Back to Goals" : "Back to Dashboard"}
+            </Button>
+            <Button
+              className="w-10 !px-0"
+              type="submit"
+              form="entry-form"
+              disabled={!canSubmit || saving}
+              title={isEditing ? "Save entry changes" : "Save new entry"}
+              aria-label={isEditing ? "Save entry changes" : "Save new entry"}
+            >
+              <SaveIcon className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              className="w-10 !px-0"
+              variant="outline"
+              onClick={() => navigate(returnPath)}
+              disabled={saving}
+              title="Close form"
+              aria-label="Close form"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        <form className="mt-6 grid gap-5" onSubmit={handleSubmit}>
+        <form id="entry-form" className="mt-6 grid gap-5" onSubmit={handleSubmit}>
           <div className="grid gap-2">
             <span className="text-sm font-medium text-stone-900 dark:text-stone-100">{requiredLabel("Area")}</span>
             <div className="flex flex-wrap gap-2">
@@ -1645,10 +1668,10 @@ export default function AddEntry() {
               type="button"
               className="w-10 !px-0"
               variant="outline"
-              onClick={() => navigate("/")}
+              onClick={() => navigate(returnPath)}
               disabled={saving}
-              title="Cancel entry editing"
-              aria-label="Cancel entry editing"
+              title="Close form"
+              aria-label="Close form"
             >
               <X className="h-4 w-4" />
             </Button>
