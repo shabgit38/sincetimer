@@ -8,7 +8,6 @@ type GeneratePlanSessionsInput = {
   startDate: string;
   endDate: string;
   schedule: PlanScheduleConfig;
-  topics?: string[];
 };
 
 function getSessionType(planType: PlanType): PlanSessionType {
@@ -24,24 +23,21 @@ export function generatePlanSessions({
   startDate,
   endDate,
   schedule,
-  topics = [],
 }: GeneratePlanSessionsInput): NewPlanSession[] {
   const sessions: NewPlanSession[] = [];
-  const topicList = topics.map((topic) => topic.trim()).filter(Boolean);
   const sessionType = getSessionType(planType);
   const interval = Math.max(1, Math.floor(schedule.interval || 1));
 
   const addSession = (sessionDate: Date) => {
-    const topic = topicList.length > 0 ? topicList[sessions.length % topicList.length] : null;
     sessions.push({
       entry_id: entryId,
       session_date: sessionDate.toISOString(),
       session_type: sessionType,
-      title: topic ? `${title}: ${topic}` : title,
+      title,
       status: "scheduled",
       score: null,
       notes: null,
-      metadata: topic ? { topic } : {},
+      metadata: {},
     });
   };
 

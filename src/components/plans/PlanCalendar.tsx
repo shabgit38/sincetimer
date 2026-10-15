@@ -8,12 +8,14 @@ import type { PlanEffortLevel, PlanSession, PlanSessionStatus } from "@/types/pl
 
 type PlanCalendarProps = {
   sessions: PlanSession[];
+  planTitle: string;
+  topics: string[];
   updatingId: string | null;
   onMarkDone: (session: PlanSession, effortLevel: PlanEffortLevel) => void;
   onMarkMissed: (session: PlanSession) => void;
   onUpdateSession: (
     session: PlanSession,
-    updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes">>
+    updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes" | "title" | "metadata">>
   ) => void;
   onDeleteSession: (session: PlanSession) => void;
 };
@@ -31,6 +33,8 @@ function toDateInputValue(dateIso: string) {
 
 export default function PlanCalendar({
   sessions,
+  planTitle,
+  topics,
   updatingId,
   onMarkDone,
   onMarkMissed,
@@ -60,6 +64,10 @@ export default function PlanCalendar({
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
       {visibleSessions.map((session) => {
         const isEditing = editingId === session.id;
+        const selectedTopic = typeof session.metadata.topic === "string" ? session.metadata.topic : "";
+        const availableTopics = selectedTopic && !topics.includes(selectedTopic)
+          ? [selectedTopic, ...topics]
+          : topics;
 
         return (
           <div
@@ -134,6 +142,30 @@ export default function PlanCalendar({
               </div>
             ) : (
               <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-stone-600 dark:text-stone-300" htmlFor={`session-topic-${session.id}`}>
+                  Topic
+                </label>
+                <select
+                  id={`session-topic-${session.id}`}
+                  className="mb-2 h-8 w-full rounded-lg border border-stone-300 bg-white px-2 text-xs text-stone-700 dark:border-white/10 dark:bg-stone-900 dark:text-stone-100"
+                  value={selectedTopic}
+                  disabled={updatingId === session.id}
+                  onChange={(event) => {
+                    const topic = event.target.value;
+                    const metadata = { ...session.metadata };
+                    if (topic) metadata.topic = topic;
+                    else delete metadata.topic;
+                    onUpdateSession(session, {
+                      title: topic ? `${planTitle}: ${topic}` : planTitle,
+                      metadata,
+                    });
+                  }}
+                >
+                  <option value="">No topic selected</option>
+                  {availableTopics.map((topic) => (
+                    <option key={topic} value={topic}>{topic}</option>
+                  ))}
+                </select>
                 {session.notes?.trim() ? (
                   <p className="mb-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-stone-600 dark:text-stone-300">
                     {session.notes}

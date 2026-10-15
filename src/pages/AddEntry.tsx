@@ -126,26 +126,18 @@ function getStoredPlanType(entry: Entry): PlanType {
   return "learning";
 }
 
-function getStoredPlanTopics(metadata: Record<string, unknown>) {
-  return Array.isArray(metadata.topics)
-    ? metadata.topics.filter((topic): topic is string => typeof topic === "string").map((topic) => topic.trim()).filter(Boolean)
-    : [];
-}
-
 function hasPlanScheduleChanged(
   entry: Entry,
   planType: PlanType,
   startDate: string,
   endDate: string,
-  schedule: PlanScheduleConfig,
-  topics: string[]
+  schedule: PlanScheduleConfig
 ) {
   return (
     entry.entry_date.slice(0, 10) !== startDate ||
     (typeof entry.metadata.end_date === "string" ? entry.metadata.end_date.slice(0, 10) : "") !== endDate ||
     getStoredPlanType(entry) !== planType ||
-    JSON.stringify(getPlanScheduleConfig(entry.metadata)) !== JSON.stringify(schedule) ||
-    JSON.stringify(getStoredPlanTopics(entry.metadata)) !== JSON.stringify(topics)
+    JSON.stringify(getPlanScheduleConfig(entry.metadata)) !== JSON.stringify(schedule)
   );
 }
 
@@ -763,8 +755,7 @@ export default function AddEntry() {
             planType,
             entryDate,
             planEndDate,
-            planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] },
-            planTopicValues
+            planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] }
           );
         const sessions = generatePlanSessions({
           entryId: savedEntryId,
@@ -773,7 +764,6 @@ export default function AddEntry() {
           startDate: entryDate,
           endDate: planEndDate,
           schedule: planScheduleConfig ?? { mode: "days", interval: 1, weekdays: [] },
-          topics: planTopicValues,
         });
         if (isEditing && shouldRegeneratePlanSessions) {
           const today = new Date();
@@ -1246,15 +1236,18 @@ export default function AddEntry() {
               </div>
               <div className="grid gap-2 md:col-span-3 xl:col-span-2">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
-                  Topics
+                  Topic backlog
                 </label>
                 <textarea
                   id="planTopics"
                   value={planTopics}
                   onChange={(event) => setPlanTopics(event.target.value)}
                   className={`min-h-[96px] ${textareaClass}`}
-                  placeholder="One topic per line..."
+                  placeholder="Add ideas to work on, one per line..."
                 />
+                <p className="text-xs text-stone-500 dark:text-stone-400">
+                  Choose a topic from this list when a session is due. Topics are not assigned to sessions automatically.
+                </p>
               </div>
               <div className="grid gap-2 md:col-span-3 xl:col-span-3">
                 <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="notes">

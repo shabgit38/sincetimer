@@ -136,6 +136,28 @@ export async function replacePlanSessions(entryId: string, sessions: NewPlanSess
 export async function replaceScheduledPlanSessions(entryId: string, sessions: NewPlanSession[]): Promise<void> {
   const userId = await requireUserId();
   const nowIso = new Date().toISOString();
+  const { data: existingSessions, error: existingError } = await supabase
+    .from("plan_sessions")
+    .select("session_date, title, metadata")
+    .eq("entry_id", entryId)
+    .eq("status", "scheduled")
+    .gte("session_date", getTodayStartIso());
+
+  if (existingError) throw existingError;
+
+  const existingByDate = new Map(
+    (existingSessions ?? []).map((session) => [
+      new Date(session.session_date).getTime(),
+      { title: session.title, metadata: session.metadata },
+    ])
+  );
+  const sessionsWithPreservedAssignments = sessions.map((session) => {
+    const existing = existingByDate.get(new Date(session.session_date).getTime());
+    return existing
+      ? { ...session, title: existing.title, metadata: existing.metadata ?? session.metadata }
+      : session;
+  });
+
   const { error: deleteError } = await supabase
     .from("plan_sessions")
     .delete()
@@ -145,9 +167,9 @@ export async function replaceScheduledPlanSessions(entryId: string, sessions: Ne
 
   if (deleteError) throw deleteError;
 
-  if (sessions.length > 0) {
+  if (sessionsWithPreservedAssignments.length > 0) {
     const { error: insertError } = await supabase.from("plan_sessions").insert(
-      sessions.map((session) => ({
+      sessionsWithPreservedAssignments.map((session) => ({
         ...session,
         user_id: userId,
         created_at: nowIso,
@@ -237,7 +259,7 @@ export async function updatePlanSessionStatus(
 
 export async function updatePlanSession(
   sessionId: string,
-  updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes">>
+  updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes" | "title" | "metadata">>
 ): Promise<void> {
   const nowIso = new Date().toISOString();
   const { data: sessionRecord, error: sessionError } = await supabase

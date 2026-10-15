@@ -145,7 +145,7 @@ export default function Plans() {
 
   const handleUpdateSession = async (
     session: PlanSession,
-    updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes">>
+    updates: Partial<Pick<PlanSession, "session_date" | "status" | "notes" | "title" | "metadata">>
   ) => {
     setUpdatingId(session.id);
     try {
@@ -316,6 +316,12 @@ export default function Plans() {
                   <div className="border-t border-stone-200 p-5 dark:border-white/10">
                     <PlanCalendar
                       sessions={sessions}
+                      planTitle={entry.title}
+                      topics={
+                        Array.isArray(entry.metadata.topics)
+                          ? entry.metadata.topics.filter((topic): topic is string => typeof topic === "string")
+                          : []
+                      }
                       updatingId={updatingId}
                       onMarkDone={(session, effortLevel) => void handleSetStatus(session, "completed", effortLevel)}
                       onMarkMissed={(session) => void handleSetStatus(session, "missed")}
