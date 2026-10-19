@@ -115,7 +115,7 @@ function ExpensePlanner() {
     }
     const savedExpense = {
       ...draft,
-      name: draft.name.trim(),
+      name: draft.category,
     };
     setExpenses((current) => updateExpense(current, savedExpense));
     setEditingId(null);
@@ -160,7 +160,6 @@ function ExpensePlanner() {
             <thead className="bg-stone-50 text-left text-xs uppercase tracking-wide text-stone-500 dark:bg-stone-900 dark:text-stone-400">
               <tr>
                 <th className="px-3 py-2">Expense</th>
-                <th className="px-3 py-2">Category</th>
                 <th className="px-3 py-2">Monthly amount</th>
                 <th className="px-3 py-2">Frequency</th>
                 <th className="px-3 py-2">Expense type</th>
@@ -183,25 +182,15 @@ function ExpensePlanner() {
                   <tr key={expense.id} className={`border-t border-stone-100 align-middle dark:border-white/10 ${expense.active ? "" : "opacity-55"}`}>
                     <td className="px-3 py-2">
                       {isEditing ? (
-                        <input
-                          aria-label="Expense name"
-                          className={`${inputClass} w-36`}
-                          value={row.name}
-                          onChange={(event) => updateDraft("name", event.currentTarget.value)}
-                        />
-                      ) : <span className="font-medium text-stone-900 dark:text-stone-100">{expense.name}</span>}
-                    </td>
-                    <td className="px-3 py-2">
-                      {isEditing ? (
                         <select
-                          aria-label="Category"
-                          className={`${inputClass} w-40`}
+                          aria-label="Expense"
+                          className={`${inputClass} w-48`}
                           value={row.category}
                           onChange={(event) => updateDraft("category", event.currentTarget.value as ExpenseCategory)}
                         >
                           {EXPENSE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
                         </select>
-                      ) : expense.category}
+                      ) : <span className="font-medium text-stone-900 dark:text-stone-100">{expense.category}</span>}
                     </td>
                     <td className="px-3 py-2">
                       {isEditing ? (
@@ -248,7 +237,7 @@ function ExpensePlanner() {
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input
-                        aria-label={`${row.name || "Expense"} is essential`}
+                        aria-label={`${row.category || "Expense"} is essential`}
                         type="checkbox"
                         checked={row.essential}
                         disabled={!isEditing}
@@ -257,7 +246,7 @@ function ExpensePlanner() {
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input
-                        aria-label={`Include ${row.name || "expense"} in retirement`}
+                        aria-label={`Include ${row.category || "expense"} in retirement`}
                         type="checkbox"
                         checked={row.retirementIncluded}
                         disabled={!isEditing}
@@ -266,7 +255,7 @@ function ExpensePlanner() {
                     </td>
                     <td className="px-3 py-2 text-center">
                       <input
-                        aria-label={`${expense.name} active`}
+                        aria-label={`${expense.category} active`}
                         type="checkbox"
                         checked={expense.active}
                         disabled={isEditing}
@@ -296,7 +285,7 @@ function ExpensePlanner() {
                             disabled={editingId !== null}
                             onClick={() => beginEdit(expense)}
                             className="grid h-7 w-7 place-items-center rounded-md text-sky-700 hover:bg-sky-50 disabled:opacity-50 dark:text-sky-200 dark:hover:bg-sky-400/10"
-                            aria-label={`Edit ${expense.name}`}
+                            aria-label={`Edit ${expense.category}`}
                             title="Edit"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -306,7 +295,7 @@ function ExpensePlanner() {
                             disabled={editingId !== null}
                             onClick={() => removeExpense(expense.id)}
                             className="grid h-7 w-7 place-items-center rounded-md text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:text-rose-200 dark:hover:bg-rose-400/10"
-                            aria-label={`Delete ${expense.name}`}
+                            aria-label={`Delete ${expense.category}`}
                             title="Delete"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -318,7 +307,7 @@ function ExpensePlanner() {
                 );
               })}
               {expenses.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-sm text-stone-500">No expenses yet. Add one to begin.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-stone-500">No expenses yet. Add one to begin.</td></tr>
               ) : null}
             </tbody>
           </table>

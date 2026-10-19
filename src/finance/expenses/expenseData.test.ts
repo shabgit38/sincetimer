@@ -54,8 +54,8 @@ describe("expense data utilities", () => {
     expect(validateExpense(expense({ monthlyAmount: Number.POSITIVE_INFINITY }))).toMatch(/non-negative/);
   });
 
-  it("requires a non-empty name and supported frequency and type", () => {
-    expect(validateExpense(expense({ name: "  " }))).toMatch(/name/);
+  it("requires a supported category, frequency, and type", () => {
+    expect(validateExpense(expense({ category: " " as ExpenseItem["category"] }))).toMatch(/category/);
     expect(validateExpense(expense({ category: "Unknown" as ExpenseItem["category"] }))).toMatch(/category/);
     expect(validateExpense(expense({ frequency: "weekly" as ExpenseItem["frequency"] }))).toMatch(/frequency/);
     expect(validateExpense(expense({ expenseType: "other" as ExpenseItem["expenseType"] }))).toMatch(/type/);

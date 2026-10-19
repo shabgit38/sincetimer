@@ -23,7 +23,6 @@ export function createExpenseItem(id: string, startYear: number): ExpenseItem {
 }
 
 export function validateExpense(expense: ExpenseItem): string | null {
-  if (!expense.name.trim()) return "Enter an expense name.";
   if (!Number.isFinite(expense.monthlyAmount) || expense.monthlyAmount < 0) {
     return "Amount must be a valid non-negative number.";
   }
