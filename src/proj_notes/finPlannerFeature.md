@@ -78,10 +78,10 @@ FinPlanner is a finance planning screen for goal-based projections. The first go
 
 ## Follow-ups
 
-- Expense Planner with Current Budget, Future Projection, and Retirement sections.
-- Seed editable expense rows from the planning spreadsheet; keep investments separate from retirement living expenses.
-- Calculate expense totals and category-specific inflation projections through the finance expense utilities.
-- Expense Planner edits currently remain in page state and are not persisted.
+- The Expense Planner now has an editable expense table with the supported categories, frequencies, expense types, and essential / retirement / active flags.
+- Monthly living expenses, monthly investments, and total monthly cash outflow are calculated separately; SIP and lumpsum contributions remain classified as investments.
+- Expense data and CRUD / validation utilities are kept separate from the UI. Edits currently remain in page state and are not persisted.
+- Future-value, inflation, and retirement projections for expense entries are intentionally not part of the current Expense Planner phase.
 - Saved scenarios for Retirement, House, Education, Travel, and custom goals.
 - Compare multiple return assumptions.
 - Add charts for projected corpus vs target corpus.

@@ -14,7 +14,7 @@ function expense(overrides: Partial<ExpenseItem> = {}): ExpenseItem {
   return {
     id: "expense-1",
     name: "Rent",
-    category: "housing",
+    category: "Rent",
     monthlyAmount: 1000,
     frequency: "monthly",
     inflationRate: 5,
@@ -44,13 +44,13 @@ describe("expense calculations", () => {
   });
 
   it("annualizes expenses whose frequency is not monthly", () => {
-    expect(calculateExpenseAmounts(expense({ frequency: "annually", monthlyAmount: 12000 }))).toEqual({
+    expect(calculateExpenseAmounts(expense({ frequency: "annual", monthlyAmount: 12000 }))).toEqual({
       monthlyAmount: 1000,
       annualAmount: 12000,
     });
-    expect(calculateExpenseAmounts(expense({ frequency: "weekly", monthlyAmount: 100 }))).toEqual({
-      monthlyAmount: 52 * 100 / 12,
-      annualAmount: 5200,
+    expect(calculateExpenseAmounts(expense({ frequency: "half-yearly", monthlyAmount: 600 }))).toEqual({
+      monthlyAmount: 100,
+      annualAmount: 1200,
     });
   });
 
@@ -63,7 +63,7 @@ describe("expense calculations", () => {
     const investment = expense({
       id: "sip",
       name: "SIP",
-      category: "investments",
+      category: "SIP",
       monthlyAmount: 500,
       expenseType: "investment",
       essential: false,
@@ -87,6 +87,16 @@ describe("expense calculations", () => {
     expect(result.retirementEligibleExpense.annualAmount).toBe(0);
   });
 
+  it("includes expenses with retirementIncluded set to true", () => {
+    const result = calculateRetirementExpenses(
+      [expense({ monthlyAmount: 1000, retirementIncluded: true })],
+      2025,
+      2025,
+    );
+
+    expect(result.retirementEligibleExpense.monthlyAmount).toBe(1000);
+  });
+
   it("excludes expenses that ended before retirement", () => {
     const result = calculateRetirementExpenses(
       [expense({ endYear: 2035 })],
@@ -99,7 +109,7 @@ describe("expense calculations", () => {
 
   it("applies the expense-specific inflation rate without rounding intermediate values", () => {
     const projected = projectExpenseToYear(
-      expense({ category: "utilities", monthlyAmount: 100, inflationRate: 10 }),
+      expense({ category: "Electricity", monthlyAmount: 100, inflationRate: 10 }),
       2027,
       2025,
     );
@@ -109,8 +119,8 @@ describe("expense calculations", () => {
   });
 
   it("allows different annual inflation rates for expenses in the same category", () => {
-    const utilityA = expense({ id: "power", category: "utilities", monthlyAmount: 100, inflationRate: 5 });
-    const utilityB = expense({ id: "internet", category: "utilities", monthlyAmount: 100, inflationRate: 9 });
+    const utilityA = expense({ id: "power", category: "Electricity", monthlyAmount: 100, inflationRate: 5 });
+    const utilityB = expense({ id: "internet", category: "Electricity", monthlyAmount: 100, inflationRate: 9 });
 
     const projectedA = projectExpenseToYear(utilityA, 2027, 2025);
     const projectedB = projectExpenseToYear(utilityB, 2027, 2025);
@@ -132,12 +142,12 @@ describe("expense calculations", () => {
   it("calculates future totals and investment contributions separately", () => {
     const projection = calculateFutureExpenseProjection(
       [
-        expense({ monthlyAmount: 100, projectionBaseAmount: 200, category: "Housing", inflationRate: 10 }),
+        expense({ monthlyAmount: 100, projectionBaseAmount: 200, category: "Rent", inflationRate: 10 }),
         expense({
           id: "investment",
           monthlyAmount: 50,
           projectionBaseAmount: 25,
-          category: "Investments",
+          category: "SIP",
           inflationRate: 0,
           expenseType: "investment",
           essential: false,
@@ -186,21 +196,21 @@ describe("expense calculations", () => {
         id: "health",
         monthlyAmount: 100,
         expenseType: "health",
-        category: "health",
+        category: "Health",
       }),
       expense({
         id: "irregular",
         monthlyAmount: 50,
         expenseType: "irregular",
-        category: "travel",
-        frequency: "annually",
+        category: "Travel",
+        frequency: "annual",
         essential: false,
       }),
       expense({
         id: "investment",
         monthlyAmount: 300,
         expenseType: "investment",
-        category: "investments",
+        category: "SIP",
         essential: false,
       }),
     ], 2025);

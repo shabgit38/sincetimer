@@ -1,18 +1,53 @@
-export type ExpenseFrequency = "monthly" | "weekly" | "biweekly" | "quarterly" | "annually" | "one-time";
+export const EXPENSE_CATEGORIES = [
+  "Electricity",
+  "Internet",
+  "Mobile",
+  "Gas",
+  "Water",
+  "Groceries",
+  "Travel",
+  "Maintenance",
+  "Entertainment",
+  "Subscriptions",
+  "Home Improvement",
+  "Learning",
+  "Personal",
+  "Health",
+  "Insurance",
+  "Emergency / Unplanned",
+  "Rent",
+  "EMI / Loan",
+  "SIP",
+  "Lumpsum Investment",
+  "Other",
+] as const;
 
-export type ExpenseType =
-  | "essential"
-  | "discretionary"
-  | "health"
-  | "housing"
-  | "irregular"
-  | "debt"
-  | "investment";
+export const EXPENSE_FREQUENCIES = [
+  "monthly",
+  "quarterly",
+  "half-yearly",
+  "annual",
+  "one-time",
+] as const;
+
+export const EXPENSE_TYPES = [
+  "essential",
+  "discretionary",
+  "health",
+  "housing",
+  "irregular",
+  "debt",
+  "investment",
+] as const;
+
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+export type ExpenseFrequency = (typeof EXPENSE_FREQUENCIES)[number];
+export type ExpenseType = (typeof EXPENSE_TYPES)[number];
 
 export interface ExpenseItem {
   id: string;
   name: string;
-  category: string;
+  category: ExpenseCategory;
   /** Amount charged at each occurrence of frequency. */
   monthlyAmount: number;
   frequency: ExpenseFrequency;

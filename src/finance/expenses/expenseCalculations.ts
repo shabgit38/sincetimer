@@ -7,17 +7,20 @@ import type {
   FutureExpenseProjection,
   ProjectedExpense,
 } from "./expenseTypes";
+import { EXPENSE_FREQUENCIES, EXPENSE_TYPES } from "./expenseTypes";
 
 const occurrencesPerYear: Record<ExpenseFrequency, number> = {
   monthly: 12,
-  weekly: 52,
-  biweekly: 26,
   quarterly: 4,
-  annually: 1,
+  "half-yearly": 2,
+  annual: 1,
   "one-time": 1,
 };
 
 function assertValidExpense(expense: ExpenseItem) {
+  if (!EXPENSE_FREQUENCIES.includes(expense.frequency) || !EXPENSE_TYPES.includes(expense.expenseType)) {
+    throw new RangeError(`Expense "${expense.name}" has an unsupported frequency or type.`);
+  }
   if (!Number.isFinite(expense.monthlyAmount) || expense.monthlyAmount < 0) {
     throw new RangeError(`Expense "${expense.name}" must have a finite, non-negative amount.`);
   }
