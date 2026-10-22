@@ -677,15 +677,6 @@ function CompactDashboardListItem({
               >
                 <Info className="h-3.5 w-3.5" />
               </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-[11px]"
-                disabled={planSessionSaving}
-                onClick={() => onSetPlanSessionStatus(planSession, "missed")}
-              >
-                Missed
-              </Button>
             </div>
           ) : due.tone === "overdue" || due.tone === "today" ? (
             <Button
