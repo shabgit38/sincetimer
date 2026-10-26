@@ -1443,14 +1443,16 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         if (getReadingStatus(entry) !== "done") readingList.push(entry);
         return;
       }
+      if (dueDate && summary.nextDueIn === 0) {
+        today.push(entry);
+        return;
+      }
       if (getBooleanMetadata(entry, "favorite")) {
         favorites.push(entry);
         return;
       }
       if (dueDate && summary.isOverdue) {
         overdue.push(entry);
-      } else if (dueDate && summary.nextDueIn === 0) {
-        today.push(entry);
       } else if (dueDate && (summary.nextDueIn ?? 0) <= 7) {
         dueSoon.push(entry);
       } else if (dueDate) {
@@ -1463,10 +1465,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     return [
       {
         title: "Needs attention",
-        description: "Favorites first, followed by items due today and overdue.",
+        description: "Items due today first, followed by favorites and overdue.",
         entries: [
-          ...sortDashboardGroup("Favorites", favorites, planSessionsByEntryId),
           ...sortDashboardGroup("Today", today, planSessionsByEntryId),
+          ...sortDashboardGroup("Favorites", favorites, planSessionsByEntryId),
           ...sortDashboardGroup("Overdue", overdue, planSessionsByEntryId),
         ],
       },
