@@ -11,7 +11,7 @@ import {
   getSubscriptionRenewalType,
 } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration, formatYearMonthDaySpan } from "@/lib/timeUtils";
-import { getListItems } from "@/lib/listItems";
+import { getListItems, sortListItems } from "@/lib/listItems";
 import { getNextRecurrenceDate, getRoutineRecurrenceConfig } from "@/lib/recurrence";
 import {
   deleteEntry,
@@ -422,7 +422,7 @@ export default function EntryDetail() {
   const handleToggleListItem = async (itemId: string) => {
     if (!entry || !entryId || listSavingId) return;
     const currentItems = getListItems(entry.metadata);
-    const nextItems = currentItems.map((item) => item.id === itemId ? { ...item, completed: !item.completed } : item);
+    const nextItems = sortListItems(currentItems.map((item) => item.id === itemId ? { ...item, completed: !item.completed } : item));
     setListSavingId(itemId);
     setError(null);
     setEntry({ ...entry, metadata: { ...entry.metadata, list_items: nextItems } });

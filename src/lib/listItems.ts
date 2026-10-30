@@ -14,6 +14,13 @@ export function createListItem(text = ""): ListItem {
   };
 }
 
+export function sortListItems(items: ListItem[]): ListItem[] {
+  return [
+    ...items.filter((item) => !item.completed),
+    ...items.filter((item) => item.completed),
+  ];
+}
+
 export function getListItems(metadata: Record<string, unknown>): ListItem[] {
   if (!Array.isArray(metadata.list_items)) return [];
 
@@ -33,8 +40,5 @@ export function getListItems(metadata: Record<string, unknown>): ListItem[] {
     }];
   });
 
-  return [
-    ...items.filter((item) => !item.completed),
-    ...items.filter((item) => item.completed),
-  ];
+  return sortListItems(items);
 }

@@ -25,7 +25,7 @@ import {
   getSubscriptionRenewalType,
 } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
-import { createListItem, getListItems, type ListItem } from "@/lib/listItems";
+import { createListItem, getListItems, sortListItems, type ListItem } from "@/lib/listItems";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
@@ -1083,7 +1083,7 @@ export default function AddEntry() {
                   <p className="text-sm font-medium text-stone-700 dark:text-stone-200">List items</p>
                   <p className="text-xs text-stone-500 dark:text-stone-400">Add anything you want to track or check off.</p>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setListItems((current) => [...current, createListItem()])}>
+                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setListItems((current) => [createListItem(), ...current])}>
                   <Plus className="h-4 w-4" /> Add item
                 </Button>
               </div>
@@ -1116,7 +1116,7 @@ export default function AddEntry() {
                     <input
                       type="checkbox"
                       checked={item.completed}
-                      onChange={(event) => setListItems((current) => current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, completed: event.target.checked } : currentItem))}
+                      onChange={(event) => setListItems((current) => sortListItems(current.map((currentItem) => currentItem.id === item.id ? { ...currentItem, completed: event.target.checked } : currentItem)))}
                       aria-label={`Mark item ${index + 1} complete`}
                       className="h-4 w-4 rounded border-stone-300"
                     />
