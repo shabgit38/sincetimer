@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays } from "date-fns";
-import { ChevronDown, Plus, Save as SaveIcon, Trash2, X } from "lucide-react";
+import { Plus, Save as SaveIcon, Trash2, X } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -206,7 +206,6 @@ export default function AddEntry() {
   const [logDates, setLogDates] = useState<Record<string, string>>({});
   const [loggingId, setLoggingId] = useState<string | null>(null);
   const [completedLogId, setCompletedLogId] = useState<string | null>(null);
-  const [notesOpen, setNotesOpen] = useState(false);
 
   const normalizedCategory = normalizeCategory(category);
   const isGoal = normalizedCategory === "goal";
@@ -1477,7 +1476,6 @@ export default function AddEntry() {
                   onChange={(event) => {
                     const nextStatus = event.target.value as ReadingStatus;
                     setReadingStatus(nextStatus);
-                    if (nextStatus === "reading" || nextStatus === "done") setNotesOpen(true);
                     if (nextStatus === "done" && !readingCompletedDate) {
                       setReadingCompletedDate(new Date().toISOString().slice(0, 10));
                     }
@@ -1686,35 +1684,13 @@ export default function AddEntry() {
           </div>
 
           {!isPlan && !isGoal ? (
-          <div className="order-[10] rounded-2xl border border-stone-300 bg-stone-50 dark:border-white/15 dark:bg-white/[0.04]">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-              onClick={() => setNotesOpen((current) => !current)}
-              aria-expanded={notesOpen}
-            >
-              <div>
-                <p className="text-sm font-medium text-stone-700 dark:text-stone-200">Notes</p>
-                <p className="text-xs text-stone-500 dark:text-stone-400">Optional details.</p>
-              </div>
-              <ChevronDown
-                className={`h-4 w-4 shrink-0 text-stone-500 transition dark:text-stone-400 ${
-                  notesOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-            {notesOpen ? (
-              <div className="border-t border-stone-200 p-4 dark:border-white/10">
-                <textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  className={`min-h-[120px] w-full ${textareaClass}`}
-                  placeholder={isReading ? "Highlights, learnings, or optional details..." : "Optional details..."}
-                />
-              </div>
-            ) : null}
-          </div>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              className={`order-[10] min-h-[120px] w-full ${textareaClass}`}
+              placeholder={isReading ? "Highlights, learnings, or optional details..." : "Optional details..."}
+            />
           ) : null}
 
           {error ? <p className="text-sm text-rose-600">{error}</p> : null}
