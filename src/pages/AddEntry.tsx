@@ -1689,7 +1689,7 @@ export default function AddEntry() {
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
               className={`order-[10] min-h-[120px] w-full ${textareaClass}`}
-              placeholder={isReading ? "Highlights, learnings, or optional details..." : "Optional details..."}
+              placeholder="Add additional Notes"
             />
           ) : null}
 
