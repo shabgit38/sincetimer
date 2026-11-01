@@ -1582,7 +1582,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 latestSubscriptionLogDates={latestSubscriptionLogDates}
                 onToggle={() => toggleSection(group.title)}
                 onOpen={(entry) =>
-                  navigate(isPlanEntry(entry) ? "/goals" : isReadingEntry(entry) ? `/reading?focus=${entry.id}` : `/entry/${entry.id}`)
+                  navigate(isPlanEntry(entry) ? `/goals?focus=${encodeURIComponent(entry.id)}` : isReadingEntry(entry) ? `/reading?focus=${entry.id}` : `/entry/${entry.id}`)
                 }
                 onToggleFavorite={handleToggleFavorite}
                 onMarkDone={handleMarkEntryDone}

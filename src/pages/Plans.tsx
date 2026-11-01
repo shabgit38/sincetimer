@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { format, isValid, parseISO } from "date-fns";
 import { ChevronDown, Pencil, Star } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import PlanCalendar from "@/components/plans/PlanCalendar";
 import { updateEntry } from "@/lib/db";
@@ -97,12 +97,16 @@ function HeaderMetrics({ metrics, entryId, title }: { metrics: PlanMetrics; entr
 }
 
 export default function Plans() {
+  const [searchParams] = useSearchParams();
+  const focusGoalId = searchParams.get("focus");
   const [plans, setPlans] = useState<PlanWithSessions[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
   const [expandedPlanIds, setExpandedPlanIds] = useState<Set<string>>(() => new Set());
+  const handledFocusId = useRef<string | null>(null);
+  const pendingFocusId = useRef<string | null>(null);
 
   const loadPlans = async () => {
     setLoading(true);
@@ -120,6 +124,23 @@ export default function Plans() {
   useEffect(() => {
     void loadPlans();
   }, []);
+
+  useEffect(() => {
+    if (loading || !focusGoalId || handledFocusId.current === focusGoalId) return;
+    if (!plans.some(({ entry }) => entry.id === focusGoalId)) return;
+
+    handledFocusId.current = focusGoalId;
+    pendingFocusId.current = focusGoalId;
+    setExpandedPlanIds((current) => new Set(current).add(focusGoalId));
+  }, [focusGoalId, loading, plans]);
+
+  useEffect(() => {
+    const pendingId = pendingFocusId.current;
+    if (!pendingId || !expandedPlanIds.has(pendingId)) return;
+
+    document.getElementById(`goal-${pendingId}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    pendingFocusId.current = null;
+  }, [expandedPlanIds]);
 
   const planSummaries = useMemo(
     () =>
@@ -274,7 +295,7 @@ export default function Plans() {
             const dateRange = getPlanDateRange(entry);
 
             return (
-              <article key={entry.id} className="rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+              <article id={`goal-${entry.id}`} key={entry.id} className="scroll-mt-24 rounded-2xl border border-stone-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex flex-wrap items-center justify-between gap-4 p-5">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <button
