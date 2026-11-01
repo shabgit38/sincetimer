@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
+import { getWeeklyReviewWindow, isDateWithinWeeklyReviewWindow } from "@/lib/weeklyReview";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import {
   getAllEntries,
@@ -25,6 +26,15 @@ import type { PlanEffortLevel, PlanSession, PlanSessionStatus } from "@/types/pl
 type SortOption = "created" | "overdue" | "area";
 type ManagedKind = "area" | "category";
 type ReadingStatus = "to_read" | "reading" | "done";
+type WeeklyReviewActivity = {
+  id: string;
+  title: string;
+  areaCategory: string;
+  target: string;
+  date: string;
+  status: "done" | "missed";
+  notes: string;
+};
 
 type DashboardProps = {
   searchQuery?: string;
@@ -1096,6 +1106,7 @@ function EntrySection({
 export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const navigate = useNavigate();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [historyRecords, setHistoryRecords] = useState<HistoryItem[]>([]);
   const [planSessions, setPlanSessions] = useState<PlanSession[]>([]);
   const [latestSubscriptionLogDates, setLatestSubscriptionLogDates] = useState<Record<string, string>>({});
   const [areas, setAreas] = useState<EntryOption[]>([]);
@@ -1118,6 +1129,8 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(["Upcoming", "Unscheduled"])
   );
+  const [reviewDate, setReviewDate] = useState(() => new Date());
+  const weeklyReviewWindow = useMemo(() => getWeeklyReviewWindow(reviewDate), [reviewDate]);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -1132,6 +1145,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         getHistoryForEntries(entryIds),
       ]);
       setEntries(entryData);
+      setHistoryRecords(entryHistory);
       setPlanSessions(planSessionData);
       const latestLogDates = getLatestLogDatesByEntryId(entryHistory);
       setLatestSubscriptionLogDates(latestLogDates);
@@ -1149,6 +1163,17 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     void loadDashboard();
   }, [loadDashboard]);
 
+  useEffect(() => {
+    const nextMidnight = new Date(reviewDate);
+    nextMidnight.setHours(24, 0, 0, 0);
+    const timeoutId = window.setTimeout(() => {
+      setReviewDate(new Date());
+      void loadDashboard();
+    }, Math.max(0, nextMidnight.getTime() - Date.now()));
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loadDashboard, reviewDate]);
+
   const refreshData = async () => {
     const entryData = await getAllEntries();
     const entryIds = entryData.map((entry) => entry.id);
@@ -1159,6 +1184,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       getHistoryForEntries(entryIds),
     ]);
     setEntries(entryData);
+    setHistoryRecords(entryHistory);
     setPlanSessions(planSessionData);
     const latestLogDates = getLatestLogDatesByEntryId(entryHistory);
     setLatestSubscriptionLogDates(latestLogDates);
@@ -1397,6 +1423,90 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     return grouped;
   }, [planSessions]);
 
+  const weeklyReviewActivities = useMemo<WeeklyReviewActivity[]>(() => {
+    if (!weeklyReviewWindow) return [];
+
+    const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
+    const historyCountByEntryId = new Map<string, number>();
+    const activities: WeeklyReviewActivity[] = [];
+    const addedEntryDates = new Set<string>();
+    const localDateKey = (value: string) => {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    };
+
+    historyRecords.forEach((record) => {
+      historyCountByEntryId.set(record.entry_id, (historyCountByEntryId.get(record.entry_id) ?? 0) + 1);
+      const entry = entriesById.get(record.entry_id);
+      if (!entry || !isDateWithinWeeklyReviewWindow(record.logged_date, weeklyReviewWindow)) return;
+
+      const dateKey = localDateKey(record.logged_date);
+      addedEntryDates.add(`${record.entry_id}:${dateKey}`);
+      activities.push({
+        id: `log-${record.id}`,
+        title: entry.title,
+        areaCategory: `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`,
+        target: isPlanEntry(entry)
+          ? `/goals?focus=${encodeURIComponent(entry.id)}`
+          : `/entry/${entry.id}`,
+        date: record.logged_date,
+        status: "done",
+        notes: record.notes,
+      });
+    });
+
+    entries.forEach((entry) => {
+      if (isPlanEntry(entry)) return;
+      const completedCount = entry.metadata.completed_count;
+      const historyCount = historyCountByEntryId.get(entry.id) ?? 0;
+      const entryDateKey = localDateKey(entry.entry_date);
+      if (
+        typeof completedCount !== "number" ||
+        completedCount <= historyCount ||
+        !isDateWithinWeeklyReviewWindow(entry.entry_date, weeklyReviewWindow) ||
+        addedEntryDates.has(`${entry.id}:${entryDateKey}`)
+      ) {
+        return;
+      }
+
+      addedEntryDates.add(`${entry.id}:${entryDateKey}`);
+      activities.push({
+        id: `entry-${entry.id}`,
+        title: entry.title,
+        areaCategory: `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`,
+        target: `/entry/${entry.id}`,
+        date: entry.entry_date,
+        status: "done",
+        notes: "",
+      });
+    });
+
+    planSessions.forEach((session) => {
+      if (session.status !== "completed" && session.status !== "missed") return;
+      const date = session.status === "completed" ? session.completed_at ?? session.session_date : session.session_date;
+      if (!isDateWithinWeeklyReviewWindow(date, weeklyReviewWindow)) return;
+      const entry = entriesById.get(session.entry_id);
+      if (!entry) return;
+
+      activities.push({
+        id: `session-${session.id}`,
+        title: session.title,
+        areaCategory: `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`,
+        target: `/goals?focus=${encodeURIComponent(entry.id)}`,
+        date,
+        status: session.status === "completed" ? "done" : "missed",
+        notes: session.notes ?? "",
+      });
+    });
+
+    return activities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [entries, historyRecords, planSessions, weeklyReviewWindow]);
+
+  const weeklyReviewDateLabel = weeklyReviewWindow
+    ? `${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(weeklyReviewWindow.start)}–${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(weeklyReviewWindow.end)}`
+    : "";
+
   const filteredEntries = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
     const visibleEntries = entries;
@@ -1547,6 +1657,48 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       </div>
 
       <div className="order-2 min-w-0 lg:order-1">
+        {weeklyReviewWindow ? (
+          <section className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">Weekly review</h2>
+              <span className="text-xs text-stone-500 dark:text-stone-400">Monday–Friday · {weeklyReviewDateLabel}</span>
+            </div>
+            {loading ? (
+              <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">Loading this week’s activity...</p>
+            ) : weeklyReviewActivities.length > 0 ? (
+              <ul className="mt-3 divide-y divide-stone-100 dark:divide-white/10">
+                {weeklyReviewActivities.map((activity) => {
+                  return (
+                    <li key={activity.id} className="py-2 first:pt-0 last:pb-0">
+                      <Link
+                        to={activity.target}
+                        className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm hover:text-stone-500 dark:hover:text-stone-300"
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-100">
+                          <span className={activity.status === "missed" ? "text-rose-600 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-300"}>
+                            {activity.status === "missed" ? "Missed · " : "Done · "}
+                          </span>
+                          {activity.title}
+                        </span>
+                        <span className="shrink-0 text-xs text-stone-500 dark:text-stone-400">
+                          {activity.areaCategory} · {new Intl.DateTimeFormat(undefined, { weekday: "short", month: "short", day: "numeric" }).format(new Date(activity.date))}
+                        </span>
+                      </Link>
+                      {activity.notes.trim() ? (
+                        <p className="mt-1 truncate text-xs text-stone-500 dark:text-stone-400">{activity.notes}</p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">No recorded activity for this week.</p>
+            )}
+            <p className="mt-3 text-xs text-stone-400 dark:text-stone-500">
+              Includes logged completions and goal sessions. Checklist changes and missed non-goal tasks aren’t dated yet.
+            </p>
+          </section>
+        ) : null}
         {error ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-950/30 dark:text-rose-200">
             {error}
