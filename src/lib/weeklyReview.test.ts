@@ -10,11 +10,11 @@ describe("getWeeklyReviewWindow", () => {
     expect(window?.end).toEqual(new Date(2026, 9, 30, 23, 59, 59, 999));
   });
 
-  it("returns the same review window on Sunday", () => {
+  it("extends the review window through Saturday on Sunday", () => {
     const window = getWeeklyReviewWindow(new Date(2026, 10, 1, 12));
 
     expect(window?.start).toEqual(new Date(2026, 9, 26, 0, 0, 0, 0));
-    expect(window?.end).toEqual(new Date(2026, 9, 30, 23, 59, 59, 999));
+    expect(window?.end).toEqual(new Date(2026, 9, 31, 23, 59, 59, 999));
   });
 
   it("does not show a review window on weekdays", () => {
@@ -29,6 +29,13 @@ describe("isDateWithinWeeklyReviewWindow", () => {
 
     expect(isDateWithinWeeklyReviewWindow(new Date(2026, 9, 26, 0).toISOString(), window)).toBe(true);
     expect(isDateWithinWeeklyReviewWindow(new Date(2026, 9, 30, 23, 59, 59, 999).toISOString(), window)).toBe(true);
+  });
+
+  it("includes Saturday activity in the Sunday review window", () => {
+    const window = getWeeklyReviewWindow(new Date(2026, 10, 1, 12));
+    if (!window) throw new Error("Expected a weekend review window.");
+
+    expect(isDateWithinWeeklyReviewWindow(new Date(2026, 9, 31, 23, 59, 59, 999).toISOString(), window)).toBe(true);
   });
 
   it("excludes dates outside the review week and invalid dates", () => {

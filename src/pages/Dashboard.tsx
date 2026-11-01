@@ -1661,7 +1661,9 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
           <section className="mb-6 rounded-2xl border border-stone-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">Weekly review</h2>
-              <span className="text-xs text-stone-500 dark:text-stone-400">Monday–Friday · {weeklyReviewDateLabel}</span>
+              <span className="text-xs text-stone-500 dark:text-stone-400">
+                {reviewDate.getDay() === 0 ? "Monday–Saturday" : "Monday–Friday"} · {weeklyReviewDateLabel}
+              </span>
             </div>
             {loading ? (
               <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">Loading this week’s activity...</p>
