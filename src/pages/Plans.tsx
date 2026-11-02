@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { format, isValid, parseISO } from "date-fns";
-import { ChevronDown, Pencil, Star } from "lucide-react";
+import { ChevronDown, Pencil, Star, Trash2 } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import PlanCalendar from "@/components/plans/PlanCalendar";
-import { updateEntry } from "@/lib/db";
+import { deleteEntry, updateEntry } from "@/lib/db";
 import {
   deletePlanSession,
   getPlanMetrics,
@@ -65,7 +65,19 @@ function getToneClasses(tone: string) {
   return "border-stone-200 bg-stone-50 text-stone-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300";
 }
 
-function HeaderMetrics({ metrics, entryId, title }: { metrics: PlanMetrics; entryId: string; title: string }) {
+function HeaderMetrics({
+  metrics,
+  entryId,
+  title,
+  onDelete,
+  deleting,
+}: {
+  metrics: PlanMetrics;
+  entryId: string;
+  title: string;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
   const items = [
     { label: "Progress", value: `${metrics.completionRate}%` },
     { label: "Done", value: `${metrics.completed}/${metrics.total}` },
@@ -92,6 +104,16 @@ function HeaderMetrics({ metrics, entryId, title }: { metrics: PlanMetrics; entr
       >
         <Pencil className="h-3 w-3 stroke-[2.4]" />
       </Link>
+      <button
+        type="button"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center self-center rounded-md border border-rose-300/70 bg-transparent text-rose-700 transition hover:border-rose-400 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 disabled:cursor-wait disabled:opacity-60 dark:border-rose-300/65 dark:text-rose-200 dark:hover:border-rose-200 dark:hover:bg-rose-400/10"
+        onClick={onDelete}
+        disabled={deleting}
+        aria-label={`Delete ${title}`}
+        title="Delete goal"
+      >
+        <Trash2 className="h-3 w-3 stroke-[2.4]" />
+      </button>
     </div>
   );
 }
@@ -103,6 +125,7 @@ export default function Plans() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
   const [favoriteSavingIds, setFavoriteSavingIds] = useState<Set<string>>(() => new Set());
   const [expandedPlanIds, setExpandedPlanIds] = useState<Set<string>>(() => new Set());
   const handledFocusId = useRef<string | null>(null);
@@ -241,6 +264,21 @@ export default function Plans() {
     }
   };
 
+  const handleDeleteGoal = async (entry: Entry) => {
+    if (!window.confirm(`Delete "${entry.title}" and all its sessions and history? This cannot be undone.`)) return;
+    setDeletingGoalId(entry.id);
+    setError(null);
+    try {
+      await deleteEntry(entry.id);
+      setPlans((current) => current.filter((plan) => plan.entry.id !== entry.id));
+    } catch (deleteError) {
+      console.error(deleteError);
+      setError("Unable to delete this goal.");
+    } finally {
+      setDeletingGoalId(null);
+    }
+  };
+
   const togglePlan = (entryId: string) => {
     setExpandedPlanIds((current) => {
       const next = new Set(current);
@@ -350,7 +388,13 @@ export default function Plans() {
                     <p className="font-medium leading-tight">{due.label}</p>
                     <p className="mt-0.5 text-[11px] leading-tight opacity-70">{due.detail}</p>
                   </div>
-                  <HeaderMetrics metrics={metrics} entryId={entry.id} title={entry.title} />
+                  <HeaderMetrics
+                    metrics={metrics}
+                    entryId={entry.id}
+                    title={entry.title}
+                    onDelete={() => void handleDeleteGoal(entry)}
+                    deleting={deletingGoalId === entry.id}
+                  />
                 </div>
                 {expanded ? (
                   <div className="border-t border-stone-200 p-5 dark:border-white/10">
