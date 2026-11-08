@@ -12,7 +12,7 @@ export function getWeeklyReviewWindow(now: Date): WeeklyReviewWindow | null {
   start.setDate(start.getDate() + (day === 0 ? -6 : 1 - day));
 
   const end = new Date(start);
-  end.setDate(end.getDate() + (day === 0 ? 5 : 4));
+  end.setDate(end.getDate() + (day === 0 ? 6 : 5));
   end.setHours(23, 59, 59, 999);
 
   return { start, end };

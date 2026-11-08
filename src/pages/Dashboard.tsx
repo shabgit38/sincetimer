@@ -32,7 +32,7 @@ type WeeklyReviewActivity = {
   areaCategory: string;
   target: string;
   date: string;
-  status: "done" | "missed";
+  status: "done" | "missed" | "due";
   notes: string;
 };
 
@@ -1483,7 +1483,23 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     });
 
     planSessions.forEach((session) => {
-      if (session.status !== "completed" && session.status !== "missed") return;
+      if (session.status === "scheduled") {
+        if (!isDateWithinWeeklyReviewWindow(session.session_date, weeklyReviewWindow)) return;
+        const entry = entriesById.get(session.entry_id);
+        if (!entry) return;
+
+        activities.push({
+          id: `due-session-${session.id}`,
+          title: session.title,
+          areaCategory: `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`,
+          target: `/goals?focus=${encodeURIComponent(entry.id)}`,
+          date: session.session_date,
+          status: "due",
+          notes: "",
+        });
+        return;
+      }
+
       const date = session.status === "completed" ? session.completed_at ?? session.session_date : session.session_date;
       if (!isDateWithinWeeklyReviewWindow(date, weeklyReviewWindow)) return;
       const entry = entriesById.get(session.entry_id);
@@ -1497,6 +1513,23 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         date,
         status: session.status === "completed" ? "done" : "missed",
         notes: session.notes ?? "",
+      });
+    });
+
+    entries.forEach((entry) => {
+      if (isPlanEntry(entry) || !entry.next_due_date) return;
+      if (!isDateWithinWeeklyReviewWindow(entry.next_due_date, weeklyReviewWindow)) return;
+      const dueDateKey = localDateKey(entry.next_due_date);
+      if (addedEntryDates.has(`${entry.id}:${dueDateKey}`)) return;
+
+      activities.push({
+        id: `due-entry-${entry.id}`,
+        title: entry.title,
+        areaCategory: `${formatOptionLabel(entry.area)} / ${formatOptionLabel(entry.category)}`,
+        target: `/entry/${entry.id}`,
+        date: entry.next_due_date,
+        status: "due",
+        notes: "",
       });
     });
 
@@ -1662,7 +1695,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-sm font-semibold text-stone-950 dark:text-stone-50">Weekly review</h2>
               <span className="text-xs text-stone-500 dark:text-stone-400">
-                {reviewDate.getDay() === 0 ? "Monday–Saturday" : "Monday–Friday"} · {weeklyReviewDateLabel}
+                {reviewDate.getDay() === 0 ? "Monday–Sunday" : "Monday–Saturday"} · {weeklyReviewDateLabel}
               </span>
             </div>
             {loading ? (
@@ -1677,8 +1710,14 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                         className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm hover:text-stone-500 dark:hover:text-stone-300"
                       >
                         <span className="min-w-0 flex-1 truncate font-medium text-stone-800 dark:text-stone-100">
-                          <span className={activity.status === "missed" ? "text-rose-600 dark:text-rose-300" : "text-emerald-700 dark:text-emerald-300"}>
-                            {activity.status === "missed" ? "Missed · " : "Done · "}
+                          <span className={
+                            activity.status === "missed"
+                              ? "text-rose-600 dark:text-rose-300"
+                              : activity.status === "due"
+                                ? "text-amber-700 dark:text-amber-300"
+                                : "text-emerald-700 dark:text-emerald-300"
+                          }>
+                          {activity.status === "missed" ? "Missed · " : activity.status === "due" ? "Due · " : "Done · "}
                           </span>
                           {activity.title}
                         </span>
@@ -1694,10 +1733,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
                 })}
               </ul>
             ) : (
-              <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">No recorded activity for this week.</p>
+              <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">No activity or items due this week.</p>
             )}
             <p className="mt-3 text-xs text-stone-400 dark:text-stone-500">
-              Includes logged completions and goal sessions. Checklist changes and missed non-goal tasks aren’t dated yet.
+              Includes items due this week, logged completions, and goal sessions. Checklist changes and missed non-goal tasks aren’t dated yet.
             </p>
           </section>
         ) : null}
