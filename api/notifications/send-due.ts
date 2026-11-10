@@ -203,6 +203,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
       const userEntries = reminderEntries.filter((entry) => entry.user_id === subscription.user_id);
 
       for (const entry of userEntries) {
+        if (typeof entry.metadata?.paused_at === 'string') {
+          skipped += 1;
+          continue;
+        }
+
         const reminder = shouldSendReminder(entry, timezone);
         if (!reminder.due) {
           skipped += 1;

@@ -762,6 +762,7 @@ export default function AddEntry() {
           : {}),
         tags: tagValues,
         favorite,
+        paused_at: isRoutine || isSubscription ? existingEntry?.metadata.paused_at ?? null : null,
         currency: hasCost || (isList && listTrackPrices) ? currency : null,
       },
       price: hasCost ? priceValue : null,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
 import { getWeeklyReviewWindow, isDateWithinWeeklyReviewWindow } from "@/lib/weeklyReview";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
+import { isEntryPaused } from "@/lib/entryPause";
 import {
   getAllEntries,
   getAreas,
@@ -481,6 +482,14 @@ function isPlanSessionActionable(session: PlanSession) {
 
 function getDueCopy(entry: Entry) {
   const summary = computeTimeSummary(entry.entry_date, entry.next_due_date);
+  if (isEntryPaused(entry.metadata)) {
+    return {
+      tone: "neutral",
+      label: "Paused",
+      detail: "Paused",
+      summary,
+    };
+  }
   if (!entry.next_due_date) {
     return {
       tone: "neutral",
@@ -636,7 +645,7 @@ function CompactDashboardListItem({
         </button>
 
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] sm:shrink-0 sm:justify-end">
-          {entry.next_due_date || isPlan ? (
+          {entry.next_due_date || isPlan || isEntryPaused(entry.metadata) ? (
             <span className={`rounded-xl border px-2.5 py-1.5 text-xs font-medium ${getToneClasses(due.tone, accent === "favorite")}`}>
               {due.label}
             </span>
@@ -1517,7 +1526,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
     });
 
     entries.forEach((entry) => {
-      if (isPlanEntry(entry) || !entry.next_due_date) return;
+      if (isPlanEntry(entry) || isEntryPaused(entry.metadata) || !entry.next_due_date) return;
       if (!isDateWithinWeeklyReviewWindow(entry.next_due_date, weeklyReviewWindow)) return;
       const dueDateKey = localDateKey(entry.next_due_date);
       if (addedEntryDates.has(`${entry.id}:${dueDateKey}`)) return;
@@ -1571,6 +1580,7 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
 
   const entryGroups = useMemo<EntryGroup[]>(() => {
     const favorites: Entry[] = [];
+    const paused: Entry[] = [];
     const overdue: Entry[] = [];
     const today: Entry[] = [];
     const dueSoon: Entry[] = [];
@@ -1584,6 +1594,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       const summary = computeTimeSummary(entry.entry_date, dueDate);
       if (isReadingEntry(entry)) {
         if (getReadingStatus(entry) !== "done") readingList.push(entry);
+        return;
+      }
+      if (isEntryPaused(entry.metadata)) {
+        paused.push(entry);
         return;
       }
       if (dueDate && summary.nextDueIn === 0) {
@@ -1614,6 +1628,11 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
           ...sortDashboardGroup("Favorites", favorites, planSessionsByEntryId),
           ...sortDashboardGroup("Overdue", overdue, planSessionsByEntryId),
         ],
+      },
+      {
+        title: "Paused",
+        description: "Recurring routines and subscriptions paused until you resume them.",
+        entries: sortDashboardGroup("Paused", paused, planSessionsByEntryId),
       },
       {
         title: "Reading list",

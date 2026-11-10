@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { canPauseEntry, getPauseUpdates, isEntryPaused } from './entryPause';
 import { getBillingCycle, getNextSubscriptionDueDate, getSubscriptionRenewalType } from './subscriptions';
 import { getNextRecurrenceDate, getRoutineRecurrenceConfig, toIsoDate } from '@/lib/recurrence';
 import type { AppSetting, Entry, EntryOption, EntryPayload, HistoryItem } from '@/types/entry';
@@ -67,6 +68,7 @@ function isSubscriptionEntry(entry: Entry) {
 }
 
 function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (isEntryPaused(entry.metadata)) return entry.next_due_date;
   if (isSubscriptionEntry(entry)) {
     return getNextSubscriptionDueDate(
       entry.entry_date,
@@ -282,6 +284,19 @@ export async function updateEntry(id: string, updates: Partial<EntryPayload>): P
   if (error) throw error;
 }
 
+export async function pauseEntry(entry: Entry): Promise<void> {
+  if (!canPauseEntry(entry)) throw new Error('Only recurring routines and subscriptions can be paused.');
+  if (isEntryPaused(entry.metadata)) throw new Error('This entry is already paused.');
+
+  await updateEntry(entry.id, {
+    metadata: { ...entry.metadata, paused_at: new Date().toISOString() },
+  });
+}
+
+export async function resumeEntry(entry: Entry): Promise<void> {
+  await updateEntry(entry.id, getPauseUpdates(entry, new Date()));
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   const { error } = await supabase.from('entries').delete().eq('id', id);
   if (error) throw error;
@@ -354,6 +369,7 @@ export async function logEntryAgain(
 ): Promise<void> {
   const history = await getHistoryForEntry(entry.id);
   const isSubscription = isSubscriptionEntry(entry);
+  const isPaused = isEntryPaused(entry.metadata);
   const latestLogDate = getLatestLogDate(entry, history);
   const shouldPromoteLog = loggedAt >= latestLogDate;
   const historyDate = isSubscription ? loggedAt : shouldPromoteLog ? new Date(entry.entry_date) : loggedAt;
@@ -387,13 +403,13 @@ export async function logEntryAgain(
   await updateEntry(entry.id, {
     ...(isSubscription
       ? {
-          next_due_date: getNextDueDateForLog(entry, loggedAt),
+          ...(!isPaused ? { next_due_date: getNextDueDateForLog(entry, loggedAt) } : {}),
           price: logPrice,
         }
       : shouldPromoteLog
       ? {
           entry_date: loggedAt.toISOString(),
-          next_due_date: getNextDueDateForLog(entry, loggedAt),
+          ...(!isPaused ? { next_due_date: getNextDueDateForLog(entry, loggedAt) } : {}),
         }
       : {}),
     metadata: {

@@ -1,10 +1,11 @@
 import { differenceInCalendarDays, format, isAfter, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Save as SaveIcon, Trash2, X } from "lucide-react";
+import { Pause, Pencil, Play, Save as SaveIcon, Trash2, X } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/currency";
+import { canPauseEntry, isEntryPaused } from "@/lib/entryPause";
 import {
   getBillingCycle,
   getNextSubscriptionDueDate,
@@ -20,12 +21,15 @@ import {
   getHistoryForEntry,
   getHistoryMonths,
   logEntryAgain,
+  pauseEntry,
+  resumeEntry,
   updateEntry,
   updateHistory,
 } from "@/lib/db";
 import type { Entry, HistoryItem } from "@/types/entry";
 
 function getNextDueDateForLog(entry: Entry, loggedAt: Date) {
+  if (isEntryPaused(entry.metadata)) return entry.next_due_date;
   if (normalizeCategory(entry.category) === "subscription") {
     return getNextSubscriptionDueDate(
       entry.entry_date,
@@ -159,6 +163,8 @@ export default function EntryDetail() {
   const [editHistoryPrice, setEditHistoryPrice] = useState("");
   const [historySavingId, setHistorySavingId] = useState<string | null>(null);
   const [listSavingId, setListSavingId] = useState<string | null>(null);
+  const [pauseSaving, setPauseSaving] = useState(false);
+  const [pauseError, setPauseError] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -328,7 +334,7 @@ export default function EntryDetail() {
         : {
             entry_date: nextEntryDate,
           }),
-      next_due_date: getNextDueDateForLog(entry, latest),
+      ...(!isEntryPaused(entry.metadata) ? { next_due_date: getNextDueDateForLog(entry, latest) } : {}),
       metadata: {
         ...entry.metadata,
         completed_count: isSubscriptionEntry
@@ -419,6 +425,27 @@ export default function EntryDetail() {
     navigate("/");
   };
 
+  const handleTogglePause = async () => {
+    if (!entry || pauseSaving) return;
+    setPauseSaving(true);
+    setPauseError(null);
+    try {
+      if (isEntryPaused(entry.metadata)) {
+        await resumeEntry(entry);
+      } else {
+        await pauseEntry(entry);
+      }
+      const updated = await getEntryById(entry.id);
+      if (!updated) throw new Error("Entry not found after updating its pause status.");
+      setEntry(updated);
+    } catch (saveError) {
+      console.error(saveError);
+      setPauseError(saveError instanceof Error ? saveError.message : "Unable to update pause status.");
+    } finally {
+      setPauseSaving(false);
+    }
+  };
+
   const handleToggleListItem = async (itemId: string) => {
     if (!entry || !entryId || listSavingId) return;
     const currentItems = getListItems(entry.metadata);
@@ -472,6 +499,8 @@ export default function EntryDetail() {
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
   const isList = normalizedCategory === "list";
+  const pauseEligible = canPauseEntry(entry);
+  const isPaused = isEntryPaused(entry.metadata);
   const listItems = isList ? getListItems(entry.metadata) : [];
   const listTracksPrices = isList && entry.metadata.list_track_prices === true;
   const getListItemTotal = (item: (typeof listItems)[number]) => (item.quantity ?? 1) * (item.price ?? 0);
@@ -508,6 +537,19 @@ export default function EntryDetail() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {pauseEligible ? (
+            <Button
+              variant="outline"
+              size="md"
+              className="h-12 gap-2"
+              disabled={pauseSaving}
+              onClick={() => void handleTogglePause()}
+              aria-label={`${isPaused ? "Resume" : "Pause"} ${entry.title}`}
+            >
+              {isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+              {pauseSaving ? "Saving..." : isPaused ? "Resume" : "Pause"}
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="md"
@@ -530,6 +572,16 @@ export default function EntryDetail() {
           </Button>
         </div>
       </div>
+      {pauseEligible ? (
+        <div className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-stone-300">
+          <p>
+            {isPaused
+              ? "Paused. The due date will shift forward by the time paused when resumed."
+              : "Pausing stops app reminders and due tracking. It does not stop subscription billing with the provider."}
+          </p>
+          {pauseError ? <p className="mt-2 text-rose-600 dark:text-rose-300">{pauseError}</p> : null}
+        </div>
+      ) : null}
 
       <div className={`grid gap-4 rounded-2xl ${logCompleted ? "animate-log-complete" : ""} md:grid-cols-3`}>
         <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
@@ -560,8 +612,10 @@ export default function EntryDetail() {
                 : "Not set"
               : entry.next_due_date ? format(parseISO(entry.next_due_date), "PPP") : "Not set"}
           </p>
-          <p className={`mt-1 text-sm ${timeSummary?.isOverdue ? "text-rose-600 dark:text-rose-300" : "text-stone-500 dark:text-stone-400"}`}>
-            {isGoal
+          <p className={`mt-1 text-sm ${!isPaused && timeSummary?.isOverdue ? "text-rose-600 dark:text-rose-300" : "text-stone-500 dark:text-stone-400"}`}>
+            {isPaused
+              ? "Paused; the due date shifts forward when resumed"
+              : isGoal
               ? entry.next_due_date && timeSummary
                 ? timeSummary.isOverdue
                   ? `Target passed by ${Math.abs(timeSummary.nextDueIn ?? 0)} days`
@@ -674,9 +728,9 @@ export default function EntryDetail() {
               </p>
             </div>
             <div>
-              <p className="text-stone-400">Overdue days</p>
-              <p className={`mt-1 font-semibold ${routineSummary?.isOverdue ? "text-rose-600" : "text-stone-900"}`}>
-                {routineSummary?.overdueDays ?? 0}
+              <p className="text-stone-400">{isPaused ? "Schedule status" : "Overdue days"}</p>
+              <p className={`mt-1 font-semibold ${!isPaused && routineSummary?.isOverdue ? "text-rose-600" : "text-stone-900"}`}>
+                {isPaused ? "Paused" : routineSummary?.overdueDays ?? 0}
               </p>
             </div>
           </div>
