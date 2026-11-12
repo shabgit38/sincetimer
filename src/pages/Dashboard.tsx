@@ -1630,11 +1630,6 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         ],
       },
       {
-        title: "Paused",
-        description: "Recurring routines and subscriptions paused until you resume them.",
-        entries: sortDashboardGroup("Paused", paused, planSessionsByEntryId),
-      },
-      {
         title: "Reading list",
         description: "Links and topics waiting for focused reading.",
         entries: sortDashboardGroup("Reading list", readingList, planSessionsByEntryId),
@@ -1643,6 +1638,11 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
         title: "Due soon",
         description: "Coming up in the next 7 days.",
         entries: sortDashboardGroup("Due soon", dueSoon, planSessionsByEntryId),
+      },
+      {
+        title: "Paused",
+        description: "Recurring routines and subscriptions paused until you resume them.",
+        entries: sortDashboardGroup("Paused", paused, planSessionsByEntryId),
       },
       {
         title: "Upcoming",
