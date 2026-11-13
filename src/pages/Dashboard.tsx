@@ -1,3 +1,4 @@
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ExternalLink, Info, MessageSquarePlus, Plus, Save as SaveIcon, Star, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -394,6 +395,16 @@ function getReadingStatus(entry: Entry): ReadingStatus {
   return entry.metadata.reading_status === "reading" || entry.metadata.reading_status === "done"
     ? entry.metadata.reading_status
     : "to_read";
+}
+
+function getDaysSinceReading(entry: Entry) {
+  if (getReadingStatus(entry) !== "reading") return null;
+
+  const startedDate = getStringMetadata(entry, "reading_started_date");
+  if (!startedDate) return null;
+
+  const days = differenceInCalendarDays(new Date(), parseISO(startedDate));
+  return Number.isFinite(days) ? Math.max(0, days) : null;
 }
 
 function getReadingStatusRank(entry: Entry) {
@@ -850,6 +861,7 @@ function ReadingDashboardListItem({
   const topic = getStringMetadata(entry, "reading_topic");
   const url = getStringMetadata(entry, "reading_url");
   const status = getReadingStatus(entry);
+  const daysSinceReading = getDaysSinceReading(entry);
   const isFavorite = getBooleanMetadata(entry, "favorite");
   const [notesOpen, setNotesOpen] = useState(false);
   const [notesDraft, setNotesDraft] = useState(entry.notes ?? "");
@@ -895,9 +907,19 @@ function ReadingDashboardListItem({
         ) : null}
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className={`inline-flex h-7 items-center rounded-full px-2 text-[11px] font-medium ${getReadingStatusChipClass(status)}`}>
-          {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {daysSinceReading !== null ? (
+            <span
+              className="inline-flex h-7 items-center rounded-full bg-sky-50 px-2 text-[11px] font-medium text-sky-800 dark:bg-sky-300/10 dark:text-sky-100"
+              title={`${daysSinceReading} ${daysSinceReading === 1 ? "day" : "days"} since reading`}
+            >
+              {daysSinceReading} {daysSinceReading === 1 ? "day" : "days"}
+            </span>
+          ) : null}
+          <span className={`inline-flex h-7 items-center rounded-full px-2 text-[11px] font-medium ${getReadingStatusChipClass(status)}`}>
+            {status === "reading" ? "Reading" : status === "done" ? "Done" : "To read"}
+          </span>
+        </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"

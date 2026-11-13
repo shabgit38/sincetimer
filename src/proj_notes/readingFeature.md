@@ -57,6 +57,7 @@ Rules:
 - Include only items where `metadata.reading_status` is not `done`.
 - Do not require `next_due_date`.
 - Cards should prioritize title, topic, status, link, and short notes.
+- For items marked `reading`, show a compact elapsed-days label based on `metadata.reading_started_date`.
 
 ## Reading Page Behavior
 
