@@ -161,8 +161,20 @@ export default async function handler(request: VercelRequest, response: VercelRe
     }
 
     const activeSubscriptions = (subscriptions ?? []) as PushSubscriptionRecord[];
+    const readingDigest = {
+      checkedSubscriptions: activeSubscriptions.length,
+      eligibleSubscriptions: 0,
+      sent: 0,
+      pushFailures: 0,
+      deliveryRecordFailures: 0,
+      noPendingItems: 0,
+      notSaturday: 0,
+      beforeSendTime: 0,
+      alreadyDelivered: 0,
+    };
     if (activeSubscriptions.length === 0) {
-      response.status(200).json({ checked: 0, sent: 0 });
+      console.info('Reading digest summary', readingDigest);
+      response.status(200).json({ checked: 0, sent: 0, readingEntries: 0, readingDigest });
       return;
     }
 
@@ -262,8 +274,15 @@ export default async function handler(request: VercelRequest, response: VercelRe
 
       const localParts = getLocalParts(new Date(), timezone);
       const userReadingEntries = pendingReadingEntries.filter((entry) => entry.user_id === subscription.user_id);
-      if (!isSaturday(localParts) || !isAtOrAfterReadingDigestTime(localParts) || userReadingEntries.length === 0) continue;
+      const isDigestDay = isSaturday(localParts);
+      const isAfterDigestTime = isAtOrAfterReadingDigestTime(localParts);
 
+      if (userReadingEntries.length === 0) readingDigest.noPendingItems += 1;
+      if (!isDigestDay) readingDigest.notSaturday += 1;
+      if (!isAfterDigestTime) readingDigest.beforeSendTime += 1;
+      if (userReadingEntries.length === 0 || !isDigestDay || !isAfterDigestTime) continue;
+
+      readingDigest.eligibleSubscriptions += 1;
       const digestReminderAt = getReadingDigestKey(localParts);
       const readingEntryIds = userReadingEntries.map((entry) => entry.id);
       const { data: existingDigest, error: digestLookupError } = await supabase
@@ -277,9 +296,11 @@ export default async function handler(request: VercelRequest, response: VercelRe
       if (digestLookupError) throw digestLookupError;
       if ((existingDigest ?? []).length > 0) {
         skipped += 1;
+        readingDigest.alreadyDelivered += 1;
         continue;
       }
 
+      let pushSent = false;
       try {
         const itemCount = userReadingEntries.length;
         await webpush.sendNotification(
@@ -290,6 +311,8 @@ export default async function handler(request: VercelRequest, response: VercelRe
             url: '/reading',
           })
         );
+        pushSent = true;
+        readingDigest.sent += 1;
 
         const { error: digestDeliveryError } = await supabase.from('reminder_deliveries').insert(
           userReadingEntries.map((entry) => ({
@@ -302,25 +325,43 @@ export default async function handler(request: VercelRequest, response: VercelRe
         if (digestDeliveryError) throw digestDeliveryError;
         sent += 1;
       } catch (sendError) {
+        const stage = pushSent ? 'record_delivery' : 'send_push';
+        if (pushSent) {
+          readingDigest.deliveryRecordFailures += 1;
+        } else {
+          readingDigest.pushFailures += 1;
+        }
         const statusCode =
           typeof sendError === 'object' && sendError !== null && 'statusCode' in sendError
             ? Number((sendError as { statusCode?: number }).statusCode)
             : null;
+        const errorCode =
+          typeof sendError === 'object' &&
+          sendError !== null &&
+          'code' in sendError &&
+          typeof sendError.code === 'string'
+            ? sendError.code
+            : null;
 
+        console.error('Reading digest delivery failed', {
+          stage,
+          statusCode,
+          errorCode,
+        });
         if (statusCode === 404 || statusCode === 410) {
           await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
-        } else {
-          console.error(sendError);
         }
       }
     }
 
+    console.info('Reading digest summary', readingDigest);
     response.status(200).json({
       checked: activeSubscriptions.length,
       entries: reminderEntries.length,
       readingEntries: pendingReadingEntries.length,
       sent,
       skipped,
+      readingDigest,
     });
   } catch (error) {
     console.error(error);
