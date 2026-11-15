@@ -20,7 +20,7 @@ export function getBookTopicReadingEntries(entries: ReadingEntryForImport[]): Re
     return (
       normalizeCategory(entry.category) === "reading" &&
       typeof readingTopic === "string" &&
-      /\bbook\b/i.test(readingTopic)
+      /\bbooks?\b/i.test(readingTopic)
     );
   });
 }

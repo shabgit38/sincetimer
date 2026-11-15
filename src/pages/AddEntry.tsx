@@ -1372,7 +1372,7 @@ export default function AddEntry() {
                   ) : null}
                   {isJustReadGoal ? (
                     <p className="text-xs text-stone-500 dark:text-stone-400">
-                      Imports titles and notes where the Reading topic contains the whole word “book”, regardless of reading status. Existing topics are kept.
+                      Imports titles and notes where the Reading topic contains the whole word “book” or “books”, regardless of reading status. Existing topics are kept.
                     </p>
                   ) : null}
                 </div>

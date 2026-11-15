@@ -29,7 +29,7 @@ Choose **Add Goal**, or use the edit icon on an existing goal. The form includes
   - A specific date
 - **Session minutes:** Store the planned duration for a session.
 - **Status:** Set the goal to Active, Paused, or Completed.
-- **Topic backlog:** Collect ideas relevant to this goal. Separate topics with a blank line. For the goal titled **Just Read**, use **Import book-topic items** to import only Reading entries whose topic contains the whole word “book”, regardless of reading status. Each backlog item contains the reading title and, when present, its notes on the next line. Existing topics are kept. A single line break or comma remains part of the same topic. The backlog is not connected to the app's separate todo list.
+- **Topic backlog:** Collect ideas relevant to this goal. Separate topics with a blank line. For the goal titled **Just Read**, use **Import book-topic items** to import only Reading entries whose topic contains the whole word “book” or “books”, regardless of reading status. Each backlog item contains the reading title and, when present, its notes on the next line. Existing topics are kept. A single line break or comma remains part of the same topic. The backlog is not connected to the app's separate todo list.
 - **Notes:** Add optional details about the goal.
 
 Use **Save** to submit the form. The top-of-form and bottom-of-form save buttons perform the same action. **Close** and the Back button return to the previous Goals or Dashboard destination without saving unsaved changes.

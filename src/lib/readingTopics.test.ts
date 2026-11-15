@@ -6,13 +6,14 @@ import {
 } from "@/lib/readingTopics";
 
 describe("getBookTopicReadingEntries", () => {
-  it("matches the whole word book in reading topics regardless of status", () => {
+  it("matches the whole word book or books in reading topics regardless of status", () => {
     const entries = [
       { title: "Pending", notes: "", category: "reading", metadata: { reading_topic: "Book notes", reading_status: "to_read" } },
       { title: "In progress", notes: "", category: "reading", metadata: { reading_topic: "Audio-book", reading_status: "reading" } },
       { title: "Completed", notes: "", category: "reading", metadata: { reading_topic: "BOOK reviews", reading_status: "done" } },
       { title: "Notebook", notes: "", category: "reading", metadata: { reading_topic: "Notebooking" } },
-      { title: "Books", notes: "", category: "reading", metadata: { reading_topic: "Books to read" } },
+      { title: "Books", notes: "", category: "reading", metadata: { reading_topic: "Books to read", reading_status: "done" } },
+      { title: "Bookstore", notes: "", category: "reading", metadata: { reading_topic: "Bookstore" } },
       { title: "Wrong category", notes: "", category: "task", metadata: { reading_topic: "Book notes" } },
     ];
 
@@ -20,6 +21,7 @@ describe("getBookTopicReadingEntries", () => {
       "Pending",
       "In progress",
       "Completed",
+      "Books",
     ]);
   });
 });
