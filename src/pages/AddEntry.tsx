@@ -26,6 +26,7 @@ import {
 } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import { createListItem, getListItems, sortListItems, type ListItem } from "@/lib/listItems";
+import { mergeReadingTitlesIntoTopics } from "@/lib/readingTopics";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
@@ -189,6 +190,7 @@ export default function AddEntry() {
   const [planSessionDurationMinutes, setPlanSessionDurationMinutes] = useState("30");
   const [planStatus, setPlanStatus] = useState<PlanStatus>("active");
   const [planTopics, setPlanTopics] = useState("");
+  const [readingImportMessage, setReadingImportMessage] = useState("");
   const [seller, setSeller] = useState("");
   const [invoiceImage, setInvoiceImage] = useState("");
   const [doctor, setDoctor] = useState("");
@@ -494,6 +496,27 @@ export default function AddEntry() {
       .filter((entry) => entry.area === area && entry.category === category)
       .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
   }, [area, category, entries]);
+
+  const readingEntries = useMemo(
+    () => entries.filter((entry) => normalizeCategory(entry.category) === "reading"),
+    [entries]
+  );
+
+  const handleImportReadingItems = () => {
+    const currentTopics = planTopics
+      .split(/\r?\n\s*\r?\n/)
+      .map((topic) => topic.trim())
+      .filter(Boolean);
+    const { topics, addedCount } = mergeReadingTitlesIntoTopics(currentTopics, readingEntries);
+    setPlanTopics(topics.join("\n\n"));
+    setReadingImportMessage(
+      addedCount > 0
+        ? `Added ${addedCount} reading item${addedCount === 1 ? "" : "s"}. Existing topics were kept.`
+        : readingEntries.length === 0
+          ? "No reading items found."
+          : "All reading item titles are already in the backlog."
+    );
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -1295,19 +1318,38 @@ export default function AddEntry() {
                   </select>
                 </div>
                 <div className="grid min-w-0 gap-2">
-                  <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
-                    Topic backlog
-                  </label>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
+                      Topic backlog
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleImportReadingItems}
+                      disabled={readingEntries.length === 0}
+                    >
+                      Import all reading items ({readingEntries.length})
+                    </Button>
+                  </div>
                   <textarea
                     id="planTopics"
                     value={planTopics}
-                    onChange={(event) => setPlanTopics(event.target.value)}
+                    onChange={(event) => {
+                      setPlanTopics(event.target.value);
+                      setReadingImportMessage("");
+                    }}
                     className={`min-h-[96px] ${textareaClass}`}
                     placeholder="Add an idea, then leave a blank line before the next..."
                   />
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Separate topics with a blank line. Choose one from this list when a session is due.
+                    Separate topics with a blank line. Import includes completed, pending, and in-progress reading items; existing topics are kept.
                   </p>
+                  {readingImportMessage ? (
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300" role="status">
+                      {readingImportMessage}
+                    </p>
+                  ) : null}
                 </div>
               </div>
               <div className="grid gap-2 md:col-span-3 xl:col-span-3">
