@@ -216,6 +216,7 @@ export default function AddEntry() {
   const isPurchase = normalizedCategory === "purchase";
   const isHealthRecord = normalizedCategory === "health record";
   const isPlan = isPlanAreaCategory(area, category);
+  const isJustReadGoal = isPlan && title.trim().toLocaleLowerCase() === "just read";
   const returnPath = isPlan ? "/goals" : "/";
   const isReading = normalizedCategory === "reading";
   const isList = normalizedCategory === "list";
@@ -1322,15 +1323,17 @@ export default function AddEntry() {
                     <label className="text-sm font-medium text-stone-700 dark:text-stone-200" htmlFor="planTopics">
                       Topic backlog
                     </label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleImportReadingItems}
-                      disabled={readingEntries.length === 0}
-                    >
-                      Import all reading items ({readingEntries.length})
-                    </Button>
+                    {isJustReadGoal ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleImportReadingItems}
+                        disabled={readingEntries.length === 0}
+                      >
+                        Import all reading items ({readingEntries.length})
+                      </Button>
+                    ) : null}
                   </div>
                   <textarea
                     id="planTopics"
@@ -1343,11 +1346,16 @@ export default function AddEntry() {
                     placeholder="Add an idea, then leave a blank line before the next..."
                   />
                   <p className="text-xs text-stone-500 dark:text-stone-400">
-                    Separate topics with a blank line. Import includes completed, pending, and in-progress reading items; existing topics are kept.
+                    Separate topics with a blank line. Choose one from this list when a session is due.
                   </p>
-                  {readingImportMessage ? (
+                  {isJustReadGoal && readingImportMessage ? (
                     <p className="text-xs text-emerald-700 dark:text-emerald-300" role="status">
                       {readingImportMessage}
+                    </p>
+                  ) : null}
+                  {isJustReadGoal ? (
+                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                      Import includes completed, pending, and in-progress reading items. Existing topics are kept.
                     </p>
                   ) : null}
                 </div>
