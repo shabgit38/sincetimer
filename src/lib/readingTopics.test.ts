@@ -1,20 +1,50 @@
 import { describe, expect, it } from "vitest";
 
-import { mergeReadingTitlesIntoTopics } from "@/lib/readingTopics";
+import {
+  getBookTopicReadingEntries,
+  mergeBookReadingItemsIntoTopics,
+} from "@/lib/readingTopics";
 
-describe("mergeReadingTitlesIntoTopics", () => {
-  it("imports reading titles in every status, keeps existing topics, and skips duplicates", () => {
+describe("getBookTopicReadingEntries", () => {
+  it("matches the whole word book in reading topics regardless of status", () => {
     const entries = [
-      { title: "Pending book", category: "reading", metadata: { reading_status: "to_read" } },
-      { title: "  In-progress article  ", category: "reading", metadata: { reading_status: "reading" } },
-      { title: "Completed essay", category: "reading", metadata: { reading_status: "done" } },
-      { title: " pending BOOK ", category: "reading", metadata: { reading_status: "done" } },
-      { title: "Not a reading item", category: "task", metadata: {} },
+      { title: "Pending", notes: "", category: "reading", metadata: { reading_topic: "Book notes", reading_status: "to_read" } },
+      { title: "In progress", notes: "", category: "reading", metadata: { reading_topic: "Audio-book", reading_status: "reading" } },
+      { title: "Completed", notes: "", category: "reading", metadata: { reading_topic: "BOOK reviews", reading_status: "done" } },
+      { title: "Notebook", notes: "", category: "reading", metadata: { reading_topic: "Notebooking" } },
+      { title: "Books", notes: "", category: "reading", metadata: { reading_topic: "Books to read" } },
+      { title: "Wrong category", notes: "", category: "task", metadata: { reading_topic: "Book notes" } },
     ];
 
-    expect(mergeReadingTitlesIntoTopics(["Existing topic", "Pending book"], entries)).toEqual({
-      topics: ["Existing topic", "Pending book", "In-progress article", "Completed essay"],
-      addedCount: 2,
+    expect(getBookTopicReadingEntries(entries).map((entry) => entry.title)).toEqual([
+      "Pending",
+      "In progress",
+      "Completed",
+    ]);
+  });
+});
+
+describe("mergeBookReadingItemsIntoTopics", () => {
+  it("adds titles with notes while keeping existing topics and enriching an existing title", () => {
+    const entries = [
+      {
+        title: "A new book",
+        notes: "First note.\nSecond note.",
+        category: "reading",
+        metadata: { reading_topic: "Book club" },
+      },
+      {
+        title: "Existing book",
+        notes: "Remember the key ideas.",
+        category: "reading",
+        metadata: { reading_topic: "Book recommendations" },
+      },
+    ];
+
+    expect(mergeBookReadingItemsIntoTopics(["Existing topic", "Existing book"], entries)).toEqual({
+      topics: ["Existing topic", "Existing book\nRemember the key ideas.", "A new book\nFirst note. Second note."],
+      addedCount: 1,
+      updatedCount: 1,
     });
   });
 });

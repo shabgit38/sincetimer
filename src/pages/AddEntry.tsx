@@ -26,7 +26,10 @@ import {
 } from "@/lib/subscriptions";
 import { computeTimeSummary, formatYearMonthDayDuration } from "@/lib/timeUtils";
 import { createListItem, getListItems, sortListItems, type ListItem } from "@/lib/listItems";
-import { mergeReadingTitlesIntoTopics } from "@/lib/readingTopics";
+import {
+  getBookTopicReadingEntries,
+  mergeBookReadingItemsIntoTopics,
+} from "@/lib/readingTopics";
 import type { Entry, EntryOption } from "@/types/entry";
 import type { PlanScheduleConfig, PlanScheduleMode, PlanStatus, PlanType } from "@/types/plan";
 
@@ -502,20 +505,34 @@ export default function AddEntry() {
     () => entries.filter((entry) => normalizeCategory(entry.category) === "reading"),
     [entries]
   );
+  const bookTopicReadingEntries = useMemo(
+    () => getBookTopicReadingEntries(readingEntries),
+    [readingEntries]
+  );
 
   const handleImportReadingItems = () => {
     const currentTopics = planTopics
       .split(/\r?\n\s*\r?\n/)
       .map((topic) => topic.trim())
       .filter(Boolean);
-    const { topics, addedCount } = mergeReadingTitlesIntoTopics(currentTopics, readingEntries);
+    const { topics, addedCount, updatedCount } = mergeBookReadingItemsIntoTopics(
+      currentTopics,
+      bookTopicReadingEntries
+    );
     setPlanTopics(topics.join("\n\n"));
+    const importMessages = [];
+    if (addedCount > 0) {
+      importMessages.push(`Added ${addedCount} book-topic item${addedCount === 1 ? "" : "s"}.`);
+    }
+    if (updatedCount > 0) {
+      importMessages.push(`Added notes to ${updatedCount} existing backlog item${updatedCount === 1 ? "" : "s"}.`);
+    }
     setReadingImportMessage(
-      addedCount > 0
-        ? `Added ${addedCount} reading item${addedCount === 1 ? "" : "s"}. Existing topics were kept.`
-        : readingEntries.length === 0
-          ? "No reading items found."
-          : "All reading item titles are already in the backlog."
+      importMessages.length > 0
+        ? importMessages.join(" ")
+        : bookTopicReadingEntries.length === 0
+          ? 'No reading items have a topic containing the word "book".'
+          : "Matching titles are already in the backlog."
     );
   };
 
@@ -1329,9 +1346,9 @@ export default function AddEntry() {
                         variant="outline"
                         size="sm"
                         onClick={handleImportReadingItems}
-                        disabled={readingEntries.length === 0}
+                        disabled={bookTopicReadingEntries.length === 0}
                       >
-                        Import all reading items ({readingEntries.length})
+                        Import book-topic items ({bookTopicReadingEntries.length})
                       </Button>
                     ) : null}
                   </div>
@@ -1355,7 +1372,7 @@ export default function AddEntry() {
                   ) : null}
                   {isJustReadGoal ? (
                     <p className="text-xs text-stone-500 dark:text-stone-400">
-                      Import includes completed, pending, and in-progress reading items. Existing topics are kept.
+                      Imports titles and notes where the Reading topic contains the whole word “book”, regardless of reading status. Existing topics are kept.
                     </p>
                   ) : null}
                 </div>
