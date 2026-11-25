@@ -447,9 +447,28 @@ function getDashboardEntryDueDate(entry: Entry, planSessionsByEntryId: Map<strin
   return entry.next_due_date ?? null;
 }
 
-function sortDashboardGroup(title: string, entries: Entry[], planSessionsByEntryId: Map<string, PlanSession[]>) {
+function sortDashboardGroup(
+  title: string,
+  entries: Entry[],
+  planSessionsByEntryId: Map<string, PlanSession[]>,
+  latestLogDatesByEntryId: Record<string, string> = {}
+) {
   if (title === "Reading list") {
     return [...entries].sort(compareReadingEntries);
+  }
+
+  if (title === "Unscheduled") {
+    return [...entries].sort((a, b) => {
+      const aLastLoggedAt = Date.parse(latestLogDatesByEntryId[a.id] ?? "");
+      const bLastLoggedAt = Date.parse(latestLogDatesByEntryId[b.id] ?? "");
+      const aSortDate = Number.isFinite(aLastLoggedAt) ? aLastLoggedAt : Number.NEGATIVE_INFINITY;
+      const bSortDate = Number.isFinite(bLastLoggedAt) ? bLastLoggedAt : Number.NEGATIVE_INFINITY;
+
+      if (aSortDate !== bSortDate) {
+        return bSortDate - aSortDate;
+      }
+      return compareEntryAreaCategoryTitle(a, b);
+    });
   }
 
   return [...entries].sort((a, b) => {
@@ -1670,10 +1689,10 @@ export default function Dashboard({ searchQuery = "" }: DashboardProps) {
       {
         title: "Unscheduled",
         description: "Tracked memories without a next due date.",
-        entries: sortDashboardGroup("Unscheduled", unscheduled, planSessionsByEntryId),
+        entries: sortDashboardGroup("Unscheduled", unscheduled, planSessionsByEntryId, latestSubscriptionLogDates),
       },
     ];
-  }, [filteredEntries, planSessionsByEntryId]);
+  }, [filteredEntries, planSessionsByEntryId, latestSubscriptionLogDates]);
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
