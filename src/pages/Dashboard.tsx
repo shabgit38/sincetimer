@@ -452,21 +452,17 @@ function sortDashboardGroup(title: string, entries: Entry[], planSessionsByEntry
     return [...entries].sort(compareReadingEntries);
   }
 
-  if (title === "Favorites") {
-    return [...entries].sort((a, b) => {
-      const aDueDate = getDashboardEntryDueDate(a, planSessionsByEntryId);
-      const bDueDate = getDashboardEntryDueDate(b, planSessionsByEntryId);
-      const aDue = aDueDate ? computeTimeSummary(a.entry_date, aDueDate).nextDueIn ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
-      const bDue = bDueDate ? computeTimeSummary(b.entry_date, bDueDate).nextDueIn ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
+  return [...entries].sort((a, b) => {
+    const aDueDate = getDashboardEntryDueDate(a, planSessionsByEntryId);
+    const bDueDate = getDashboardEntryDueDate(b, planSessionsByEntryId);
+    const aDue = aDueDate ? computeTimeSummary(a.entry_date, aDueDate).nextDueIn ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
+    const bDue = bDueDate ? computeTimeSummary(b.entry_date, bDueDate).nextDueIn ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
 
-      if (aDue !== bDue) {
-        return aDue - bDue;
-      }
-      return compareEntryAreaCategoryTitle(a, b);
-    });
-  }
-
-  return [...entries].sort(compareEntryAreaCategoryTitle);
+    if (aDue !== bDue) {
+      return aDue - bDue;
+    }
+    return compareEntryAreaCategoryTitle(a, b);
+  });
 }
 
 function getNextScheduledPlanSession(sessions: PlanSession[]) {
