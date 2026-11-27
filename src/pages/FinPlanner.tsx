@@ -380,11 +380,11 @@ export default function FinPlanner() {
               <h3 className="text-base font-semibold text-stone-950 dark:text-stone-50">Yearly projection</h3>
             </div>
             <div className="max-h-[520px] overflow-auto">
-              <table className="min-w-[1320px] w-full border-collapse text-sm">
+              <table className="min-w-[1320px] w-full border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-10 bg-stone-100 text-left text-xs uppercase tracking-[0.14em] text-stone-500 shadow-sm dark:bg-stone-900 dark:text-stone-400">
                   <tr>
-                    <HeaderCell label="Year" help="Calendar year for this projection row." />
-                    <HeaderCell label="Age" help="Your age at the beginning of this completed age-to-age investment period." />
+                    <HeaderCell label="Year" help="Calendar year for this projection row." className="sticky left-0 z-20 w-24 bg-stone-100 dark:bg-stone-900" />
+                    <HeaderCell label="Age" help="Your age at the beginning of this completed age-to-age investment period." className="sticky left-24 z-20 w-20 bg-stone-100 dark:bg-stone-900" />
                     <HeaderCell label="Monthly SIP" help="Monthly SIP after applying yearly step-ups." right />
                     <HeaderCell label="Annual SIP" help="Monthly SIP multiplied by 12." right />
                     <HeaderCell label="SIP corpus" help="Cumulative completed SIP contributions through this investment period, without growth." right />
@@ -400,6 +400,9 @@ export default function FinPlanner() {
                   {rows.map((row, index) => {
                     const isMilestone = row.age === inputs.retirementAge || index === 0 || index % 5 === 0;
                     const isCurrentYear = row.year === new Date().getFullYear();
+                    const stickyCellBackground = isMilestone && !isCurrentYear
+                      ? "bg-emerald-50/70 dark:bg-emerald-950/20"
+                      : "bg-white dark:bg-stone-950";
                     return (
                       <tr
                         key={row.year}
@@ -411,8 +414,8 @@ export default function FinPlanner() {
                               : ""
                         }`}
                       >
-                        <td className="px-3 py-2">{row.year}</td>
-                        <td className="px-3 py-2">{row.age}</td>
+                        <td className={`sticky left-0 z-[1] w-24 px-3 py-2 ${stickyCellBackground}`}>{row.year}</td>
+                        <td className={`sticky left-24 z-[1] w-20 px-3 py-2 ${stickyCellBackground}`}>{row.age}</td>
                         <td className="px-3 py-2 text-right">{formatNumber(row.monthlySip)}</td>
                         <td className="px-3 py-2 text-right">{formatNumber(row.annualSip)}</td>
                         <td className="px-3 py-2 text-right">{formatNumber(row.sipCorpus)}</td>
