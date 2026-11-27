@@ -93,15 +93,15 @@ export default function App() {
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950 dark:bg-stone-950 dark:text-stone-50">
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/90">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:py-4">
+          <div className="flex w-full items-center justify-between sm:w-auto sm:justify-start sm:gap-4">
             <h1 className="text-2xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">GUIDR</h1>
             {location.pathname === '/' ? (
               <div
-                className="hidden items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 sm:flex dark:border-amber-400/20 dark:bg-amber-400/10"
+                className="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 dark:border-amber-400/20 dark:bg-amber-400/10"
                 aria-label={`Today is ${new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(today)}`}
               >
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Today</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">Today</span>
                 <span className="h-3 w-px bg-amber-300 dark:bg-amber-400/30" aria-hidden="true" />
                 <time dateTime={todayDateTime} className="text-xs font-semibold text-stone-700 dark:text-stone-200">
                   {new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(today)}
@@ -109,11 +109,11 @@ export default function App() {
               </div>
             ) : null}
           </div>
-          <nav className="flex items-center gap-2">
+          <nav className="flex w-full items-center justify-between gap-1.5 border-t border-stone-200 pt-2 sm:w-auto sm:justify-start sm:gap-2 sm:border-t-0 sm:pt-0 dark:border-white/10">
             <NavLink
               to="/"
               className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-sm font-medium transition ${
+                `rounded-full px-2.5 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
                   isActive
                     ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
                     : 'border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50 hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
@@ -125,7 +125,7 @@ export default function App() {
             <NavLink
               to="/add"
               className={({ isActive }) =>
-                `rounded-full px-4 py-2 text-sm font-medium transition ${
+                `rounded-full px-2.5 py-2 text-xs font-medium transition sm:px-4 sm:text-sm ${
                   isActive
                     ? 'bg-stone-950 text-white dark:bg-stone-100 dark:text-stone-950'
                     : 'border border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50 hover:text-stone-950 dark:border-white/10 dark:text-stone-400 dark:hover:border-white/20 dark:hover:bg-white/[0.06] dark:hover:text-stone-50'
@@ -196,7 +196,7 @@ export default function App() {
                   <input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    className="w-44 bg-transparent text-sm outline-none placeholder:text-stone-400 dark:placeholder:text-stone-500"
+                    className="w-32 bg-transparent text-sm outline-none placeholder:text-stone-400 sm:w-44 dark:placeholder:text-stone-500"
                     placeholder="Search entries"
                     autoFocus
                   />
@@ -244,7 +244,7 @@ export default function App() {
             >
               {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => void supabase.auth.signOut()}>
+            <Button className="hidden sm:inline-flex" variant="ghost" size="sm" onClick={() => void supabase.auth.signOut()}>
               Sign out
             </Button>
           </nav>
