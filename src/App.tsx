@@ -104,7 +104,7 @@ export default function App() {
                 <span className="text-[9px] font-bold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">Today</span>
                 <span className="h-3 w-px bg-amber-300 dark:bg-amber-400/30" aria-hidden="true" />
                 <time dateTime={todayDateTime} className="text-xs font-semibold text-stone-700 dark:text-stone-200">
-                  {new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(today)}
+                  {new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(today)}
                 </time>
               </div>
             ) : null}
