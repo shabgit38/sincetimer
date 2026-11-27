@@ -21,6 +21,7 @@ export default function App() {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [today, setToday] = useState(() => new Date());
   const [menuOpenLocationKey, setMenuOpenLocationKey] = useState<string | null>(null);
   const menuOpen = menuOpenLocationKey === location.key;
 
@@ -28,6 +29,14 @@ export default function App() {
     document.documentElement.classList.toggle('dark', darkMode);
     localStorage.setItem('theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
+
+  useEffect(() => {
+    const midnight = new Date();
+    midnight.setHours(24, 0, 0, 0);
+    const timeoutId = window.setTimeout(() => setToday(new Date()), Math.max(0, midnight.getTime() - Date.now()));
+
+    return () => window.clearTimeout(timeoutId);
+  }, [today]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -75,12 +84,30 @@ export default function App() {
     return <Auth />;
   }
 
+  const todayDateTime = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950 dark:bg-stone-950 dark:text-stone-50">
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-white/90 backdrop-blur-xl dark:border-white/10 dark:bg-stone-950/90">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
-          <div>
+          <div className="flex items-center gap-4">
             <h1 className="text-2xl font-semibold tracking-tight text-stone-950 dark:text-stone-50">GUIDR</h1>
+            {location.pathname === '/' ? (
+              <div
+                className="hidden items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 sm:flex dark:border-amber-400/20 dark:bg-amber-400/10"
+                aria-label={`Today is ${new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(today)}`}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">Today</span>
+                <span className="h-3 w-px bg-amber-300 dark:bg-amber-400/30" aria-hidden="true" />
+                <time dateTime={todayDateTime} className="text-xs font-semibold text-stone-700 dark:text-stone-200">
+                  {new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(today)}
+                </time>
+              </div>
+            ) : null}
           </div>
           <nav className="flex items-center gap-2">
             <NavLink
